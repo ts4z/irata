@@ -1,0 +1,154 @@
+<html>
+  <head>
+    <title>
+      Clock: {{ .EventName }} @ {{ .VenueName }}
+    </title>
+  </head>
+  <body>
+   
+    <style>
+      @font-face {
+          font-family: arcade;
+          src: url('/fs/PressStart2P-vaV7.ttf') format('truetype');
+      }
+      body {
+          font-family: arcade, monospace;
+          font-size: 10vi;
+          background-color: #000000;
+          color: #ffffff;
+      }
+      table {
+          table-layout: fixed;
+      }
+      td {
+          text-align: center;
+          line-height: 110%;
+      }
+      .fullsize {
+          /*width: 100%;*/
+          height: 100%;
+      }
+      .level {
+          font-size: 7vi;
+          color: #aaaaff;
+      }
+      .clock {
+          font-size: 15vi;
+          color: #22ff22;
+      }
+      .blinds {
+          font-size: 3vi;
+          color: #cc0099;
+      }
+      .footer {
+          font-size: 2vi;
+          color: #aaaaaa;
+      }
+      .title {
+          font-size: 1.8vi;
+          text-align: center;
+          color: #ffffff;
+      }
+      .players-left {
+          font-size: 6vi;
+          text-align: center;
+      }
+      .avg-stack {
+          font-size: 2.5vi;
+          text-align: center;
+      }
+      .next-break {
+          font-size: 2.5vi;
+          text-align: center;
+      }
+      .prize-pool {
+          font-size: 1vi;
+          text-align: center;
+      }
+      .width100 {
+          /*width: 100%;*/
+          /*font-size: 5vmin;*/
+      }
+      .right-rail {
+          border: 1px solid white;
+      }
+      .rr-label {
+          font-size: 1.5vi;
+          line-height: 140%;
+      }
+    </style>
+
+    <table class="fullsize">
+      <tr>
+        <td width="80%" class="fullsize">
+          <!-- left main -->
+          <table class="fullsize">
+            <tr>
+              <td align="center"  class="title">
+                &#9824; {{ .VenueName }} &mdash; {{ .EventName }} &#9824;
+              </td>
+            </tr>
+            <tr>
+              <td class="level" width="80%" id="level"> LOADING... </td>
+            </tr>
+            <tr>
+              <td width="80%" class="clock" id="clock"> &#9824;&#9829;:&#9830;&#9827; </td>
+            </tr>
+            <tr>
+              <td width="80%" class="blinds" id="blinds"> LOADING...
+            </tr>
+            <tr>
+              <td width="80%" class="footer" id="footer"> this space intentionally left blank </td>
+            </tr>
+          </table>
+          
+        </td>
+        <td width="20%" class="fullsize">
+          <!-- right rail -->
+          <table width="100%" class="fullsize">
+            <tr><td>
+                <table align="center" width="100%">
+                  <tr> <td class="rr-label"> PRIZE POOL </td> </tr>
+                  <tr>
+                    <td class="prize-pool">
+                        1.....$1,000<br>
+                        2.......$500<br>
+                        3.......$200<br>
+                        4.......$100<br>
+                        5.......$100<br>
+                        6.......$100<br>
+                        7.......$100<br>
+                        8.......$100<br>
+                        9.......$100<br>
+                    </td>
+                </table>
+            </td></tr>
+            <tr><td>
+                <table width="100%">
+                  <tr>
+                    <td style="font-size: 10vi;" align="center">
+                      &#9830;
+                    </td>
+                </table>
+              </td>
+            </tr>
+            <tr><td>
+                <table width="100%">
+                  <tbody>
+                  <tr> <td class="rr-label"> PLAYERS LEFT </tr>
+                  <tr> <td class="players-left" id="players-left"> 50 </tr>
+                  <tr> <td class="rr-label"> AVG STACK </tr>
+                  <tr> <td class="avg-stack" id="avg-stack"> 3,000 </tr>
+                  <tr> <td class="rr-label"> NEXT BREAK </tr>
+                  <tr> <td class="next-break" id="next-break"> TBD </tr>
+                  </tbody>
+                </table>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+
+    <script src="/fs/movement.js"></script>
+  </body>
+</html>
