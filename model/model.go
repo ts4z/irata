@@ -32,12 +32,13 @@ type Level struct {
 
 type Tournament struct {
 	// early configuration
+	EventID       int64
 	EventName     string
-	VenueName     string
 	Levels        []*Level
 	FooterPlugs   []string
 	ChipsPerBuyIn int
 	ChipsPerAddOn int
+	PrizePool     string
 
 	// state
 	IsClockRunning     bool
@@ -59,7 +60,6 @@ func (m *Tournament) NLevels() int {
 // the database as they're redundant, but they are very convenient for access
 // from templates and maybe JS.)
 func (m *Tournament) FillTransients() {
-	m.TotalChips = m.ChipsPerBuyIn*(m.Rebuys+m.BuyIns) + m.ChipsPerAddOn*m.AddOns
 	m.AverageChips = m.TotalChips / m.CurrentPlayers
 
 	if m.IsClockRunning {

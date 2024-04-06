@@ -12,16 +12,23 @@ import (
 	"github.com/ts4z/irata/assets"
 	"github.com/ts4z/irata/model"
 	"github.com/ts4z/irata/storage"
+	"github.com/ts4z/irata/textutil"
 )
 
 var templates *template.Template
 
+var templateFuncs template.FuncMap = template.FuncMap{
+	"wrapLinesInNOBR": textutil.WrapLinesInNOBR,
+	"joinNLNL":        textutil.JoinNLNL,
+}
+
 func init() {
 	var err error
-	if templates, err = template.ParseFS(assets.Templates, "templates/*[^~]"); err != nil {
+	if templates, err = template.New("root").Funcs(templateFuncs).ParseFS(assets.Templates, "templates/*[^~]"); err != nil {
 		log.Fatalf("error loading embedded templates: %v", err)
 	}
 	for _, tmpl := range templates.Templates() {
+		// tmpl.Funcs(templateFuncs)
 		log.Printf("loaded template %q", tmpl.Name())
 	}
 }
@@ -63,7 +70,21 @@ func main() {
 	// anything in fs is a file trivially shared
 	http.Handle("/fs/", http.StripPrefix("/fs/", http.FileServer(http.FS(sub))))
 
-	http.HandleFunc("/edit/event/", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/event/", func(w http.ResponseWriter, r *http.Request) {
+		// All events are the one event
+		t, err := storage.FetchTournamentForView(1) // todo: ID goes here
+		if err != nil {
+			log.Printf("404: can't get tournament from database")
+			http.Error(w, "can't get tournament from database", 404)
+			return
+		}
+		if err := templates.ExecuteTemplate(w, "view.html.tmpl", t); err != nil {
+			log.Printf("500: can't render template: %v", err)
+			http.Error(w, fmt.Sprintf("can't render template: %v", err), 500)
+		}
+	})
+
+	http.HandleFunc("/edit/event/1", func(w http.ResponseWriter, r *http.Request) {
 		// All events are the one event
 		t, err := storage.FetchTournament(1) // todo: ID goes here
 		if err != nil {
@@ -72,7 +93,7 @@ func main() {
 			return
 		}
 		if err := templates.ExecuteTemplate(w, "edit.html.tmpl", t); err != nil {
-			log.Printf("500: can't render template")
+			log.Printf("500: can't render template: %v", err)
 			http.Error(w, fmt.Sprintf("can't render template: %v", err), 500)
 		}
 	})

@@ -102,7 +102,7 @@ const shuffle_array = array => {
     var level_banner = "[BANNER UNSET]";
     if (level.IsBreak) {
       if (model.CurrentLevelNumber == 0) {
-        level_banner = "STARTS IN";
+        level_banner = "STARTING IN...";
       } else {
         level_banner = "BREAK " + model.CurrentLevelNumber;
       }

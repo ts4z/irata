@@ -1,7 +1,7 @@
 <html>
   <head>
     <title>
-      Irata Poker Clock: {{ .EventName }} @ {{ .VenueName }}
+      Irata Poker Clock: {{ .EventName }}
     </title>
   </head>
   <body>
@@ -55,7 +55,7 @@
           color: #ffffff;
       }
       .current-players {
-          font-size: 7vi;
+          font-size: 5vi;
           text-align: center;
       }
       .buyins {
@@ -95,7 +95,7 @@
           <table class="fullsize">
             <tr>
               <td class="title">
-                &#9824; {{ .VenueName }} &mdash; {{ .EventName }} &#9824;
+                &#9824; {{ .EventName }} &#9824;
               </td>
             </tr>
             <tr>
@@ -114,8 +114,7 @@
                     <td width="5%" class="footer">&nbsp;<br>&nbsp;<br>&nbsp;<br>&nbsp;</td>
                     <td width="95%" class="footer" id="footer">
                       IRATA POKER CLOCK<br>
-                      TIM SHOWALTER<br>
-                      COPYRIGHT 2023<br>
+                      TIM SHOWALTER, 2023<br>
                       ALL RIGHTS REVERSED
                     </td>
                     <td width="5%" class="footer">&nbsp;<br>&nbsp;<br>&nbsp;<br>&nbsp;</td>
@@ -132,12 +131,6 @@
             <tr> <td class="rr-label"> PLAYERS </tr>
             <tr> <td class="current-players" id="current-players"> {{ .CurrentPlayers }} </tr>
             <tr> <td class="buyins"><span id="buyins">{{- .BuyIns -}}</span> BUYINS </tr>
-            {{ if gt .Rebuys 0 }}
-            <tr> <td class="buyins"><span id="rebuys">{{- .Rebuys -}}</span> REBUYS </tr>
-            {{ end }}
-            {{ if gt .AddOns 0 }}
-            <tr> <td class="buyins" id="addons"><span>{{- .AddOns -}}</span> ADD-ONS </tr>
-            {{ end }}
             <tr>
               <td style="font-size: 3vi;" align="center">
                 &#9830;
@@ -145,7 +138,7 @@
             </tr>
             <tr><td>
                 <table align="center" width="100%">
-                  <tr> <td class="rr-label"> PRIZE POOL </td> </tr>
+                  <!-- <tr> <td class="rr-label"> PRIZE POOL </td> </tr> -->
                   <tr>
                     <td class="prize-pool">
                       {{ .PrizePool }}

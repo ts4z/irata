@@ -16,9 +16,54 @@
           background-color: #000000;
           color: #ffffff;
       }
+      td {
+          vertical-align: top;
+          border-spacing : 100vi;
+      }
+      input {
+          font-family: arcade, monospace;
+      }
+      table {
+          border-spacing: 5px 1rem;
+      }
     </style>
 
-    <form method="post">
-      
+    <h1> EDIT EVENT {{ .EventID }} </h1>
 
+    <form method="post">
+
+      <table>
+        <tr> <td width="10%"> EVENT NAME
+          <td width="90%"> <input name="EventName" size="30" maxlength="30"
+                                         value="{{- .EventName -}}"> </tr>
+        <tr> <td> PRIZE POOL <td> Free-form text. No HTML tags. <br>
+            <textarea name="prizepool" type="textarea" cols="13" rows="10">{{- .PrizePool -}}</textarea>
+        </tr>
+        <tr> <td> LEVELS <td> ONE LINE, LIKE THIS: <br>
+            <tt> &lt;duration&gt; -- &lt;level|break&gt; -- &lt;blinds + ante&gt; </tt> <br>
+            <textarea name="levels" type="textarea" cols="72" rows="20">
+              {{- range $level := .Levels -}}
+              {{- $level.DurationMinutes}} -- {{if $level.IsBreak}}BREAK{{else}}LEVEL{{end}} -- {{$level.Description -}}
+              {{- printf "\n" -}}
+              {{- end -}}
+            </textarea>
+        </tr>
+        <tr> <td> FOOTER PLUGS <td>
+            SEPARATE PLUGS WITH DOUBLE-SPACE LINE. <br>
+            TEXT KEPT IN A SINGLE LINE WILL NOT BE <br>
+            BROKEN WITHIN THE LINE.  NO MARKUP. <br>
+            <textarea name="footer-plugs" type="textarea" cols="72" rows="40">
+              {{- joinNLNL .FooterPlugs -}}
+            </textarea>
+        </tr>
+        <tr>
+          <td>
+          <td>
+            <input type="submit" value="   SAVE CHANGES   " style="font-family: arcade, monospace;">
+            <input type="submit" value=" RESET TO SAVED VALUES " style="font-family: arcade, monospace;">
+          </td>
+        </tr>
+      </table>
     </form>
+  </body>
+</html>
