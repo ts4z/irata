@@ -42,7 +42,9 @@ const shuffle_array = array => {
 (function () {
   const reload_model_ms = 15000;
   const clock_tick_ms = 250;
-  const next_footer_interval_ms = 7500; // 30000
+  const next_footer_interval_ms = 30000
+
+  var next_level_complete_at = undefined;
   
   // Initialize last_model (the last model we loaded) with a fail-safe initial
   // model value
@@ -60,6 +62,7 @@ const shuffle_array = array => {
     ],
     "IsClockRunning": false,
     "NextBreakAt": undefined,
+    "NextLevel": undefined,
     "EndsAt": undefined,
   }
 
@@ -124,6 +127,9 @@ const shuffle_array = array => {
     // set rebuys
     // set addons
     set_html("avg-chips", model.AverageChips)
+    if (model.NextLevel !== null) {
+      set_html("next-level", model.NextLevel.Description)
+    }
     
     set_clock(model);
     update_clock();
@@ -153,9 +159,11 @@ const shuffle_array = array => {
   }
   
   function update_level() {
-    var td = document.getElementById("level");
-    if (td !== null) {
-      td.innerHTML = "LEVEL " + level;
+    {
+      var td = document.getElementById("level");
+      if (td !== null) {
+        td.innerHTML = "LEVEL " + level;
+      }
     }
   }
 

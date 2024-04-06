@@ -50,6 +50,7 @@ type Tournament struct {
 	// transients
 	AverageChips int
 	NextBreakAt  *int64
+	NextLevel    *Level
 }
 
 func (m *Tournament) NLevels() int {
@@ -78,6 +79,7 @@ func (m *Tournament) FillTransients() {
 	}
 
 	m.fillNextBreak()
+	m.fillNextLevel()
 }
 
 func (m *Tournament) FillInitialLevelRemaining() {
@@ -98,6 +100,17 @@ func (m *Tournament) fillNextBreak() {
 	}
 
 	m.NextBreakAt = nil
+}
+
+func (m *Tournament) fillNextLevel() {
+	for i := m.CurrentLevelNumber + 1; i < len(m.Levels); i++ {
+		if m.Levels[i].IsBreak {
+			continue
+		}
+		m.NextLevel = m.Levels[i]
+		return
+	}
+	m.NextLevel = nil
 }
 
 // Update level times will fill out the current level times up to, and

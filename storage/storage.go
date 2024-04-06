@@ -9,7 +9,7 @@ import (
 func makeLevel(desc string) *model.Level {
 	return &model.Level{
 		Description:     desc,
-		DurationMinutes: 30,
+		DurationMinutes: 15,
 		IsBreak:         false,
 	}
 }
@@ -33,35 +33,33 @@ func makeFakeTournament() *model.Tournament {
 	// Not implemented, return dummy
 	m := &model.Tournament{
 		EventID:            1,
-		EventName:          "PETERBARGE - MAIN EVENT",
+		EventName:          "FRIDAY $40 NO LIMIT",
 		CurrentLevelNumber: 0,
-		CurrentPlayers:     50,
-		BuyIns:             50,
+		CurrentPlayers:     12,
+		BuyIns:             12,
 		ChipsPerAddOn:      0,
 		Levels: []*model.Level{
 			makeBreak("AWAITING START...", 5),
 			makeLevel("5-5 + 5 ANTE"),
 			makeLevel("5-10 + 10 ANTE"),
 			makeLevel("10-15 + 15 ANTE"),
-			makeLevel("10-20 + 20 ANTE"),
-			makeBreak("THERE IS BUT ONE RESTROOM. GOOD LUCK.", 1),
+			makeLevel("15-30 + 30 ANTE"),
+			makeBreak("RACE OFF 5 CHIPS", 15),
 			makeLevel("20-40 + 40 ANTE"),
-			makeLevel("35-70 + 70 ANTE"),
+			makeLevel("30-60 + 60 ANTE"),
+			makeLevel("40-80 + 80 ANTE"),
 			makeLevel("60-120 + 120 ANTE"),
-			makeBreak("RACE OFF T5 CHIPS", 10),
+			makeLevel("100-200 + 200 ANTE"),
+			makeBreak("RACE OFF 20 CHIPS", 15),
 		},
-		PrizePool: `1.....$1,650
-2.....$1,000
-3.......$650
-4.......$450
-5.......$350
-6.......$300
-7.......$250
-8.......$200
-9.......$150
+		PrizePool: `1.......$240
+2........$72
+3........$48
 `,
 		FooterPlugs: ick.NShuffle([]string{
-			`"There are no strangers here, just friends you haven't met yet."
+			`"There are no strangers here,
+just friends
+you haven't met yet."
 -Peter Secor`,
 			"THANK YOU MARIO!\nBUT OUR PRINCESS\n IS IN ANOTHER CASTLE!",
 			"I am a lucky player;\na powerful winning force\nsurrounds me.\n-Mike Caro",
@@ -84,7 +82,7 @@ suckers to keep their money.
 			"\"Daddy, I got cider in my ear\"\n-Sky Masterson,\nin Guys and Dolls",
 			"Trust everyone, but always cut the cards.\n-Benny Binion",
 			"Poker is a hard way to\nmake an easy living.\n-Doyle Brunson",
-			"The object of poker is to\nkeep your money away from Phil Ivey for as long as possible.\n-Gus Hansen",
+			"The object of poker is to\nkeep your money away from\nPhil Ivey\nfor as long as possible.\n-Gus Hansen",
 			"To be a poker champion,\nyou must have a strong bladder.\n-Jack McClelland",
 			"No-limit hold’em:\nHours of boredom\n followed by moments of sheer terror.\n -Tom McEvoy",
 			// this is about the longest one-line you can do
@@ -94,7 +92,7 @@ suckers to keep their money.
 -"Canada Bill" Jones`,
 			"Pay that man his money.\n-Teddy KGB, in Rounders",
 			"You win some,\nyou lose some,\nand you keep\nit to yourself.\n-Mike Caro",
-			"If you speak the truth, you spoil the game.\n-Mike Caro",
+			"If you speak the truth,\nyou spoil the game.\n-Mike Caro",
 			"In the beginning,\neverything was\neven money.\n-Mike Caro",
 			"It's hard to convince\na winner that he's losing.\n-Mike Caro",
 			"If an opponent\nwon't watch you bet,\nthen you\nprobably shouldn't.\n-Mike Caro",
@@ -110,8 +108,13 @@ Deadhead: "Dan puts
 out chips.
 People take'em."
 -as reported by QB`,
-			"Here's the thing about poker...\nnobody gives a shit.\n-Dan Goldman",
-			"It cost me a couple million dollars\nto develop this reputation.\n-Daniel Negreanu,\non being known to be hard-to-bluff",
+			`Here's the thing about poker...
+nobody gives a shit.
+-Dan Goldman`,
+			`It cost me a couple million dollars
+to develop this reputation.
+-Daniel Negreanu,
+on being known to be hard-to-bluff`,
 			`"But it's a great game!"
 "Yeah, it's a great game
 because YOU'RE in it!"
