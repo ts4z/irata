@@ -67,10 +67,11 @@ you haven't met yet."
 			"SPONSORED BY PINBALLPIRATE.COM",
 			"SPONSORED BY TS4Z.NET",
 			"WWW.BARGE.ORG",
+			"WWW.BARGECHIPS.ORG",
 			"this space for rent",
 			`"COCKTAILS!"`,
 			"WABOR",
-			"VISIT THE MAYFAIR CLUB, NEW YORK",
+			"WHEN IN NEW YORK...\nVISIT THE MAYFAIR CLUB",
 			"May the flop be with you.\n-Doyle Brunson",
 			"Don't you know who *I* am?\n-Phil Gordon",
 			"WHO BUT W.B. MASON?",
@@ -103,10 +104,11 @@ Dealer: "What's this for?"
 Me: "You laughed at my dumb joke."
 Dealer: "Appreciate it." -QB`,
 			`Gillian: "So Dan,
-how does this work?"
+how does
+this work?"
 Deadhead: "Dan puts
 out chips.
-People take'em."
+People take 'em."
 -as reported by QB`,
 			`Here's the thing about poker...
 nobody gives a shit.
