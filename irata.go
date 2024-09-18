@@ -67,6 +67,21 @@ func main() {
 		log.Fatalf("fs.Sub: %v", err)
 	}
 
+	http.HandleFunc("/",
+		func(w http.ResponseWriter, r *http.Request) {
+			o, err := storage.FetchOverview()
+			if err != nil {
+				log.Printf("500: can't fetch overview: %v", err)
+				http.Error(w, fmt.Sprintf("can't fetch overview: %v", err), 500)
+				return
+			}
+			if err := templates.ExecuteTemplate(w, "slash.html.tmpl", o); err != nil {
+				log.Printf("500: can't render template: %v", err)
+				http.Error(w, fmt.Sprintf("can't render template: %v", err), 500)
+				return
+			}
+		})
+
 	// anything in fs is a file trivially shared
 	http.Handle("/fs/", http.StripPrefix("/fs/", http.FileServer(http.FS(sub))))
 

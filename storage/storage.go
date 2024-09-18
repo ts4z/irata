@@ -29,11 +29,16 @@ func init() {
 	tournament.FillInitialLevelRemaining()
 }
 
+const (
+	fakeTournamentId   = int64(1)
+	fakeTournamentName = "FRIDAY $40 NO LIMIT"
+)
+
 func makeFakeTournament() *model.Tournament {
 	// Not implemented, return dummy
 	m := &model.Tournament{
-		EventID:            1,
-		EventName:          "FRIDAY $40 NO LIMIT",
+		EventID:            fakeTournamentId,
+		EventName:          fakeTournamentName,
 		CurrentLevelNumber: 0,
 		CurrentPlayers:     12,
 		BuyIns:             12,
@@ -143,4 +148,16 @@ func FetchTournamentForView(id int) (*model.Tournament, error) {
 		tournament.FooterPlugs[i] = textutil.WrapLinesInNOBR(plug)
 	}
 	return tournament, nil
+}
+
+func FetchOverview() (*model.Overview, error) {
+	o := &model.Overview{
+		Events: []model.EventOverview{
+			{
+				EventID:   fakeTournamentId,
+				EventName: fakeTournamentName,
+			},
+		},
+	}
+	return o, nil
 }

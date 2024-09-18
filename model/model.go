@@ -53,10 +53,6 @@ type Tournament struct {
 	NextLevel    *Level
 }
 
-func (m *Tournament) NLevels() int {
-	return len(m.Levels)
-}
-
 // FillTransients fills out computed fields.  (These shouldn't be serialized to
 // the database as they're redundant, but they are very convenient for access
 // from templates and maybe JS.)
@@ -66,7 +62,7 @@ func (m *Tournament) FillTransients() {
 	if m.IsClockRunning {
 		// Bump current level forward until we find what time we're supposed to be
 		// in.
-		for m.CurrentLevelNumber < m.NLevels()-1 {
+		for m.CurrentLevelNumber < len(m.Levels)-1 {
 			cl := m.Levels[m.CurrentLevelNumber]
 			if time.UnixMilli(*cl.EndsAt).After(ts.Now()) {
 				// this level ends after now, this is the level that should be active
@@ -244,6 +240,10 @@ func (t *Tournament) MinusMinute() error {
 		if endsAt.Sub(ts.Now()) > time.Minute {
 			aMinuteSooner := endsAt.Add(-time.Minute).UnixMilli()
 			t.ActiveLevel().EndsAt = &aMinuteSooner
+		} else {
+			// Make the minimum time left in this level 1s from now.
+			oneSecondFromNow := ts.Now().Add(time.Second).UnixMilli()
+			t.ActiveLevel().EndsAt = &oneSecondFromNow
 			t.UpdateLevelTimes()
 		}
 	}
@@ -252,4 +252,13 @@ func (t *Tournament) MinusMinute() error {
 
 func (t *Tournament) ActiveLevel() *Level {
 	return t.Levels[t.CurrentLevelNumber]
+}
+
+type EventOverview struct {
+	EventID   int64
+	EventName string
+}
+
+type Overview struct {
+	Events []EventOverview
 }
