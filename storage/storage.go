@@ -67,6 +67,7 @@ you haven't met yet."
 			"SPONSORED BY PINBALLPIRATE.COM",
 			"SPONSORED BY TS4Z.NET",
 			"WWW.BARGE.ORG",
+			"WWW.BJRGE.ORG",
 			"WWW.BARGECHIPS.ORG",
 			"this space for rent",
 			`"COCKTAILS!"`,
