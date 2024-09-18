@@ -85,8 +85,6 @@ func (m *Tournament) FillInitialLevelRemaining() {
 }
 
 func (m *Tournament) fillNextBreak() {
-	const millisPerMinute = 1000 * 60
-
 	for i := m.CurrentLevelNumber + 1; i < len(m.Levels); i++ {
 		maybeBreakLevel := m.Levels[i]
 		if maybeBreakLevel.IsBreak {
@@ -127,7 +125,7 @@ func (m *Tournament) UpdateLevelTimes() {
 	if !m.IsClockRunning {
 		// Clock is not running.  Take remaining time and store into
 		// TimeRemainingMillis.  (Save to database.)  This level does not get an end time
-		log.Printf("clock is now not running")
+		log.Printf("clock is stopped")
 		if currentLevel.EndsAt != nil {
 			//log.Printf("current level ends at %v", currentLevel.EndsAt)
 			endsAt := time.UnixMilli(*currentLevel.EndsAt)
@@ -182,8 +180,14 @@ func (t *Tournament) SkipLevel() error {
 	return nil
 }
 
-func (t *Tournament) TogglePause() error {
-	t.IsClockRunning = !t.IsClockRunning
+func (t *Tournament) StopClock() error {
+	t.IsClockRunning = false
+	t.UpdateLevelTimes()
+	return nil
+}
+
+func (t *Tournament) StartClock() error {
+	t.IsClockRunning = true
 	t.UpdateLevelTimes()
 	return nil
 }
@@ -254,11 +258,13 @@ func (t *Tournament) ActiveLevel() *Level {
 	return t.Levels[t.CurrentLevelNumber]
 }
 
+// EventOverview describes a single event for rendering the event list.
 type EventOverview struct {
 	EventID   int64
 	EventName string
 }
 
+// Overview describes the available events for the event list.
 type Overview struct {
 	Events []EventOverview
 }

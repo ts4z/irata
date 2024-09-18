@@ -52,7 +52,8 @@ type KeyboardModifyEvent struct {
 var keyboardModifyEventHandlers = map[string]func(*model.Tournament) error{
 	"PreviousLevel": func(t *model.Tournament) error { return t.PreviousLevel() },
 	"SkipLevel":     func(t *model.Tournament) error { return t.SkipLevel() },
-	"TogglePause":   func(t *model.Tournament) error { return t.TogglePause() },
+	"StopClock":     func(t *model.Tournament) error { return t.StopClock() },
+	"StartClock":    func(t *model.Tournament) error { return t.StartClock() },
 	"RemovePlayer":  func(t *model.Tournament) error { return t.RemovePlayer() },
 	"AddPlayer":     func(t *model.Tournament) error { return t.AddPlayer() },
 	"AddBuyIn":      func(t *model.Tournament) error { return t.AddBuyIn() },

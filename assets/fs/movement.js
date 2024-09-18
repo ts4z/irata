@@ -213,7 +213,7 @@ const shuffle_array = array => {
       // apply the model which should move us to the next level
       apply_model(last_model);
       // trust the server as authoritative
-      load();
+      return load();
     }
 
     update_clock();
@@ -266,17 +266,31 @@ const shuffle_array = array => {
       .then(_ => load())
       .catch(error => console.log("error in request for modify event ${event}: ", error))
   }
+
+  async function toggle_pause(event) {
+    if (last_model === undefined) {
+      console.log("last_model undefined")
+    } else if (last_model.IsClockRunning) {
+      send_modify('StopClock')
+    } else {
+      send_modify('StartClock')
+    }
+  }
  
   var keycode_to_handler = {
     'ArrowLeft': { call: send_modify, arg: 'PreviousLevel'},
     'ArrowRight': { call: send_modify, arg: 'SkipLevel'},
-    'Space': { call: send_modify, arg: 'TogglePause'},
+    'Space': { call: toggle_pause, arg: 'N/A'},
     'ArrowDown': { call: send_modify, arg: 'MinusMinute'},
     'ArrowUp': { call: send_modify, arg: 'PlusMinute'},
     'PageUp': { call: send_modify, arg: 'AddPlayer'},
     'PageDown': { call: send_modify, arg: 'RemovePlayer'},
     'Home': { call: send_modify, arg: 'AddBuyIn'},
     'End': { call: send_modify, arg: 'RemoveBuyIn'},
+    'Equal': { call: send_modify, arg: 'AddBuyIn'},
+    'Minus': { call: send_modify, arg: 'RemoveBuyIn'},
+    'KeyG': { call: send_modify, arg: 'StartClock'},
+    'KeyS': { call: send_modify, arg: 'StopClock'},
   }
 
   document.addEventListener('keyup', (event) => {
