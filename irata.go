@@ -8,8 +8,12 @@ import (
 	"io/fs"
 	"log"
 	"net/http"
+	"strings"
 
+	"github.com/ts4z/irata/action"
 	"github.com/ts4z/irata/assets"
+	"github.com/ts4z/irata/he"
+	"github.com/ts4z/irata/ick"
 	"github.com/ts4z/irata/model"
 	"github.com/ts4z/irata/storage"
 	"github.com/ts4z/irata/textutil"
@@ -100,17 +104,29 @@ func main() {
 		}
 	})
 
-	http.HandleFunc("/edit/event/1", func(w http.ResponseWriter, r *http.Request) {
-		// All events are the one event
-		t, err := storage.FetchTournament(1) // todo: ID goes here
-		if err != nil {
-			log.Printf("404: can't get tournament from database")
-			http.Error(w, "can't get tournament from database", 404)
-			return
-		}
-		if err := templates.ExecuteTemplate(w, "edit.html.tmpl", t); err != nil {
-			log.Printf("500: can't render template: %v", err)
-			http.Error(w, fmt.Sprintf("can't render template: %v", err), 500)
+	const editPath = "/edit/event/"
+	http.HandleFunc("/edit/event/", func(w http.ResponseWriter, r *http.Request) {
+		if id, ok := strings.CutPrefix(r.URL.Path, editPath); !ok {
+			http.Error(w, fmt.Sprintf("can't parse id from url path: %v", err), 400)
+		} else if id64, err := ick.Atoi64(id); err != nil {
+			http.Error(w, fmt.Sprintf("can't parse id->int64 from url path: %v", err), 400)
+		} else {
+			r.ParseForm()
+			err := action.EditEvent(id64, r.Form)
+			if err == nil {
+				he.SendErrorToHTTPClient(w, "parsing form", err)
+				return
+			}
+
+			t, err := storage.FetchTournament(id64)
+			if err != nil {
+				he.SendErrorToHTTPClient(w, "fetching tournament", err)
+				return
+			}
+			if err := templates.ExecuteTemplate(w, "edit.html.tmpl", t); err != nil {
+				log.Printf("500: can't render template: %v", err)
+				http.Error(w, fmt.Sprintf("can't render template: %v", err), 500)
+			}
 		}
 	})
 

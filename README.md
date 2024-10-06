@@ -81,3 +81,12 @@ If this is a problem, any font will work, but the current style is intended for
 a monospace font.  PressStart2P is honestly monospace, and has a nice low
 line-height (no padding), and allowed the displayed pages to have that very
 1981 look.
+
+
+To Do
+-----
+
+State needs to be stored.
+
+State is one level, and times do not need to be present on all levels, just the
+active one.  (This may mean a forward-back needs a special case)

@@ -1,6 +1,9 @@
 package storage
 
 import (
+	"errors"
+
+	"github.com/ts4z/irata/he"
 	"github.com/ts4z/irata/ick"
 	"github.com/ts4z/irata/model"
 	"github.com/ts4z/irata/textutil"
@@ -137,7 +140,7 @@ because YOU'RE in it!"
 	return m
 }
 
-func FetchTournament(id int) (*model.Tournament, error) {
+func FetchTournament(id int64) (*model.Tournament, error) {
 	tournament.FillTransients()
 	return tournament, nil
 }
@@ -150,7 +153,7 @@ func FetchTournamentForView(id int) (*model.Tournament, error) {
 	return tournament, nil
 }
 
-func FetchOverview() (*model.Overview, error) {
+func FetchOverview() (*model.Overview, *he.HTTPError) {
 	o := &model.Overview{
 		Events: []model.EventOverview{
 			{
@@ -160,4 +163,8 @@ func FetchOverview() (*model.Overview, error) {
 		},
 	}
 	return o, nil
+}
+
+func SaveTournament(id int64, m *model.Tournament) error {
+	return he.New(500, errors.New("not implemented"))
 }

@@ -2,7 +2,11 @@ package model
 
 import (
 	"errors"
+	"fmt"
 	"log"
+	"regexp"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/ts4z/irata/ts"
@@ -10,6 +14,10 @@ import (
 
 const (
 	millisPerMinute = 60 * 1000
+)
+
+var (
+	dashDashRE = regexp.MustCompile(`\s*--\s*`)
 )
 
 type Level struct {
@@ -28,6 +36,37 @@ type Level struct {
 	// is, paused).  This is in Unix millis.  This can always be initialized
 	// within a level.
 	TimeRemainingMillis int64
+}
+
+func parseLevelBreak(s string) bool {
+	if strings.EqualFold(s, "BREAK") {
+		return true
+	} else {
+		return false
+	}
+}
+
+func ParseLevels(input string) ([]*Level, error) {
+	levels := []*Level{}
+	lines := strings.Split(input, "\n")
+	for _, line := range lines {
+		parts := dashDashRE.Split(line, 3)
+		if len(parts) != 3 {
+			return nil, fmt.Errorf("line unparsable: %q", line)
+		}
+		durationMins, err := strconv.Atoi(parts[0])
+		if err != nil {
+			return nil, fmt.Errorf("can't parse duration in line %q: %w", line, err)
+		}
+		isBreak := parseLevelBreak(parts[1])
+		description := parts[2]
+		levels = append(levels, &Level{
+			DurationMinutes: durationMins,
+			IsBreak:         isBreak,
+			Description:     description,
+		})
+	}
+	return levels, nil
 }
 
 type Tournament struct {

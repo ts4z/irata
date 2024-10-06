@@ -1,8 +1,10 @@
 // The ick package is for things I can't believe I have to write.
+// Or maybe I was just lazy.
 package ick
 
 import (
 	"math/rand"
+	"strconv"
 )
 
 // NShuffle shuffles a slice in-place.
@@ -20,4 +22,12 @@ func Shuffle[T any](in []T) []T {
 	copy(out, in)
 	NShuffle(out)
 	return out
+}
+
+func Atoi64(s string) (int64, error) {
+	n, err := strconv.Atoi(s)
+	if err != nil {
+		return -1, err
+	}
+	return int64(n), nil
 }
