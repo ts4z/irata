@@ -86,7 +86,11 @@ line-height (no padding), and allowed the displayed pages to have that very
 To Do
 -----
 
+The model is probably not right and could be simpler.
+
 State needs to be stored.
 
 State is one level, and times do not need to be present on all levels, just the
-active one.  (This may mean a forward-back needs a special case)
+active one.  (This may mean a forward-back needs a special case).
+
+Tournaments need an owner and only the owner can modify the tournament.

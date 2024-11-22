@@ -129,8 +129,8 @@
           <!-- right rail -->
           <table width="100%" class="fullsize">
             <tr> <td class="rr-label"> PLAYERS </tr>
-            <tr> <td class="current-players" id="current-players"> {{ .CurrentPlayers }} </tr>
-            <tr> <td class="buyins"><span id="buyins">{{- .BuyIns -}}</span> BUYINS </tr>
+            <tr> <td class="current-players" id="current-players"> {{ .State.CurrentPlayers }} </tr>
+            <tr> <td class="buyins"><span id="buyins">{{- .State.BuyIns -}}</span> BUYINS </tr>
             <tr>
               <td style="font-size: 3vi;" align="center">
                 &#9830;
@@ -141,7 +141,7 @@
                   <!-- <tr> <td class="rr-label"> PRIZE POOL </td> </tr> -->
                   <tr>
                     <td class="prize-pool">
-                      {{ .PrizePool }}
+                      {{ .State.PrizePool }}
                     </td>
                 </table>
             </td></tr>
@@ -154,7 +154,7 @@
                 <table width="100%">
                   <tbody>
                   <tr> <td class="rr-label"> AVG CHIPS </tr>
-                  <tr> <td class="avg-chips" id="avg-chips"> {{ .AverageChips }} </tr>
+                  <tr> <td class="avg-chips" id="avg-chips"> {{ .Transients.AverageChips }} </tr>
                   <tr> <td class="rr-label"> NEXT LEVEL </tr>
                   <tr> <td class="next-level" id="next-level"> TBD </tr>
                   <tr> <td class="rr-label"> NEXT BREAK </tr>

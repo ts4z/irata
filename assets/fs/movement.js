@@ -49,26 +49,36 @@ const shuffle_array = array => {
   // Initialize last_model (the last model we loaded) with a fail-safe initial
   // model value
   var last_model = {
-    "CurrentLevelNumber": 0,
-    "Levels": [
-      {"TimeRemainingMillis":(59+(56*60))*1000,
-       "IsBreak":true,
-       "Blinds":"LOADING...",
-      },
-      {"TimeRemainingMillis":999*60*1000,
-       "IsBreak":true,
-       "Blinds":"FAKE BREAK LEVEL FOR INIT",
-      },
-    ],
-    "IsClockRunning": false,
-    "NextBreakAt": undefined,
-    "NextLevel": undefined,
-    "EndsAt": undefined,
+    "State": {
+      "CurrentLevelNumber": 0,
+      "IsClockRunning": false,
+    },
+    "Structure": {
+      "Levels": [
+        {
+          "TimeRemainingMillis":(59+(56*60))*1000,
+          "IsBreak":true,
+          "Blinds":"LOADING...",
+        },
+        {
+          "TimeRemainingMillis":999*60*1000,
+          "IsBreak":true,
+          "Blinds":"FAKE BREAK LEVEL FOR INIT",
+        },
+      ]
+    },
+    "Transients": {
+      "NextBreakAt": undefined,
+      "NextLevel": undefined,
+      "EndsAt": undefined,
+    }
   }
 
   var footers = ["ATOMIC BATTERIES TO POWER..."];
 
-  const current_level = () => last_model.Levels[last_model.CurrentLevelNumber]
+  const current_level = () => {
+    return last_model.Structure.Levels[last_model.State.CurrentLevelNumber]
+  }
 
   const next_footer = (function() {
     var next_footer_offset = 99999;
@@ -98,37 +108,38 @@ const shuffle_array = array => {
     
     console.log("got model: " + JSON.stringify(model))
 
-    next_level_complete_at = model.EndsAt;
-    next_break_at = model.NextBreakAt;
+    next_level_complete_at = model.Transients.EndsAt;
+    next_break_at = model.Transients.NextBreakAt;
 
-    level = model.Levels[model.CurrentLevelNumber]
+    var cln = model.State.CurrentLevelNumber;
+    level = model.Structure.Levels[cln]
     var level_banner = "[BANNER UNSET]";
     if (level.IsBreak) {
-      if (model.CurrentLevelNumber == 0) {
+      if (model.State.CurrentLevelNumber == 0) {
         level_banner = "STARTING IN...";
       } else {
-        level_banner = "BREAK " + model.CurrentLevelNumber;
+        level_banner = "BREAK " + cln;
       }
       set_html("blinds", level.Description);
       set_class("clock", "clock-break");
     } else {
-      level_banner = "LEVEL " + model.CurrentLevelNumber;
+      level_banner = "LEVEL " + cln;
       set_html("blinds", "BLINDS " + level.Description);
       set_class("clock", "clock");
     }
 
-    if (!model.IsClockRunning) {
+    if (!model.State.IsClockRunning) {
       level_banner += " (PAUSED)";
     }
     set_html("level", level_banner);
 
-    set_html("current-players", model.CurrentPlayers)
-    set_html("buyins", model.BuyIns)
+    set_html("current-players", model.State.CurrentPlayers)
+    set_html("buyins", model.State.BuyIns)
     // set rebuys
     // set addons
-    set_html("avg-chips", model.AverageChips)
-    if (model.NextLevel !== null) {
-      set_html("next-level", model.NextLevel.Description)
+    set_html("avg-chips", model.Transients.AverageChips)
+    if (model.Transients.NextLevel !== null) {
+      set_html("next-level", model.Transients.NextLevel.Description)
     }
     
     set_clock(model);
@@ -183,12 +194,12 @@ const shuffle_array = array => {
       return;
     }
     
-    if (!model.IsClockRunning) {
+    if (!model.State.IsClockRunning) {
       td.innerHTML = "PAUSED";
       return
     }
 
-    if (typeof model.NextBreakAt === 'undefined') {
+    if (typeof model.Transients.NextBreakAt === 'undefined') {
       console.log("update_break_clock: NextBreakAt not defined");
       td.innerHTML = "???";
     } else {
@@ -209,7 +220,7 @@ const shuffle_array = array => {
       // paused, no math to do?
     } else if (rem <= 0) {
       console.Log("rem = " + rem);
-      last_model.CurrentLevelNumber++
+      last_model.State.CurrentLevelNumber++
       // apply the model which should move us to the next level
       apply_model(last_model);
       // trust the server as authoritative
@@ -220,8 +231,10 @@ const shuffle_array = array => {
   }
 
   function set_clock(model) {
-    console.log("Next level complete at " + new Date(model.Levels[model.CurrentLevelNumber].EndsAt));
-    next_level_complete_at = model.Levels[model.CurrentLevelNumber].EndsAt;
+    var cln = model.State.CurrentLevelNumber;
+    console.log("Next level complete at " +
+                new Date(model.Structure.Levels[cln].EndsAt));
+    next_level_complete_at = model.Structure.Levels[cln].EndsAt;
   }
 
   function update_clock() {
@@ -270,7 +283,7 @@ const shuffle_array = array => {
   async function toggle_pause(event) {
     if (last_model === undefined) {
       console.log("last_model undefined")
-    } else if (last_model.IsClockRunning) {
+    } else if (last_model.State.IsClockRunning) {
       send_modify('StopClock')
     } else {
       send_modify('StartClock')

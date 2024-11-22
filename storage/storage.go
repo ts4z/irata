@@ -40,30 +40,35 @@ const (
 func makeFakeTournament() *model.Tournament {
 	// Not implemented, return dummy
 	m := &model.Tournament{
-		EventID:            fakeTournamentId,
-		EventName:          fakeTournamentName,
-		CurrentLevelNumber: 0,
-		CurrentPlayers:     12,
-		BuyIns:             12,
-		ChipsPerAddOn:      0,
-		Levels: []*model.Level{
-			makeBreak("AWAITING START...", 5),
-			makeLevel("5-5 + 5 ANTE"),
-			makeLevel("5-10 + 10 ANTE"),
-			makeLevel("10-15 + 15 ANTE"),
-			makeLevel("15-30 + 30 ANTE"),
-			makeBreak("RACE OFF 5 CHIPS", 15),
-			makeLevel("20-40 + 40 ANTE"),
-			makeLevel("30-60 + 60 ANTE"),
-			makeLevel("40-80 + 80 ANTE"),
-			makeLevel("60-120 + 120 ANTE"),
-			makeLevel("100-200 + 200 ANTE"),
-			makeBreak("RACE OFF 20 CHIPS", 15),
-		},
-		PrizePool: `1.......$240
+		EventID:   fakeTournamentId,
+		EventName: fakeTournamentName,
+		State: &model.State{
+			IsClockRunning:     false,
+			CurrentLevelNumber: 0,
+			CurrentPlayers:     12,
+			BuyIns:             12,
+			PrizePool: `1.......$240
 2........$72
 3........$48
 `,
+		},
+		Structure: &model.Structure{
+			ChipsPerAddOn: 0,
+			Levels: []*model.Level{
+				makeBreak("AWAITING START...", 5),
+				makeLevel("5-5 + 5 ANTE"),
+				makeLevel("5-10 + 10 ANTE"),
+				makeLevel("10-15 + 15 ANTE"),
+				makeLevel("15-30 + 30 ANTE"),
+				makeBreak("RACE OFF 5 CHIPS", 15),
+				makeLevel("20-40 + 40 ANTE"),
+				makeLevel("30-60 + 60 ANTE"),
+				makeLevel("40-80 + 80 ANTE"),
+				makeLevel("60-120 + 120 ANTE"),
+				makeLevel("100-200 + 200 ANTE"),
+				makeBreak("RACE OFF 20 CHIPS", 15),
+			},
+		},
 		FooterPlugs: ick.NShuffle([]string{
 			`"There are no strangers here,
 just friends
@@ -134,8 +139,6 @@ because YOU'RE in it!"
 	}
 
 	m.FillTransients()
-
-	m.IsClockRunning = false
 
 	return m
 }

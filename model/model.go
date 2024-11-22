@@ -26,7 +26,8 @@ type Level struct {
 	DurationMinutes int
 	IsBreak         bool
 
-	// State
+	// State -- these are in the wrong place.  Refactoring this means fixing
+	// movement.js as well.
 
 	// EndsAt indicates when the level ends iff the clock is running.  This is in
 	// Unix millis.  This value is not useful if the current level is paused, because
@@ -71,22 +72,31 @@ func ParseLevels(input string) ([]*Level, error) {
 
 type Tournament struct {
 	// early configuration
-	EventID       int64
-	EventName     string
+	EventID     int64
+	EventName   string
+	FooterPlugs []string
+	Structure   *Structure
+	State       *State
+	Transients  *Transients
+}
+
+type Structure struct {
 	Levels        []*Level
-	FooterPlugs   []string
 	ChipsPerBuyIn int
 	ChipsPerAddOn int
-	PrizePool     string
+}
 
-	// state
+type State struct {
 	IsClockRunning     bool
 	CurrentLevelNumber int
 	CurrentPlayers     int
 	BuyIns             int
 	TotalChips         int
+	PrizePool          string
+}
 
-	// transients
+// This should be removed and computed client-side?
+type Transients struct {
 	AverageChips int
 	NextBreakAt  *int64
 	NextLevel    *Level
@@ -96,20 +106,18 @@ type Tournament struct {
 // the database as they're redundant, but they are very convenient for access
 // from templates and maybe JS.)
 func (m *Tournament) FillTransients() {
-	m.AverageChips = m.TotalChips / m.CurrentPlayers
-
-	if m.IsClockRunning {
+	if m.State.IsClockRunning {
 		// Bump current level forward until we find what time we're supposed to be
 		// in.
-		for m.CurrentLevelNumber < len(m.Levels)-1 {
-			cl := m.Levels[m.CurrentLevelNumber]
+		for m.State.CurrentLevelNumber < len(m.Structure.Levels)-1 {
+			cl := m.Structure.Levels[m.State.CurrentLevelNumber]
 			if time.UnixMilli(*cl.EndsAt).After(ts.Now()) {
 				// this level ends after now, this is the level that should be active
 				break
 			}
 
 			// step level forward, looking for currently active level
-			m.CurrentLevelNumber++
+			m.State.CurrentLevelNumber++
 		}
 	}
 
@@ -118,32 +126,33 @@ func (m *Tournament) FillTransients() {
 }
 
 func (m *Tournament) FillInitialLevelRemaining() {
-	for _, level := range m.Levels {
+	for _, level := range m.Structure.Levels {
 		level.TimeRemainingMillis = int64(level.DurationMinutes) * millisPerMinute
 	}
 }
 
 func (m *Tournament) fillNextBreak() {
-	for i := m.CurrentLevelNumber + 1; i < len(m.Levels); i++ {
-		maybeBreakLevel := m.Levels[i]
+	m.Transients = &Transients{}
+	for i := m.State.CurrentLevelNumber + 1; i < len(m.Structure.Levels); i++ {
+		maybeBreakLevel := m.Structure.Levels[i]
 		if maybeBreakLevel.IsBreak {
-			m.NextBreakAt = m.Levels[i-1].EndsAt
+			m.Transients.NextBreakAt = m.Structure.Levels[i-1].EndsAt
 			return
 		}
 	}
 
-	m.NextBreakAt = nil
+	m.Transients.NextBreakAt = nil
 }
 
 func (m *Tournament) fillNextLevel() {
-	for i := m.CurrentLevelNumber + 1; i < len(m.Levels); i++ {
-		if m.Levels[i].IsBreak {
+	for i := m.State.CurrentLevelNumber + 1; i < len(m.Structure.Levels); i++ {
+		if m.Structure.Levels[i].IsBreak {
 			continue
 		}
-		m.NextLevel = m.Levels[i]
+		m.Transients.NextLevel = m.Structure.Levels[i]
 		return
 	}
-	m.NextLevel = nil
+	m.Transients.NextLevel = nil
 }
 
 // Update level times will fill out the current level times up to, and
@@ -159,9 +168,9 @@ func (m *Tournament) fillNextLevel() {
 func (m *Tournament) UpdateLevelTimes() {
 	defer m.fillNextBreak()
 
-	currentLevel := m.Levels[m.CurrentLevelNumber]
+	currentLevel := m.Structure.Levels[m.State.CurrentLevelNumber]
 
-	if !m.IsClockRunning {
+	if !m.State.IsClockRunning {
 		// Clock is not running.  Take remaining time and store into
 		// TimeRemainingMillis.  (Save to database.)  This level does not get an end time
 		log.Printf("clock is stopped")
@@ -173,8 +182,8 @@ func (m *Tournament) UpdateLevelTimes() {
 			// log.Printf("time remaining in this level is %v", currentLevel.TimeRemainingMillis)
 		}
 
-		for i := m.CurrentLevelNumber + 1; i < len(m.Levels); i++ {
-			level := m.Levels[i]
+		for i := m.State.CurrentLevelNumber + 1; i < len(m.Structure.Levels); i++ {
+			level := m.Structure.Levels[i]
 			level.EndsAt = nil
 			level.TimeRemainingMillis = int64(level.DurationMinutes) * millisPerMinute
 		}
@@ -197,43 +206,43 @@ func (m *Tournament) UpdateLevelTimes() {
 		resetEndsAt(currentLevel)
 	}
 
-	for i := m.CurrentLevelNumber + 1; i < len(m.Levels); i++ {
-		resetEndsAt(m.Levels[i])
+	for i := m.State.CurrentLevelNumber + 1; i < len(m.Structure.Levels); i++ {
+		resetEndsAt(m.Structure.Levels[i])
 	}
 }
 
 func (t *Tournament) PreviousLevel() error {
-	if t.CurrentLevelNumber <= 0 {
+	if t.State.CurrentLevelNumber <= 0 {
 		return errors.New("already at min level")
 	}
-	t.CurrentLevelNumber--
+	t.State.CurrentLevelNumber--
 	t.UpdateLevelTimes()
 	return nil
 }
 
 func (t *Tournament) SkipLevel() error {
-	if t.CurrentLevelNumber < len(t.Levels)-1 {
-		t.CurrentLevelNumber++
+	if t.State.CurrentLevelNumber < len(t.Structure.Levels)-1 {
+		t.State.CurrentLevelNumber++
 		t.UpdateLevelTimes()
 	}
 	return nil
 }
 
 func (t *Tournament) StopClock() error {
-	t.IsClockRunning = false
+	t.State.IsClockRunning = false
 	t.UpdateLevelTimes()
 	return nil
 }
 
 func (t *Tournament) StartClock() error {
-	t.IsClockRunning = true
+	t.State.IsClockRunning = true
 	t.UpdateLevelTimes()
 	return nil
 }
 
 func (t *Tournament) RemovePlayer() error {
-	if t.CurrentPlayers > 1 {
-		t.CurrentPlayers--
+	if t.State.CurrentPlayers > 1 {
+		t.State.CurrentPlayers--
 		t.FillTransients()
 		return nil
 	}
@@ -241,20 +250,20 @@ func (t *Tournament) RemovePlayer() error {
 }
 
 func (t *Tournament) AddPlayer() error {
-	t.CurrentPlayers++
+	t.State.CurrentPlayers++
 	t.FillTransients()
 	return nil
 }
 
 func (t *Tournament) AddBuyIn() error {
-	t.BuyIns++
+	t.State.BuyIns++
 	t.FillTransients()
 	return nil
 }
 
 func (t *Tournament) RemoveBuyIn() error {
-	if t.BuyIns > 0 {
-		t.BuyIns--
+	if t.State.BuyIns > 0 {
+		t.State.BuyIns--
 		t.FillTransients()
 		return nil
 	}
@@ -294,7 +303,7 @@ func (t *Tournament) MinusMinute() error {
 }
 
 func (t *Tournament) ActiveLevel() *Level {
-	return t.Levels[t.CurrentLevelNumber]
+	return t.Structure.Levels[t.State.CurrentLevelNumber]
 }
 
 // EventOverview describes a single event for rendering the event list.
