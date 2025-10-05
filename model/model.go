@@ -121,12 +121,15 @@ type Transients struct {
 	NextLevel *Level
 }
 
-// Current level returns the current level, or nil if the tournament has run off the end.
+// Current level returns the current level, or if the tourn
 func (m *Tournament) CurrentLevel() *Level {
-	if m.State.CurrentLevelNumber < 0 || m.State.CurrentLevelNumber >= len(m.Structure.Levels) {
-		return nil
+	var lvl int
+	if m.State.CurrentLevelNumber < 0 {
+		lvl = 0
+	} else if m.State.CurrentLevelNumber >= len(m.Structure.Levels) {
+		lvl = len(m.Structure.Levels) - 1
 	}
-	return m.Structure.Levels[m.State.CurrentLevelNumber]
+	return m.Structure.Levels[lvl]
 }
 
 func (m *Tournament) CurrentLevelEndsAtAsTime() time.Time {
@@ -139,7 +142,7 @@ func (m *Tournament) CurrentLevelEndsAtAsTime() time.Time {
 // adjustStateForElapsedTime fixes the state to reflect the current time.
 func (m *Tournament) adjustStateForElapsedTime() {
 	if m.CurrentLevel() == nil {
-		m.EndTournament()
+		m.RestartLastLevel()
 		return
 	}
 
@@ -151,7 +154,7 @@ func (m *Tournament) adjustStateForElapsedTime() {
 				m.State.TimeRemainingMillis = &remaining
 			} else {
 				log.Printf("BUG: clock running, no time remaining, no level?")
-				m.EndTournament()
+				m.RestartLastLevel()
 			}
 		}
 		return
@@ -188,7 +191,7 @@ func (m *Tournament) adjustStateForElapsedTime() {
 		m.State.CurrentLevelNumber++
 		newLevel := m.CurrentLevel()
 		if newLevel == nil {
-			m.EndTournament()
+			m.RestartLastLevel()
 			break
 		}
 
@@ -200,11 +203,9 @@ func (m *Tournament) adjustStateForElapsedTime() {
 	}
 }
 
-func (m *Tournament) EndTournament() {
-	m.State.CurrentLevelNumber = len(m.Structure.Levels)
-	m.State.CurrentLevelEndsAt = nil
-	m.State.TimeRemainingMillis = nil
-	m.State.IsClockRunning = false
+func (m *Tournament) RestartLastLevel() {
+	m.State.CurrentLevelNumber = len(m.Structure.Levels) - 1
+	m.restartLevel()
 }
 
 // FillTransients fills out computed fields.  (These shouldn't be serialized to
@@ -268,11 +269,15 @@ func (t *Tournament) PreviousLevel() error {
 	return nil
 }
 
-func (t *Tournament) SkipLevel() error {
+func (t *Tournament) AdvanceLevel() error {
 	if t.State.CurrentLevelNumber < len(t.Structure.Levels)-1 {
 		t.State.CurrentLevelNumber++
-		t.restartLevel()
+	} else if t.State.CurrentLevelNumber >= len(t.Structure.Levels)-1 {
+		t.State.CurrentLevelNumber = len(t.Structure.Levels) - 1
+	} else {
+		t.State.CurrentLevelNumber++
 	}
+	t.restartLevel()
 	return nil
 }
 
@@ -286,21 +291,21 @@ func (t *Tournament) CurrentLevelDuration() *time.Duration {
 
 // restartLevel resets the current level's clocks after a manual level change.
 // (It doesn't make sense to call this externally.)
-func (t *Tournament) restartLevel() error {
-	d := t.CurrentLevelDuration()
-	if d == nil {
-		return errors.New("can't restart level: no current level")
+func (t *Tournament) restartLevel() {
+	if t.CurrentLevel() == nil {
+		log.Printf("debug: can't restart level: no current level")
 	}
+	minutes := t.CurrentLevel().DurationMinutes
+	d := time.Duration(minutes) * time.Minute
 	if t.State.IsClockRunning {
-		later := ts.Now().Add(*d).UnixMilli()
+		later := ts.Now().Add(d).UnixMilli()
 		t.State.CurrentLevelEndsAt = &later
 		t.State.TimeRemainingMillis = nil
 	} else {
-		remaining := int64(*d)
-		t.State.TimeRemainingMillis = &remaining
+		remainingMillis := int64(d.Milliseconds())
+		t.State.TimeRemainingMillis = &remainingMillis
 		t.State.CurrentLevelEndsAt = nil
 	}
-	return nil
 }
 
 func (t *Tournament) StopClock() error {
@@ -400,9 +405,9 @@ func (t *Tournament) PlusMinute() error {
 		if t.State.TimeRemainingMillis != nil {
 			remaining = *t.State.TimeRemainingMillis
 		} else {
-			log.Printf("debug: when adding a minute, no TimeRemainingMillis, using full level duration")
 			remaining = int64(*t.CurrentLevelDuration())
 		}
+		remaining += millisPerMinute
 		t.State.TimeRemainingMillis = &remaining
 		t.State.CurrentLevelEndsAt = nil
 	}
@@ -428,9 +433,9 @@ func (t *Tournament) MinusMinute() error {
 		// special case: if there was less than a minute left and we just
 		// bumped to the next level, we just start the next level as normal.
 		if newEndsAt.Before(ts.Now()) {
-			// step to next level
-			t.State.CurrentLevelNumber++
-			return t.restartLevel()
+			// Skip to next level, which should reset it (or end the tournamment).
+			t.AdvanceLevel()
+			return nil
 		}
 	} else {
 		var remaining int64
@@ -446,8 +451,8 @@ func (t *Tournament) MinusMinute() error {
 		if int64(remaining) < 0 {
 			// special case: if we just exhausted this level, go to the next level
 			// and give it a full time allotment.
-			t.State.CurrentLevelNumber++
-			return t.restartLevel()
+			t.AdvanceLevel()
+			return nil
 		} else {
 			t.State.TimeRemainingMillis = &remaining
 			t.State.CurrentLevelEndsAt = nil

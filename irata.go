@@ -179,7 +179,7 @@ func (a *irataApp) installHandlers() {
 func (a *irataApp) installKeyboardHandlers() {
 	var keyboardModifyEventHandlers = map[string]func(*model.Tournament) error{
 		"PreviousLevel": func(t *model.Tournament) error { return t.PreviousLevel() },
-		"SkipLevel":     func(t *model.Tournament) error { return t.SkipLevel() },
+		"SkipLevel":     func(t *model.Tournament) error { return t.AdvanceLevel() },
 		"StopClock":     func(t *model.Tournament) error { return t.StopClock() },
 		"StartClock":    func(t *model.Tournament) error { return t.StartClock() },
 		"RemovePlayer":  func(t *model.Tournament) error { return t.RemovePlayer() },
