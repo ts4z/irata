@@ -1,5 +1,13 @@
 // A movement is what makes a clock go.  movement.js makes this poker clock go.
 
+function tournament_id() {
+  console.log(window.location.pathname);
+  var parts = window.location.pathname.split("/");
+  id = parts[parts.length - 1];
+  console.log("tournament id " + id);
+  return id;
+}
+
 // t is in milliseconds
 function to_hmmss(t) {
   if (isNaN(t)) {
@@ -49,24 +57,26 @@ const shuffle_array = array => {
   // Initialize last_model (the last model we loaded) with a fail-safe initial
   // model value
   var last_model = {
+    // State is things that are written to the database.
     "State": {
       "CurrentLevelNumber": 0,
       "IsClockRunning": false,
+      "TimeRemainingMillis":(59+(59*60))*1000,
+      "CurrentLevelEndsAt": undefined,
     },
     "Structure": {
       "Levels": [
         {
-          "TimeRemainingMillis":(59+(56*60))*1000,
           "IsBreak":true,
           "Blinds":"LOADING...",
         },
         {
-          "TimeRemainingMillis":999*60*1000,
           "IsBreak":true,
           "Blinds":"FAKE BREAK LEVEL FOR INIT",
         },
       ]
     },
+    // Transients are things that are computed from State and
     "Transients": {
       "NextBreakAt": undefined,
       "NextLevel": undefined,
@@ -75,9 +85,25 @@ const shuffle_array = array => {
   }
 
   var footers = ["ATOMIC BATTERIES TO POWER..."];
+  var fetched_footer_plugs_id = NaN;
 
-  const current_level = () => {
-    return last_model.Structure.Levels[last_model.State.CurrentLevelNumber]
+  async function maybe_fetch_footers(footer_plugs_id) {
+    if (footer_plugs_id === fetched_footer_plugs_id) {
+      return
+    }
+    response = fetch("/api/footerPlugs/" + footer_plugs_id)
+      .then(response => {
+        console.log("response " + response);
+        return response;
+      })
+      .then(response => response.json())
+      .then(model => {
+        fetched_footer_plugs_id = footer_plugs_id;
+        footers = model.TextPlugs
+        shuffle_array(footers);
+        next_footer();
+      })
+      .catch(error => console.log("error getting footers: ", error))
   }
 
   const next_footer = (function() {
@@ -96,8 +122,7 @@ const shuffle_array = array => {
   var footer_interval_id = setInterval(next_footer, next_footer_interval_ms);
   
   async function load() {
-    // TODO: hardcoded event id here
-    response = fetch("/api/model/1")
+    response = fetch("/api/model/" + tournament_id())
       .then(response => response.json()
             .then(model => apply_model(model))
             .catch(error => console.log("error in getting model: ", error)))
@@ -145,8 +170,7 @@ const shuffle_array = array => {
     set_clock(model);
     update_clock();
     start_clock();
-
-    footers = model.FooterPlugs
+    maybe_fetch_footers(model.FooterPlugsID);
 
     last_model = model;
   }
@@ -179,12 +203,18 @@ const shuffle_array = array => {
   }
 
   function level_remaining() {
-    ends_at = current_level().EndsAt
+    var ends_at = last_model?.State?.CurrentLevelEndsAt;
     if (ends_at) {
       return ends_at - Date.now();
-    } else {
-      return current_level().TimeRemainingMillis;
     }
+
+    var remaining = last_model?.State?.TimeRemainingMillis;
+    if (typeof remaining !== 'undefined') {
+      return remaining;
+    }
+
+    console.log("level_remaining: no ends_at or remaining, returning bogus 0");
+    return 0;
   }
 
   function update_break_clock(model) {
@@ -231,10 +261,9 @@ const shuffle_array = array => {
   }
 
   function set_clock(model) {
-    var cln = model.State.CurrentLevelNumber;
-    console.log("Next level complete at " +
-                new Date(model.Structure.Levels[cln].EndsAt));
-    next_level_complete_at = model.Structure.Levels[cln].EndsAt;
+    var endsAt = new Date(model.State.CurrentLevelEndsAt)
+    console.log("This level complete at " + endsAt)
+    next_level_complete_at = endsAt;
   }
 
   function update_clock() {
@@ -265,9 +294,9 @@ const shuffle_array = array => {
     }
   }
 
-  async function send_modify(event) {
-    // TODO: hardcoded event id here
-    response = fetch("/api/keyboard-control/1", {
+  function send_modify(event) {
+    url = "/api/keyboard-control/" + tournament_id();
+    response = fetch(url, {
       method: 'POST',
       mode: 'same-origin',
       headers: {
@@ -275,7 +304,7 @@ const shuffle_array = array => {
       },
       body: JSON.stringify({"Event":event})
     })
-      .then(resp => console.log("response: " + resp))
+      .then(resp => console.log("${url} response: " + resp))
       .then(_ => load())
       .catch(error => console.log("error in request for modify event ${event}: ", error))
   }
@@ -307,11 +336,9 @@ const shuffle_array = array => {
   }
 
   document.addEventListener('keyup', (event) => {
-    // var name = event.key;
     var code = event.code;
-    // Alert the key name and key code on keydown
-    console.log(`Key pressed ${name} \r\n Key code value: ${code}`);
-    var handler = keycode_to_handler[code]
+    console.log(`Key pressed, Key code value: ${code}`);
+    var handler = keycode_to_handler[code];
     if (typeof handler !== 'undefined') {
       console.log(`Key pressed ${event} ${code} => ${handler}`);
       handler.call(handler.arg);

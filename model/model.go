@@ -23,20 +23,8 @@ var (
 type Level struct {
 	// configuration
 	Description     string
-	DurationMinutes int
+	DurationMinutes int // TODO: convert this to a string
 	IsBreak         bool
-
-	// State -- these are in the wrong place.  Refactoring this means fixing
-	// movement.js as well.
-
-	// EndsAt indicates when the level ends iff the clock is running.  This is in
-	// Unix millis.  This value is not useful if the current level is paused, because
-	// we don't know when the clock will be un-frozen.
-	EndsAt *int64
-	// TimeRemaining indicates time remaining iff the clock is not running (that
-	// is, paused).  This is in Unix millis.  This can always be initialized
-	// within a level.
-	TimeRemainingMillis int64
 }
 
 func parseLevelBreak(s string) bool {
@@ -70,80 +58,196 @@ func ParseLevels(input string) ([]*Level, error) {
 	return levels, nil
 }
 
-type Tournament struct {
-	// early configuration
-	EventID     int64
-	EventName   string
-	FooterPlugs []string
-	Structure   *Structure
-	State       *State
-	Transients  *Transients
+// FooterPlugs is possible values for decorating the footer.
+//
+// This is intended to support things other than text, but that's not
+// implemented yet.
+type FooterPlugs struct {
+	FooterPlugsID int64
+	TextPlugs     []string
 }
 
+// Tournaments are the things that we're running.
+type Tournament struct {
+	EventID        int64 // TODO: rename to TournamentID
+	OptimisticLock int64
+
+	EventName     string
+	FooterPlugsID int64
+	StructureID   int64
+	Structure     *Structure
+	State         *State
+	Transients    *Transients
+}
+
+// Strucutre describes the structure of a tournament.
 type Structure struct {
+	StructureID    int64
+	OptimisticLock int64
+
 	Levels        []*Level
 	ChipsPerBuyIn int
 	ChipsPerAddOn int
 }
 
+// State represents the mutable state of a tournament.
+//
+// This is distinct from Transients, which are computed from State and Structure.
+// This is serialized to the database but changes frequently.
 type State struct {
 	IsClockRunning     bool
 	CurrentLevelNumber int
 	CurrentPlayers     int
 	BuyIns             int
 	TotalChips         int
-	PrizePool          string
+	PrizePool          string // right-hand side display
+
+	// EndsAt indicates when the level ends iff the clock is running.  This is in
+	// Unix millis.  This value is not useful if the current level is paused, because
+	// we don't know when the clock will be un-frozen.
+	CurrentLevelEndsAt *int64
+	// TimeRemaining indicates time remaining iff the clock is not running (that
+	// is, paused).  This is in Unix millis.  This can always be initialized
+	// within a level.
+	TimeRemainingMillis *int64
 }
 
-// This should be removed and computed client-side?
+// Transients are computed from State and Structure, and are not serialized to the database.
 type Transients struct {
 	AverageChips int
-	NextBreakAt  *int64
-	NextLevel    *Level
+	// NextBreakAt is the time the next break starts, in Unix millis, or nil if there are no more breaks.
+	NextBreakAt *int64
+	// NextLevel is the next non-break level, or nil if there are no more levels.
+	NextLevel *Level
+}
+
+// Current level returns the current level, or nil if the tournament has run off the end.
+func (m *Tournament) CurrentLevel() *Level {
+	if m.State.CurrentLevelNumber < 0 || m.State.CurrentLevelNumber >= len(m.Structure.Levels) {
+		return nil
+	}
+	return m.Structure.Levels[m.State.CurrentLevelNumber]
+}
+
+func (m *Tournament) CurrentLevelEndsAtAsTime() time.Time {
+	if m.State.CurrentLevelEndsAt == nil {
+		panic("can't get CurrentLevelEndsAtAsTime: CurrentLevelEndsAt is nil")
+	}
+	return time.UnixMilli(*m.State.CurrentLevelEndsAt)
+}
+
+// adjustStateForElapsedTime fixes the state to reflect the current time.
+func (m *Tournament) adjustStateForElapsedTime() {
+	if m.CurrentLevel() == nil {
+		m.EndTournament()
+		return
+	}
+
+	if !m.State.IsClockRunning {
+		if m.State.TimeRemainingMillis == nil {
+			if m.CurrentLevel() != nil {
+				log.Printf("BUG: clock is not running but TimeRemainingMillis is nil, resetting to full time")
+				remaining := int64(time.Duration(m.CurrentLevel().DurationMinutes) * time.Minute)
+				m.State.TimeRemainingMillis = &remaining
+			} else {
+				log.Printf("BUG: clock running, no time remaining, no level?")
+				m.EndTournament()
+			}
+		}
+		return
+	}
+
+	if m.State.CurrentLevelNumber < 0 {
+		// wtf
+		log.Printf("warning: current level number %d < 0, resetting to 0", m.State.CurrentLevelNumber)
+		m.State.CurrentLevelNumber = 0
+	}
+
+	if m.State.CurrentLevelNumber >= len(m.Structure.Levels) {
+		// wtf
+		log.Printf("warning: current level number %d >= max %d, resetting to max-1", m.State.CurrentLevelNumber, len(m.Structure.Levels))
+		m.State.CurrentLevelNumber = len(m.Structure.Levels) - 1
+	}
+
+	if m.State.CurrentLevelEndsAt == nil {
+		log.Printf("BUG: clock is running but CurrentLevelEndsAt is nil, resetting to full time")
+		later := ts.Now().Add(time.Duration(m.CurrentLevel().DurationMinutes) * time.Minute).UnixMilli()
+		m.State.CurrentLevelEndsAt = &later
+		m.State.TimeRemainingMillis = nil
+		return
+	}
+
+	for m.CurrentLevel() != nil {
+		endsAt := m.CurrentLevelEndsAtAsTime()
+		if endsAt.After(ts.Now()) {
+			// end of level still in the future!  we're good.
+			break
+		}
+
+		// step the level forward, assuming no clock pauses.
+		m.State.CurrentLevelNumber++
+		newLevel := m.CurrentLevel()
+		if newLevel == nil {
+			m.EndTournament()
+			break
+		}
+
+		levelDuration := time.Duration(newLevel.DurationMinutes) * time.Minute
+		newEndsAt := endsAt.Add(levelDuration).UnixMilli()
+		asInt64 := int64(newEndsAt)
+		m.State.CurrentLevelEndsAt = &asInt64
+		log.Printf("stepping to level %d, ends at %v", m.State.CurrentLevelNumber, newEndsAt)
+	}
+}
+
+func (m *Tournament) EndTournament() {
+	m.State.CurrentLevelNumber = len(m.Structure.Levels)
+	m.State.CurrentLevelEndsAt = nil
+	m.State.TimeRemainingMillis = nil
+	m.State.IsClockRunning = false
 }
 
 // FillTransients fills out computed fields.  (These shouldn't be serialized to
 // the database as they're redundant, but they are very convenient for access
 // from templates and maybe JS.)
 func (m *Tournament) FillTransients() {
-	if m.State.IsClockRunning {
-		// Bump current level forward until we find what time we're supposed to be
-		// in.
-		for m.State.CurrentLevelNumber < len(m.Structure.Levels)-1 {
-			cl := m.Structure.Levels[m.State.CurrentLevelNumber]
-			if time.UnixMilli(*cl.EndsAt).After(ts.Now()) {
-				// this level ends after now, this is the level that should be active
-				break
-			}
+	m.Transients = &Transients{}
+	m.Transients.AverageChips = m.State.TotalChips / m.State.CurrentPlayers
 
-			// step level forward, looking for currently active level
-			m.State.CurrentLevelNumber++
-		}
-	}
+	m.adjustStateForElapsedTime()
 
 	m.fillNextBreak()
 	m.fillNextLevel()
 }
 
-func (m *Tournament) FillInitialLevelRemaining() {
-	for _, level := range m.Structure.Levels {
-		level.TimeRemainingMillis = int64(level.DurationMinutes) * millisPerMinute
-	}
-}
-
 func (m *Tournament) fillNextBreak() {
-	m.Transients = &Transients{}
+	if !m.State.IsClockRunning {
+		m.Transients.NextBreakAt = nil
+		return
+	}
+
+	if m.State.CurrentLevelEndsAt == nil {
+		log.Printf("can't fillNextBreak: CurrentLevelEndsAt is nil")
+	}
+
+	when := m.CurrentLevelEndsAtAsTime()
+
 	for i := m.State.CurrentLevelNumber + 1; i < len(m.Structure.Levels); i++ {
 		maybeBreakLevel := m.Structure.Levels[i]
 		if maybeBreakLevel.IsBreak {
-			m.Transients.NextBreakAt = m.Structure.Levels[i-1].EndsAt
+			millis := when.UnixMilli()
+			m.Transients.NextBreakAt = &millis
 			return
 		}
+
+		when = when.Add(time.Duration(maybeBreakLevel.DurationMinutes) * time.Minute)
 	}
 
+	// no break for you
 	m.Transients.NextBreakAt = nil
 }
 
+// fillNextLevel sets Transients.NextLevel to the next non-break level.
 func (m *Tournament) fillNextLevel() {
 	for i := m.State.CurrentLevelNumber + 1; i < len(m.Structure.Levels); i++ {
 		if m.Structure.Levels[i].IsBreak {
@@ -155,88 +259,97 @@ func (m *Tournament) fillNextLevel() {
 	m.Transients.NextLevel = nil
 }
 
-// Update level times will fill out the current level times up to, and
-// including, the current level.  If IsClockStopped has changed from the last
-// time it was called, UpdateLevelTimes will either move TimeRemainingMillis
-// into an updated end-of-level time, or vice versa.
-//
-// Wait, we don't want to update time in previous levels.  If we step backwards
-// (because someone accidentally jumped the clock forward) we probably want to
-// keep the current timestamps.
-//
-// When we switch to a new level, though, we want to recompute EndsAt.
-func (m *Tournament) UpdateLevelTimes() {
-	defer m.fillNextBreak()
-
-	currentLevel := m.Structure.Levels[m.State.CurrentLevelNumber]
-
-	if !m.State.IsClockRunning {
-		// Clock is not running.  Take remaining time and store into
-		// TimeRemainingMillis.  (Save to database.)  This level does not get an end time
-		log.Printf("clock is stopped")
-		if currentLevel.EndsAt != nil {
-			//log.Printf("current level ends at %v", currentLevel.EndsAt)
-			endsAt := time.UnixMilli(*currentLevel.EndsAt)
-			currentLevel.EndsAt = nil
-			currentLevel.TimeRemainingMillis = int64(endsAt.Sub(ts.Now()) / time.Millisecond)
-			// log.Printf("time remaining in this level is %v", currentLevel.TimeRemainingMillis)
-		}
-
-		for i := m.State.CurrentLevelNumber + 1; i < len(m.Structure.Levels); i++ {
-			level := m.Structure.Levels[i]
-			level.EndsAt = nil
-			level.TimeRemainingMillis = int64(level.DurationMinutes) * millisPerMinute
-		}
-		return
-	}
-
-	// Clock is running.  If the clock was just un-paused, the current level
-	// will have weird data in it we need to reset, and later levels will have
-	// similar trash.
-	later := ts.Now()
-
-	resetEndsAt := func(level *Level) {
-		left := time.Duration(level.TimeRemainingMillis) * time.Millisecond
-		later = later.Add(left)
-		laterMilli := later.UnixMilli()
-		level.EndsAt = &laterMilli
-	}
-
-	if currentLevel.EndsAt == nil || *currentLevel.EndsAt <= 0 {
-		resetEndsAt(currentLevel)
-	}
-
-	for i := m.State.CurrentLevelNumber + 1; i < len(m.Structure.Levels); i++ {
-		resetEndsAt(m.Structure.Levels[i])
-	}
-}
-
 func (t *Tournament) PreviousLevel() error {
 	if t.State.CurrentLevelNumber <= 0 {
 		return errors.New("already at min level")
 	}
 	t.State.CurrentLevelNumber--
-	t.UpdateLevelTimes()
+	t.restartLevel()
 	return nil
 }
 
 func (t *Tournament) SkipLevel() error {
 	if t.State.CurrentLevelNumber < len(t.Structure.Levels)-1 {
 		t.State.CurrentLevelNumber++
-		t.UpdateLevelTimes()
+		t.restartLevel()
+	}
+	return nil
+}
+
+func (t *Tournament) CurrentLevelDuration() *time.Duration {
+	if t.CurrentLevel() == nil {
+		return nil
+	}
+	d := time.Duration(t.CurrentLevel().DurationMinutes) * time.Minute
+	return &d
+}
+
+// restartLevel resets the current level's clocks after a manual level change.
+// (It doesn't make sense to call this externally.)
+func (t *Tournament) restartLevel() error {
+	d := t.CurrentLevelDuration()
+	if d == nil {
+		return errors.New("can't restart level: no current level")
+	}
+	if t.State.IsClockRunning {
+		later := ts.Now().Add(*d).UnixMilli()
+		t.State.CurrentLevelEndsAt = &later
+		t.State.TimeRemainingMillis = nil
+	} else {
+		remaining := int64(*d)
+		t.State.TimeRemainingMillis = &remaining
+		t.State.CurrentLevelEndsAt = nil
 	}
 	return nil
 }
 
 func (t *Tournament) StopClock() error {
+	log.Printf("STOP CLOCK")
+	t.adjustStateForElapsedTime()
+
+	if !t.State.IsClockRunning {
+		log.Printf("debug: can't stop a stopped clock")
+		return nil
+	}
+
+	if t.CurrentLevel() == nil {
+		return errors.New("can't stop clock: no current level")
+	}
+
+	endsAt := t.CurrentLevelEndsAtAsTime()
+	remainingMillis := endsAt.Sub(ts.Now()).Milliseconds()
+
 	t.State.IsClockRunning = false
-	t.UpdateLevelTimes()
+	t.State.TimeRemainingMillis = &remainingMillis
+	t.State.CurrentLevelEndsAt = nil
 	return nil
 }
 
 func (t *Tournament) StartClock() error {
+	t.adjustStateForElapsedTime()
+
+	if t.State.IsClockRunning {
+		log.Printf("debug: can't start a started clock")
+		return nil
+	}
+
+	if t.CurrentLevel() == nil {
+		log.Printf("debug: can't start a clock with no current level")
+		return errors.New("can't start a clock with no current level")
+	}
+
+	var remaining time.Duration
+	if t.State.TimeRemainingMillis != nil {
+		remaining = time.Duration(*t.State.TimeRemainingMillis) * time.Millisecond
+	} else {
+		log.Printf("debug: when starting clock, no TimeRemainingMillis, using full level duration")
+		remaining = *t.CurrentLevelDuration()
+	}
+
+	endsAt := ts.Now().Add(remaining).UnixMilli()
+	t.State.CurrentLevelEndsAt = &endsAt
+	t.State.TimeRemainingMillis = nil
 	t.State.IsClockRunning = true
-	t.UpdateLevelTimes()
 	return nil
 }
 
@@ -271,48 +384,89 @@ func (t *Tournament) RemoveBuyIn() error {
 }
 
 func (t *Tournament) PlusMinute() error {
-	if t.ActiveLevel().EndsAt == nil {
-		t.ActiveLevel().TimeRemainingMillis += millisPerMinute
-	} else {
-		endsAt := time.UnixMilli(*t.ActiveLevel().EndsAt)
-		aMinuteLater := endsAt.Add(time.Minute).UnixMilli()
-		t.ActiveLevel().EndsAt = &aMinuteLater
-		t.UpdateLevelTimes()
+	t.adjustStateForElapsedTime()
+
+	if t.CurrentLevel() == nil {
+		return errors.New("can't add a minute: no current level")
 	}
+
+	if t.State.IsClockRunning {
+		newEndsAt := t.CurrentLevelEndsAtAsTime().Add(time.Minute)
+		asInt64 := newEndsAt.UnixMilli()
+		t.State.CurrentLevelEndsAt = &asInt64
+		t.State.TimeRemainingMillis = nil
+	} else {
+		var remaining int64
+		if t.State.TimeRemainingMillis != nil {
+			remaining = *t.State.TimeRemainingMillis
+		} else {
+			log.Printf("debug: when adding a minute, no TimeRemainingMillis, using full level duration")
+			remaining = int64(*t.CurrentLevelDuration())
+		}
+		t.State.TimeRemainingMillis = &remaining
+		t.State.CurrentLevelEndsAt = nil
+	}
+
+	t.FillTransients()
+
 	return nil
 }
 
 func (t *Tournament) MinusMinute() error {
-	if t.ActiveLevel().EndsAt == nil {
-		if t.ActiveLevel().TimeRemainingMillis > millisPerMinute {
-			t.ActiveLevel().TimeRemainingMillis -= millisPerMinute
+	t.adjustStateForElapsedTime()
+
+	if t.CurrentLevel() == nil {
+		return errors.New("can't add a minute: no current level")
+	}
+
+	if t.State.IsClockRunning {
+		newEndsAt := t.CurrentLevelEndsAtAsTime().Add(-time.Minute)
+		asInt64 := newEndsAt.UnixMilli()
+		t.State.CurrentLevelEndsAt = &asInt64
+		t.State.TimeRemainingMillis = nil
+
+		// special case: if there was less than a minute left and we just
+		// bumped to the next level, we just start the next level as normal.
+		if newEndsAt.Before(ts.Now()) {
+			// step to next level
+			t.State.CurrentLevelNumber++
+			return t.restartLevel()
 		}
 	} else {
-		endsAt := time.UnixMilli(*t.ActiveLevel().EndsAt)
-		if endsAt.Sub(ts.Now()) > time.Minute {
-			aMinuteSooner := endsAt.Add(-time.Minute).UnixMilli()
-			t.ActiveLevel().EndsAt = &aMinuteSooner
+		var remaining int64
+		if t.State.TimeRemainingMillis != nil {
+			remaining = *t.State.TimeRemainingMillis
 		} else {
-			// Make the minimum time left in this level 1s from now.
-			oneSecondFromNow := ts.Now().Add(time.Second).UnixMilli()
-			t.ActiveLevel().EndsAt = &oneSecondFromNow
-			t.UpdateLevelTimes()
+			log.Printf("debug: when adding a minute, no TimeRemainingMillis, using full level duration")
+			remaining = int64(*t.CurrentLevelDuration())
+		}
+
+		remaining -= millisPerMinute
+
+		if int64(remaining) < 0 {
+			// special case: if we just exhausted this level, go to the next level
+			// and give it a full time allotment.
+			t.State.CurrentLevelNumber++
+			return t.restartLevel()
+		} else {
+			t.State.TimeRemainingMillis = &remaining
+			t.State.CurrentLevelEndsAt = nil
 		}
 	}
+
+	t.FillTransients()
+
 	return nil
 }
 
-func (t *Tournament) ActiveLevel() *Level {
-	return t.Structure.Levels[t.State.CurrentLevelNumber]
-}
-
-// EventOverview describes a single event for rendering the event list.
-type EventOverview struct {
-	EventID   int64
-	EventName string
+// TournamentSlug describes a single event for rendering the event list.
+type TournamentSlug struct {
+	TournamentID   int64
+	TournamentName string
+	// buyin, host, location, etc.
 }
 
 // Overview describes the available events for the event list.
 type Overview struct {
-	Events []EventOverview
+	Slugs []TournamentSlug
 }

@@ -1,18 +1,27 @@
 package action
 
 import (
+	"context"
 	"log"
 	"net/url"
 
 	"github.com/ts4z/irata/he"
 	"github.com/ts4z/irata/model"
-	"github.com/ts4z/irata/storage"
+	"github.com/ts4z/irata/state"
 )
 
-func EditEvent(id int64, form url.Values) error {
+type Actor struct {
+	storage state.Storage
+}
+
+func New(s state.Storage) *Actor {
+	return &Actor{storage: s}
+}
+
+func (a *Actor) EditEvent(ctx context.Context, id int64, form url.Values) error {
 	log.Printf("edit path: %v", id)
 
-	t, err := storage.FetchTournament(id)
+	t, err := a.storage.FetchTournament(ctx, id)
 	if err != nil {
 		return he.HTTPCodedErrorf(404, "can't get tournament from database")
 	}
@@ -31,5 +40,5 @@ func EditEvent(id int64, form url.Values) error {
 		t.Structure.Levels = pl
 	}
 
-	return storage.SaveTournament(id, t)
+	return a.storage.SaveTournament(ctx, t)
 }

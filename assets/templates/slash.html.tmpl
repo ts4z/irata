@@ -31,12 +31,14 @@
     <h1> IRATA POKER CLOCK </h1>
 
     <table>
-      {{range .Events}}
+      {{range .Slugs}}
       <tr>
-        <th> <a href="/event/{{.EventID}}">{{ .EventName }}</a> </th>
+        <td> * </td> <th> <a href="/t/{{.TournamentID}}">{{ .TournamentName }}</a> </th>
       </tr>
       {{end}}
     </table>
+
+    <hr>
 
   </body>
 </html>

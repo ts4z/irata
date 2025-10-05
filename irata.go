@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"html/template"
@@ -8,139 +9,137 @@ import (
 	"io/fs"
 	"log"
 	"net/http"
-	"strings"
+	"strconv"
 
 	"github.com/ts4z/irata/action"
 	"github.com/ts4z/irata/assets"
+	"github.com/ts4z/irata/defaults"
 	"github.com/ts4z/irata/he"
-	"github.com/ts4z/irata/ick"
 	"github.com/ts4z/irata/model"
-	"github.com/ts4z/irata/storage"
+	"github.com/ts4z/irata/state"
 	"github.com/ts4z/irata/textutil"
 )
-
-var templates *template.Template
 
 var templateFuncs template.FuncMap = template.FuncMap{
 	"wrapLinesInNOBR": textutil.WrapLinesInNOBR,
 	"joinNLNL":        textutil.JoinNLNL,
 }
 
-func init() {
-	var err error
-	if templates, err = template.New("root").Funcs(templateFuncs).ParseFS(assets.Templates, "templates/*[^~]"); err != nil {
-		log.Fatalf("error loading embedded templates: %v", err)
-	}
-	for _, tmpl := range templates.Templates() {
-		// tmpl.Funcs(templateFuncs)
-		log.Printf("loaded template %q", tmpl.Name())
-	}
-}
+// func blitSpecialFile(w http.ResponseWriter, filename string) {
+// 	rf, err := assets.Special.Open(filename)
+// 	if err != nil {
+// 		log.Fatalf("can't open special file: %v", err)
+// 	}
+// 	_, err = io.Copy(w, rf)
+// 	if err != nil {
+// 		log.Printf("error copying special static file to client: %v",
+// 			err)
+// 	}
+// }
 
-func blitSpecialFile(w http.ResponseWriter, filename string) {
-	rf, err := assets.Special.Open(filename)
+// TODO: make these configurable.
+
+const listen = ":8888"
+const databaseLocation = "postgresql:///irata"
+
+// idPathValue extracts the "id" path variable from the request and parses it.
+func idPathValue(w http.ResponseWriter, r *http.Request) (int64, error) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
-		log.Fatalf("can't open special file: %v", err)
+		log.Printf("400: can't parse id from url path: %v", err)
+		http.Error(w, fmt.Sprintf("can't parse id from url path: %v", err), 400)
 	}
-	_, err = io.Copy(w, rf)
+	return id, nil
+}
+
+// irataApp prevents the proliferation of global variables.
+type irataApp struct {
+	templates *template.Template
+	storage   state.Storage
+	mutator   *action.Actor
+	subFS     fs.FS
+}
+
+func (a *irataApp) fetchTournament(ctx context.Context, id int64) (*model.Tournament, error) {
+	t, err := a.storage.FetchTournament(ctx, id)
 	if err != nil {
-		log.Printf("error copying special static file to client: %v",
-			err)
+		return nil, err
 	}
+	t.FillTransients()
+	return t, nil
 }
 
-type KeyboardModifyEvent struct {
-	Event string
+func (a *irataApp) cant(w http.ResponseWriter, code int, what string, err error) {
+	log.Printf("%d: can't %s: %v", code, what, err)
+	http.Error(w, fmt.Sprintf("can't %s: %v", what, err), code)
 }
 
-var keyboardModifyEventHandlers = map[string]func(*model.Tournament) error{
-	"PreviousLevel": func(t *model.Tournament) error { return t.PreviousLevel() },
-	"SkipLevel":     func(t *model.Tournament) error { return t.SkipLevel() },
-	"StopClock":     func(t *model.Tournament) error { return t.StopClock() },
-	"StartClock":    func(t *model.Tournament) error { return t.StartClock() },
-	"RemovePlayer":  func(t *model.Tournament) error { return t.RemovePlayer() },
-	"AddPlayer":     func(t *model.Tournament) error { return t.AddPlayer() },
-	"AddBuyIn":      func(t *model.Tournament) error { return t.AddBuyIn() },
-	"RemoveBuyIn":   func(t *model.Tournament) error { return t.RemoveBuyIn() },
-	"PlusMinute":    func(t *model.Tournament) error { return t.PlusMinute() },
-	"MinusMinute":   func(t *model.Tournament) error { return t.MinusMinute() },
-}
-
-func main() {
-	sub, err := fs.Sub(assets.FS, "fs")
-	if err != nil {
-		log.Fatalf("fs.Sub: %v", err)
-	}
-
+func (a *irataApp) installHandlers() {
 	http.HandleFunc("/",
 		func(w http.ResponseWriter, r *http.Request) {
-			o, err := storage.FetchOverview()
+			o, err := a.storage.FetchOverview(r.Context())
 			if err != nil {
-				log.Printf("500: can't fetch overview: %v", err)
-				http.Error(w, fmt.Sprintf("can't fetch overview: %v", err), 500)
+				a.cant(w, 500, "fetch overview", err)
 				return
 			}
-			if err := templates.ExecuteTemplate(w, "slash.html.tmpl", o); err != nil {
-				log.Printf("500: can't render template: %v", err)
-				http.Error(w, fmt.Sprintf("can't render template: %v", err), 500)
+			if err := a.templates.ExecuteTemplate(w, "slash.html.tmpl", o); err != nil {
+				a.cant(w, 500, "render template", err)
 				return
 			}
 		})
 
 	// anything in fs is a file trivially shared
-	http.Handle("/fs/", http.StripPrefix("/fs/", http.FileServer(http.FS(sub))))
+	http.Handle("/fs/", http.StripPrefix("/fs/", http.FileServer(http.FS(a.subFS))))
 
-	http.HandleFunc("/event/", func(w http.ResponseWriter, r *http.Request) {
-		// All events are the one event
-		t, err := storage.FetchTournamentForView(1) // todo: ID goes here
+	http.HandleFunc("/t/{id}", func(w http.ResponseWriter, r *http.Request) {
+		id, err := idPathValue(w, r)
 		if err != nil {
-			log.Printf("404: can't get tournament from database")
-			http.Error(w, "can't get tournament from database", 404)
 			return
 		}
-		if err := templates.ExecuteTemplate(w, "view.html.tmpl", t); err != nil {
+
+		t, err := a.fetchTournament(r.Context(), id) // todo: ID goes here
+		if err != nil {
+			a.cant(w, 404, "get tournament from database", err)
+			return
+		}
+		if err := a.templates.ExecuteTemplate(w, "view.html.tmpl", t); err != nil {
+			// don't use a.can't here, it would be a duplicate write to w
 			log.Printf("500: can't render template: %v", err)
-			http.Error(w, fmt.Sprintf("can't render template: %v", err), 500)
 		}
 	})
 
-	const editPath = "/edit/event/"
-	http.HandleFunc("/edit/event/", func(w http.ResponseWriter, r *http.Request) {
-		if id, ok := strings.CutPrefix(r.URL.Path, editPath); !ok {
-			http.Error(w, fmt.Sprintf("can't parse id from url path: %v", err), 400)
-		} else if id64, err := ick.Atoi64(id); err != nil {
-			http.Error(w, fmt.Sprintf("can't parse id->int64 from url path: %v", err), 400)
-		} else {
-			r.ParseForm()
-			err := action.EditEvent(id64, r.Form)
-			if err == nil {
-				he.SendErrorToHTTPClient(w, "parsing form", err)
-				return
-			}
-
-			t, err := storage.FetchTournament(id64)
-			if err != nil {
-				he.SendErrorToHTTPClient(w, "fetching tournament", err)
-				return
-			}
-			if err := templates.ExecuteTemplate(w, "edit.html.tmpl", t); err != nil {
-				log.Printf("500: can't render template: %v", err)
-				http.Error(w, fmt.Sprintf("can't render template: %v", err), 500)
-			}
-		}
-	})
-
-	http.HandleFunc("/api/model/", func(w http.ResponseWriter, r *http.Request) {
-		t, err := storage.FetchTournament(1) // todo: ID goes here
+	http.HandleFunc("/edit/t/{id}", func(w http.ResponseWriter, r *http.Request) {
+		id64, err := idPathValue(w, r)
 		if err != nil {
-			log.Printf("500: can't get tourney from db")
-			http.Error(w, "can't get tournament from database", 500)
 			return
 		}
-		bytes, err := json.Marshal(t)
+
+		r.ParseForm()
+		err = a.mutator.EditEvent(r.Context(), id64, r.Form)
+		if err == nil {
+			he.SendErrorToHTTPClient(w, "parsing form", err)
+			return
+		}
+
+		t, err := a.fetchTournament(r.Context(), id64)
 		if err != nil {
-			log.Printf("500: can't marshall")
-			http.Error(w, fmt.Sprintf("can't marshal state model: %v", err), 500)
+			he.SendErrorToHTTPClient(w, "fetching tournament", err)
+			return
+		}
+		if err := a.templates.ExecuteTemplate(w, "edit.html.tmpl", t); err != nil {
+			// don't use a.can't here, it would be a duplicate write to w
+			log.Printf("500: can't render template: %v", err)
+		}
+	})
+
+	http.HandleFunc("/api/footerPlugs/{id}", func(w http.ResponseWriter, r *http.Request) {
+		_, err := idPathValue(w, r)
+		if err != nil {
+			return
+		}
+		bytes, err := json.Marshal(defaults.FooterPlugs())
+		if err != nil {
+			a.cant(w, 500, "marshal footerPlugs", err)
 			return
 		}
 		writ, err := w.Write(bytes)
@@ -151,10 +150,59 @@ func main() {
 		}
 	})
 
-	http.HandleFunc("/api/keyboard-control/", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/api/model/{id}", func(w http.ResponseWriter, r *http.Request) {
+		id64, err := idPathValue(w, r)
+		if err != nil {
+			return
+		}
+		t, err := a.fetchTournament(r.Context(), id64)
+		if err != nil {
+			a.cant(w, 500, "get tourney from db", err)
+			return
+		}
+		bytes, err := json.Marshal(t)
+		if err != nil {
+			a.cant(w, 500, "marshal model", err)
+			return
+		}
+		writ, err := w.Write(bytes)
+		if err != nil {
+			log.Printf("error writing model to client: %v", err)
+		} else if writ != len(bytes) {
+			log.Println("short write to client")
+		}
+	})
+
+	a.installKeyboardHandlers()
+}
+
+func (a *irataApp) installKeyboardHandlers() {
+	var keyboardModifyEventHandlers = map[string]func(*model.Tournament) error{
+		"PreviousLevel": func(t *model.Tournament) error { return t.PreviousLevel() },
+		"SkipLevel":     func(t *model.Tournament) error { return t.SkipLevel() },
+		"StopClock":     func(t *model.Tournament) error { return t.StopClock() },
+		"StartClock":    func(t *model.Tournament) error { return t.StartClock() },
+		"RemovePlayer":  func(t *model.Tournament) error { return t.RemovePlayer() },
+		"AddPlayer":     func(t *model.Tournament) error { return t.AddPlayer() },
+		"AddBuyIn":      func(t *model.Tournament) error { return t.AddBuyIn() },
+		"RemoveBuyIn":   func(t *model.Tournament) error { return t.RemoveBuyIn() },
+		"PlusMinute":    func(t *model.Tournament) error { return t.PlusMinute() },
+		"MinusMinute":   func(t *model.Tournament) error { return t.MinusMinute() },
+	}
+
+	http.HandleFunc("/api/keyboard-control/{id}", func(w http.ResponseWriter, r *http.Request) {
+		log.Printf("keypress received")
+		id64, err := idPathValue(w, r)
+		if err != nil {
+			return
+		}
 		body, err := io.ReadAll(r.Body)
 		if err != nil {
 			log.Printf("can't read response body: %v", err)
+		}
+
+		type KeyboardModifyEvent struct {
+			Event string
 		}
 
 		var event KeyboardModifyEvent
@@ -165,18 +213,54 @@ func main() {
 		if h, ok := keyboardModifyEventHandlers[event.Event]; !ok {
 			http.Error(w, "unknown event", 404)
 		} else {
-			t, err := storage.FetchTournament(1) // todo: ID goes here
+			t, err := a.fetchTournament(r.Context(), id64)
 			if err != nil {
 				http.Error(w, fmt.Sprintf("tournament not found %v", err), 404)
-				return
 			}
 
 			if err := h(t); err != nil {
-				log.Printf("500: error handling keyboard event %v", err)
-				http.Error(w, fmt.Sprintf("error in handler %q: %v", event.Event, err), 500)
+				a.cant(w, 500, "applying keyboard event", err)
+			}
+
+			if err := a.storage.SaveTournament(r.Context(), t); err != nil {
+				a.cant(w, 500, "save tournament after keypress", err)
 			}
 		}
-
 	})
-	log.Fatal(http.ListenAndServe(":8888", nil))
+}
+
+func (a *irataApp) loadTemplates() {
+	var err error
+	if a.templates, err = template.New("root").Funcs(templateFuncs).ParseFS(assets.Templates, "templates/*[^~]"); err != nil {
+		log.Fatalf("error loading embedded templates: %v", err)
+	}
+	for _, tmpl := range a.templates.Templates() {
+		// tmpl.Funcs(templateFuncs)
+		log.Printf("loaded template %q", tmpl.Name())
+	}
+}
+
+func (a *irataApp) serve() error {
+	return http.ListenAndServe(":8888", nil)
+}
+
+func main() {
+	subFS, err := fs.Sub(assets.FS, "fs")
+	if err != nil {
+		log.Fatalf("fs.Sub: %v", err)
+	}
+
+	storage, err := state.NewDBStorage(context.Background(), databaseLocation)
+	if err != nil {
+		log.Fatalf("can't configure database: %v", err)
+	}
+
+	mutator := action.New(storage)
+
+	app := &irataApp{storage: storage, mutator: mutator, subFS: subFS}
+	app.loadTemplates()
+	app.installHandlers()
+	if err := app.serve(); err != nil {
+		log.Fatalf("can't serve: %v", err)
+	}
 }
