@@ -1,4 +1,4 @@
-Copyright 2023-2024 Tim Showalter
+Copyright 2023-2025 Tim Showalter
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
