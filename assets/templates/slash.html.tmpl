@@ -8,34 +8,45 @@
   <body>
     <style>
       @font-face {
-          font-family: arcade;
-          src: url('/fs/PressStart2P-vaV7.ttf') format('truetype');
+        font-family: arcade;
+        src: url('/fs/PressStart2P-vaV7.ttf') format('truetype');
       }
       body {
-          font-family: arcade, monospace;
-          background-color: #000000;
-          color: #ffffff;
+        font-family: arcade, monospace;
+        background-color: #000000;
+        color: #ffffff;
       }
       td {
-          vertical-align: top;
-          border-spacing : 100vi;
+        vertical-align: top;
+        border-spacing : 100vi;
       }
       input {
-          font-family: arcade, monospace;
+        font-family: arcade, monospace;
       }
       table {
-          border-spacing: 5px 1rem;
+        border-spacing: 5px 1rem;
       }
     </style>
 
     <h1> IRATA POKER CLOCK </h1>
 
     <table>
-      {{range .Slugs}}
-      <tr>
-        <td> * </td> <th> <a href="/t/{{.TournamentID}}">{{ .TournamentName }}</a> </th>
-      </tr>
-      {{end}}
+        {{ $n := 0 }}
+        {{range $i, $t := .Overview.Slugs}}
+        {{ with $t }}
+        <tr>
+            <td> * </td> 
+            {{ if $.IsAdmin }}
+            <td> [<a href="/t/{{.TournamentID}}/edit">edit</a>]
+                [<a href="#" onclick="document.getElementById('really-{{$i}}').style.display='inline'; return false;">delete</a><span style="display: none;" id="really-{{$i}}"> ...really? <a href="/t/{{.TournamentID}}/delete">yes</a>
+                   <a href="#" onclick="document.getElementById('really-{{$i}}').style.display='none'; return false;">no</a></span>]
+            </td>
+            {{ end }}
+            <td> 
+              <a href="/{{.TournamentID}}"><em>{{ .TournamentName }}</em></a> {{ .Description }}</td>
+        </tr>
+        {{ end }}
+        {{ end }}
     </table>
 
     <hr>

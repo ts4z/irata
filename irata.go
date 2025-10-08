@@ -16,6 +16,7 @@ import (
 	"github.com/ts4z/irata/defaults"
 	"github.com/ts4z/irata/he"
 	"github.com/ts4z/irata/model"
+	"github.com/ts4z/irata/permission"
 	"github.com/ts4z/irata/state"
 	"github.com/ts4z/irata/textutil"
 )
@@ -39,7 +40,7 @@ var templateFuncs template.FuncMap = template.FuncMap{
 
 // TODO: make these configurable.
 
-const listen = ":8888"
+const listenAddress = ":8888"
 const databaseLocation = "postgresql:///irata"
 
 // idPathValue extracts the "id" path variable from the request and parses it.
@@ -60,8 +61,8 @@ type irataApp struct {
 	subFS     fs.FS
 }
 
-func (a *irataApp) fetchTournament(ctx context.Context, id int64) (*model.Tournament, error) {
-	t, err := a.storage.FetchTournament(ctx, id)
+func (app *irataApp) fetchTournament(ctx context.Context, id int64) (*model.Tournament, error) {
+	t, err := app.storage.FetchTournament(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -69,64 +70,93 @@ func (a *irataApp) fetchTournament(ctx context.Context, id int64) (*model.Tourna
 	return t, nil
 }
 
-func (a *irataApp) cant(w http.ResponseWriter, code int, what string, err error) {
-	log.Printf("%d: can't %s: %v", code, what, err)
-	http.Error(w, fmt.Sprintf("can't %s: %v", what, err), code)
-}
-
-func (a *irataApp) installHandlers() {
+func (app *irataApp) installHandlers() {
 	http.HandleFunc("/",
 		func(w http.ResponseWriter, r *http.Request) {
-			o, err := a.storage.FetchOverview(r.Context())
+			ctx, u := permission.DecoratedContext(r)
+			type Inputs struct {
+				IsAdmin  bool
+				Overview *model.Overview
+			}
+			o, err := app.storage.FetchOverview(ctx)
 			if err != nil {
-				a.cant(w, 500, "fetch overview", err)
+				he.SendErrorToHTTPClient(w, "fetch overview", err)
 				return
 			}
-			if err := a.templates.ExecuteTemplate(w, "slash.html.tmpl", o); err != nil {
-				a.cant(w, 500, "render template", err)
+			inputs := &Inputs{IsAdmin: u.IsAdmin(), Overview: o}
+			if err := app.templates.ExecuteTemplate(w, "slash.html.tmpl", inputs); err != nil {
+				log.Printf("can't render template: %v", err)
 				return
 			}
 		})
 
 	// anything in fs is a file trivially shared
-	http.Handle("/fs/", http.StripPrefix("/fs/", http.FileServer(http.FS(a.subFS))))
+	http.Handle("/fs/", http.StripPrefix("/fs/", http.FileServer(http.FS(app.subFS))))
 
-	http.HandleFunc("/t/{id}", func(w http.ResponseWriter, r *http.Request) {
+	renderTournament := func(w http.ResponseWriter, r *http.Request) {
+		ctx, _ := permission.DecoratedContext(r)
+
 		id, err := idPathValue(w, r)
 		if err != nil {
 			return
 		}
 
-		t, err := a.fetchTournament(r.Context(), id) // todo: ID goes here
+		t, err := app.fetchTournament(ctx, id)
 		if err != nil {
-			a.cant(w, 404, "get tournament from database", err)
+			he.SendErrorToHTTPClient(w, "get tournament from database", err)
 			return
 		}
-		if err := a.templates.ExecuteTemplate(w, "view.html.tmpl", t); err != nil {
-			// don't use a.can't here, it would be a duplicate write to w
+		if err := app.templates.ExecuteTemplate(w, "view.html.tmpl", t); err != nil {
 			log.Printf("500: can't render template: %v", err)
+		}
+	}
+	http.HandleFunc("/t/{id}", renderTournament) // TODO: remove
+	http.HandleFunc("/{id}", renderTournament)
+
+	http.HandleFunc("/t/{id}/delete", func(w http.ResponseWriter, r *http.Request) {
+		id64, err := idPathValue(w, r)
+		if err != nil {
+			return
+		}
+
+		if err := app.storage.DeleteTournament(r.Context(), id64); err != nil {
+			he.SendErrorToHTTPClient(w, "deleting tournament", err)
+		} else {
+			http.Redirect(w, r, "/", http.StatusPermanentRedirect)
 		}
 	})
 
-	http.HandleFunc("/edit/t/{id}", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/t/{id}/edit", func(w http.ResponseWriter, r *http.Request) {
+		ctx, u := permission.DecoratedContext(r)
 		id64, err := idPathValue(w, r)
 		if err != nil {
 			return
 		}
 
 		r.ParseForm()
-		err = a.mutator.EditEvent(r.Context(), id64, r.Form)
-		if err == nil {
-			he.SendErrorToHTTPClient(w, "parsing form", err)
-			return
+		if len(r.Form) != 0 {
+			err = app.mutator.EditEvent(ctx, id64, r.Form)
+			if err != nil {
+				he.SendErrorToHTTPClient(w, "parsing form", err)
+				return
+			}
 		}
 
-		t, err := a.fetchTournament(r.Context(), id64)
+		t, err := app.fetchTournament(ctx, id64)
 		if err != nil {
 			he.SendErrorToHTTPClient(w, "fetching tournament", err)
 			return
 		}
-		if err := a.templates.ExecuteTemplate(w, "edit.html.tmpl", t); err != nil {
+
+		args := &struct {
+			Tournament *model.Tournament
+			IsAdmin    bool
+		}{
+			Tournament: t,
+			IsAdmin:    u.IsAdmin(),
+		}
+
+		if err := app.templates.ExecuteTemplate(w, "edit.html.tmpl", args); err != nil {
 			// don't use a.can't here, it would be a duplicate write to w
 			log.Printf("500: can't render template: %v", err)
 		}
@@ -139,7 +169,7 @@ func (a *irataApp) installHandlers() {
 		}
 		bytes, err := json.Marshal(defaults.FooterPlugs())
 		if err != nil {
-			a.cant(w, 500, "marshal footerPlugs", err)
+			he.SendErrorToHTTPClient(w, "marshalling plugs", he.New(500, err))
 			return
 		}
 		writ, err := w.Write(bytes)
@@ -155,14 +185,14 @@ func (a *irataApp) installHandlers() {
 		if err != nil {
 			return
 		}
-		t, err := a.fetchTournament(r.Context(), id64)
+		t, err := app.fetchTournament(r.Context(), id64)
 		if err != nil {
-			a.cant(w, 500, "get tourney from db", err)
+			he.SendErrorToHTTPClient(w, "get tourney from db", err)
 			return
 		}
 		bytes, err := json.Marshal(t)
 		if err != nil {
-			a.cant(w, 500, "marshal model", err)
+			he.SendErrorToHTTPClient(w, "marshal model", err)
 			return
 		}
 		writ, err := w.Write(bytes)
@@ -173,10 +203,10 @@ func (a *irataApp) installHandlers() {
 		}
 	})
 
-	a.installKeyboardHandlers()
+	app.installKeyboardHandlers()
 }
 
-func (a *irataApp) installKeyboardHandlers() {
+func (app *irataApp) installKeyboardHandlers() {
 	var keyboardModifyEventHandlers = map[string]func(*model.Tournament) error{
 		"PreviousLevel": func(t *model.Tournament) error { return t.PreviousLevel() },
 		"SkipLevel":     func(t *model.Tournament) error { return t.AdvanceLevel() },
@@ -191,6 +221,7 @@ func (a *irataApp) installKeyboardHandlers() {
 	}
 
 	http.HandleFunc("/api/keyboard-control/{id}", func(w http.ResponseWriter, r *http.Request) {
+		ctx, _ := permission.DecoratedContext(r)
 		log.Printf("keypress received")
 		id64, err := idPathValue(w, r)
 		if err != nil {
@@ -213,35 +244,37 @@ func (a *irataApp) installKeyboardHandlers() {
 		if h, ok := keyboardModifyEventHandlers[event.Event]; !ok {
 			http.Error(w, "unknown event", 404)
 		} else {
-			t, err := a.fetchTournament(r.Context(), id64)
+			t, err := app.fetchTournament(r.Context(), id64)
 			if err != nil {
 				http.Error(w, fmt.Sprintf("tournament not found %v", err), 404)
 			}
 
 			if err := h(t); err != nil {
-				a.cant(w, 500, "applying keyboard event", err)
+				he.SendErrorToHTTPClient(w, "applying keyboard event", err)
+				return
 			}
 
-			if err := a.storage.SaveTournament(r.Context(), t); err != nil {
-				a.cant(w, 500, "save tournament after keypress", err)
+			if err := app.storage.SaveTournament(ctx, t); err != nil {
+				he.SendErrorToHTTPClient(w, "save tournament after keypress", err)
+				return
 			}
 		}
 	})
 }
 
-func (a *irataApp) loadTemplates() {
+func (app *irataApp) loadTemplates() {
 	var err error
-	if a.templates, err = template.New("root").Funcs(templateFuncs).ParseFS(assets.Templates, "templates/*[^~]"); err != nil {
+	if app.templates, err = template.New("root").Funcs(templateFuncs).ParseFS(assets.Templates, "templates/*[^~]"); err != nil {
 		log.Fatalf("error loading embedded templates: %v", err)
 	}
-	for _, tmpl := range a.templates.Templates() {
+	for _, tmpl := range app.templates.Templates() {
 		// tmpl.Funcs(templateFuncs)
 		log.Printf("loaded template %q", tmpl.Name())
 	}
 }
 
-func (a *irataApp) serve() error {
-	return http.ListenAndServe(":8888", nil)
+func (app *irataApp) serve() error {
+	return http.ListenAndServe(listenAddress, nil)
 }
 
 func main() {
@@ -250,10 +283,12 @@ func main() {
 		log.Fatalf("fs.Sub: %v", err)
 	}
 
-	storage, err := state.NewDBStorage(context.Background(), databaseLocation)
+	unprotectedStorage, err := state.NewDBStorage(context.Background(), databaseLocation)
 	if err != nil {
 		log.Fatalf("can't configure database: %v", err)
 	}
+
+	storage := &permission.StorageDecorator{Storage: unprotectedStorage}
 
 	mutator := action.New(storage)
 

@@ -63,8 +63,9 @@ func ParseLevels(input string) ([]*Level, error) {
 // This is intended to support things other than text, but that's not
 // implemented yet.
 type FooterPlugs struct {
-	FooterPlugsID int64
-	TextPlugs     []string
+	FooterPlugsID  int64
+	OptimisticLock int64
+	TextPlugs      []string
 }
 
 // Tournaments are the things that we're running.
@@ -73,6 +74,7 @@ type Tournament struct {
 	OptimisticLock int64
 
 	EventName     string
+	Description   string
 	FooterPlugsID int64
 	StructureID   int64
 	Structure     *Structure
@@ -123,10 +125,10 @@ type Transients struct {
 
 // Current level returns the current level, or if the tourn
 func (m *Tournament) CurrentLevel() *Level {
-	var lvl int
-	if m.State.CurrentLevelNumber < 0 {
+	var lvl int = m.State.CurrentLevelNumber
+	if lvl < 0 {
 		lvl = 0
-	} else if m.State.CurrentLevelNumber >= len(m.Structure.Levels) {
+	} else if lvl >= len(m.Structure.Levels) {
 		lvl = len(m.Structure.Levels) - 1
 	}
 	return m.Structure.Levels[lvl]
@@ -189,6 +191,10 @@ func (m *Tournament) adjustStateForElapsedTime() {
 
 		// step the level forward, assuming no clock pauses.
 		m.State.CurrentLevelNumber++
+		if m.State.CurrentLevelNumber >= len(m.Structure.Levels) {
+			m.endOfTime()
+			return
+		}
 		newLevel := m.CurrentLevel()
 		if newLevel == nil {
 			m.RestartLastLevel()
@@ -269,14 +275,22 @@ func (t *Tournament) PreviousLevel() error {
 	return nil
 }
 
+func (t *Tournament) endOfTime() {
+	log.Printf("tournament %d at end of time", t.EventID)
+	one := int64(1)
+	t.State.CurrentLevelNumber = len(t.Structure.Levels) - 1
+	t.State.TimeRemainingMillis = &one
+	t.State.CurrentLevelEndsAt = nil
+	t.State.IsClockRunning = false
+}
+
 func (t *Tournament) AdvanceLevel() error {
-	if t.State.CurrentLevelNumber < len(t.Structure.Levels)-1 {
-		t.State.CurrentLevelNumber++
-	} else if t.State.CurrentLevelNumber >= len(t.Structure.Levels)-1 {
-		t.State.CurrentLevelNumber = len(t.Structure.Levels) - 1
-	} else {
-		t.State.CurrentLevelNumber++
+	if t.State.CurrentLevelNumber >= len(t.Structure.Levels)-1 {
+		t.endOfTime()
+		return nil
 	}
+
+	t.State.CurrentLevelNumber++
 	t.restartLevel()
 	return nil
 }
@@ -468,10 +482,12 @@ func (t *Tournament) MinusMinute() error {
 type TournamentSlug struct {
 	TournamentID   int64
 	TournamentName string
+	Description    string
 	// buyin, host, location, etc.
 }
 
 // Overview describes the available events for the event list.
 type Overview struct {
-	Slugs []TournamentSlug
+	IsAdmin bool
+	Slugs   []TournamentSlug
 }

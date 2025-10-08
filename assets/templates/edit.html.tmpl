@@ -1,4 +1,5 @@
 <!-- edit tournament settings -->
+{{ with .Tournament }}
 <html>
   <head>
     <title>
@@ -28,42 +29,44 @@
       }
     </style>
 
-    <h1> EDIT EVENT {{ .EventID }} </h1>
+
+    <h1> EDIT EVENT {{ $.Tournament.EventID }} ... </h1>
+
+    <p> VERSION {{ .OptimisticLock }}</p>
 
     <form method="post">
-
+      <input type="hidden" name="OptimisticLock" value="{{ .OptimisticLock }}">
       <table>
         <tr> <td width="10%"> EVENT NAME
           <td width="90%"> <input name="EventName" size="30" maxlength="30"
                                          value="{{- .EventName -}}"> </tr>
+        <tr> <td width="10%"> DESCRIPTION
+          <td width="90%"> <input name="Description" size="30" maxlength="50"
+                                         value="{{- .Description -}}"> </tr>
         <tr> <td> PRIZE POOL <td> Free-form text. No HTML tags. <br>
-            <textarea name="prizepool" type="textarea" cols="13" rows="10">{{- .PrizePool -}}</textarea>
-        </tr>
-        <tr> <td> LEVELS <td> ONE LINE, LIKE THIS: <br>
-            <tt> &lt;duration&gt; -- &lt;level|break&gt; -- &lt;blinds + ante&gt; </tt> <br>
-            <textarea name="levels" type="textarea" cols="72" rows="20">
-              {{- range $level := .Levels -}}
-              {{- $level.DurationMinutes}} -- {{if $level.IsBreak}}BREAK{{else}}LEVEL{{end}} -- {{$level.Description -}}
-              {{- printf "\n" -}}
-              {{- end -}}
-            </textarea>
-        </tr>
-        <tr> <td> FOOTER PLUGS <td>
-            SEPARATE PLUGS WITH DOUBLE-SPACE LINE. <br>
-            TEXT KEPT IN A SINGLE LINE WILL NOT BE <br>
-            BROKEN WITHIN THE LINE.  NO MARKUP. <br>
-            <textarea name="footer-plugs" type="textarea" cols="72" rows="40">
-              {{- joinNLNL .FooterPlugs -}}
-            </textarea>
+            <textarea name="PrizePool" type="textarea" cols="13" rows="10">{{- .State.PrizePool -}}</textarea>
         </tr>
         <tr>
-          <td>
-          <td>
-            <input type="submit" value="   SAVE CHANGES   " style="font-family: arcade, monospace;">
-            <input type="submit" value=" RESET TO SAVED VALUES " style="font-family: arcade, monospace;">
+          <td colspan="2">
+            <table>
+              <tr>
+                {{ if $.IsAdmin }}
+                  <td> <input type="submit" value="   SAVE CHANGES   " style="font-family: arcade, monospace;"> </td>
+                  <td> <input type="reset" value=" RESET TO SAVED VALUES " style="font-family: arcade, monospace;"> </td>
+                {{ else }}
+                  <td> YOU CAN LOOK BUT YOU CAN'T TOUCH </td>
+                {{ end }}
+              </tr>
+              <tr> 
+                <td>
+                  [<a href="/">OVERVIEW</a>] [<a href="/t/{{ .EventID }}">VIEW EVENT</a>]
+                </td>
+              </tr>
+            </table>
           </td>
         </tr>
       </table>
     </form>
   </body>
 </html>
+{{ end }}

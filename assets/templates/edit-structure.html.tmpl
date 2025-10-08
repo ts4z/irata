@@ -1,0 +1,10 @@
+        <tr> <td> LEVELS <td> ONE LINE, LIKE THIS: <br>
+            <tt> &lt;duration&gt; -- &lt;level|break&gt; -- &lt;blinds + ante&gt; </tt> <br>
+            <textarea name="levels" type="textarea" cols="72" rows="20">
+              {{- range $level := .Levels -}}
+              {{- $level.DurationMinutes}} -- {{if $level.IsBreak}}BREAK{{else}}LEVEL{{end}} -- {{$level.Description -}}
+              {{- printf "\n" -}}
+              {{- end -}}
+            </textarea>
+        </tr>
+

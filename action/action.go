@@ -4,9 +4,9 @@ import (
 	"context"
 	"log"
 	"net/url"
+	"strconv"
 
 	"github.com/ts4z/irata/he"
-	"github.com/ts4z/irata/model"
 	"github.com/ts4z/irata/state"
 )
 
@@ -18,6 +18,12 @@ func New(s state.Storage) *Actor {
 	return &Actor{storage: s}
 }
 
+func maybeCopyString(form url.Values, dest *string, key string) {
+	if v, ok := form[key]; ok && len(v) > 0 {
+		*dest = v[0]
+	}
+}
+
 func (a *Actor) EditEvent(ctx context.Context, id int64, form url.Values) error {
 	log.Printf("edit path: %v", id)
 
@@ -26,19 +32,17 @@ func (a *Actor) EditEvent(ctx context.Context, id int64, form url.Values) error 
 		return he.HTTPCodedErrorf(404, "can't get tournament from database")
 	}
 
-	if v, ok := form["EventName"]; ok && len(v) > 0 {
-		t.EventName = v[0]
-	}
-	if v, ok := form["PrizePool"]; ok && len(v) > 0 {
-		t.State.PrizePool = v[0]
-	}
-	if v, ok := form["Levels"]; ok && len(v) > 0 {
-		pl, err := model.ParseLevels(v[0])
+	if v, ok := form["OptimisticLock"]; ok && len(v) > 0 {
+		n, err := strconv.ParseInt(v[0], 10, 64)
 		if err != nil {
 			return err
 		}
-		t.Structure.Levels = pl
+		t.OptimisticLock = n
 	}
+
+	maybeCopyString(form, &t.EventName, "EventName")
+	maybeCopyString(form, &t.State.PrizePool, "PrizePool")
+	maybeCopyString(form, &t.Description, "Description")
 
 	return a.storage.SaveTournament(ctx, t)
 }

@@ -15,4 +15,5 @@ type Storage interface {
 	FetchPlugs(ctx context.Context, id int64) (*model.FooterPlugs, error)
 	FetchStructure(ctx context.Context, id int64) (*model.Structure, error)
 	SaveTournament(ctx context.Context, m *model.Tournament) error
+	DeleteTournament(ctx context.Context, id int64) error
 }

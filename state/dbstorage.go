@@ -63,6 +63,7 @@ func (s *DBStorage) FetchOverview(ctx context.Context) (*model.Overview, error) 
 		slug := model.TournamentSlug{
 			TournamentID:   id,
 			TournamentName: tournament.EventName,
+			Description:    tournament.Description,
 		}
 
 		overview.Slugs = append(overview.Slugs, slug)
@@ -169,4 +170,21 @@ func (s *DBStorage) SaveTournament(
 
 	log.Printf("wrote: id=%d, bytes=%q", tm.EventID, bytes)
 	return nil
+}
+
+func (s *DBStorage) DeleteTournament(ctx context.Context, id int64) error {
+	result, err := s.db.ExecContext(ctx,
+		"DELETE from tournaments WHERE tournament_id=$1", id)
+
+	if err != nil {
+		return err
+	} else {
+		if n, err := result.RowsAffected(); err != nil {
+			return err
+		} else if n != 1 {
+			return fmt.Errorf("%d rows deleted", n)
+		} else {
+			return nil
+		}
+	}
 }

@@ -18,7 +18,8 @@ INSERT INTO tournaments (tournament_id, model_data)
 OVERRIDING SYSTEM VALUE
 VALUES (1, $json$
     {
-       "EventName": "Event One",
+       "EventName": "PeterBARGE",
+       "Description": "$100 Freezeout at Pinball Pirate",
        "FooterPlugsID": 1,
        "StructureID": 1,
        "State": {
@@ -29,6 +30,26 @@ VALUES (1, $json$
            "BuyIns": 33,
            "TotalChips": 9900,
            "PrizePool": "Yadda\nYadda\nYadda"
+       }
+    }
+    $json$);
+
+INSERT INTO tournaments (tournament_id, model_data) 
+OVERRIDING SYSTEM VALUE
+VALUES (2, $json$
+    {
+       "EventName": "Event Two",
+       "Description": "Description for Event Two",
+       "FooterPlugsID": 1,
+       "StructureID": 1,
+       "State": {
+           "IsClockRunning": false,
+           "CurrentLevelNumber": 0,
+           "TimeRemainingMillis": 3599000,
+           "CurrentPlayers": 33,
+           "BuyIns": 33,
+           "TotalChips": 9900,
+           "PrizePool": "Event\nTwo\nFTW"
        }
     }
     $json$);

@@ -1,11 +1,10 @@
 // A movement is what makes a clock go.  movement.js makes this poker clock go.
 
+"use strict";
+
 function tournament_id() {
-  console.log(window.location.pathname);
-  var parts = window.location.pathname.split("/");
-  id = parts[parts.length - 1];
-  console.log("tournament id " + id);
-  return id;
+    var parts = window.location.pathname.split("/");
+    return parts[parts.length - 1];
 }
 
 // t is in milliseconds
@@ -21,14 +20,14 @@ function to_hmmss(t) {
     return "00:00";
   }
 
-  seconds = parseInt(t / 1000)
-  var h = parseInt(seconds / 3600)
-  var m = parseInt((seconds-(h*3600))/60)
-  var s = seconds % 60
+  var seconds = parseInt(t / 1000);
+  var h = parseInt(seconds / 3600);
+  var m = parseInt((seconds-(h*3600))/60);
+  var s = seconds % 60;
 
-  var hh = h
-  var mm = m >= 10 ? m : "0" + m
-  var ss = s >= 10 ? s : "0" + s
+  var hh = h;
+  var mm = m >= 10 ? m : "0" + m;
+  var ss = s >= 10 ? s : "0" + s;
 
   if (h === 0) {
     return mm + ":" + ss;
@@ -47,12 +46,12 @@ const shuffle_array = array => {
   }
 }
 
-(function () {
   const reload_model_ms = 15000;
   const clock_tick_ms = 250;
-  const next_footer_interval_ms = 30000
+  const next_footer_interval_ms = 30000;
 
-  var next_level_complete_at = undefined;
+  var next_level_complete_at = undefined,
+  next_break_at = undefined;
   
   // Initialize last_model (the last model we loaded) with a fail-safe initial
   // model value
@@ -83,15 +82,21 @@ const shuffle_array = array => {
       "EndsAt": undefined,
     }
   }
-
-  var footers = ["ATOMIC BATTERIES TO POWER..."];
+  var footers = [
+    "ATOMIC BATTERIES TO POWER... TURBINES TO SPEED...", 
+    "RETICULATING SPLINES...",
+    "CALIBRATING TIME AND SPACE...",
+    "FLUXING CAPACITOR...",
+    "CONGRATULATIONS, YOU AREN'T RUNNING EUNICE...",
+    "TAPPING AQUARIUM...",
+  ];
   var fetched_footer_plugs_id = NaN;
 
   async function maybe_fetch_footers(footer_plugs_id) {
     if (footer_plugs_id === fetched_footer_plugs_id) {
       return
     }
-    response = fetch("/api/footerPlugs/" + footer_plugs_id)
+    fetch("/api/footerPlugs/" + footer_plugs_id)
       .then(response => {
         console.log("response " + response);
         return response;
@@ -119,10 +124,11 @@ const shuffle_array = array => {
     }
   })()
 
-  var footer_interval_id = setInterval(next_footer, next_footer_interval_ms);
+  let footer_interval_id = setInterval(next_footer, next_footer_interval_ms);
   
   async function load() {
-    response = fetch("/api/model/" + tournament_id())
+    console.log("called: load()");
+    fetch("/api/model/" + tournament_id())
       .then(response => response.json()
             .then(model => apply_model(model))
             .catch(error => console.log("error in getting model: ", error)))
@@ -137,10 +143,10 @@ const shuffle_array = array => {
     next_break_at = model.Transients.NextBreakAt;
 
     var cln = model.State.CurrentLevelNumber;
-    level = model.Structure.Levels[cln]
+    var level = model.Structure.Levels[cln]
     var level_banner = "[BANNER UNSET]";
     if (level.IsBreak) {
-      if (model.State.CurrentLevelNumber == 0) {
+      if (model.State.CurrentLevelNumber === 0) {
         level_banner = "STARTING IN...";
       } else {
         level_banner = "BREAK " + cln;
@@ -170,13 +176,14 @@ const shuffle_array = array => {
     set_clock(model);
     update_clock();
     start_clock();
+
     maybe_fetch_footers(model.FooterPlugsID);
 
     last_model = model;
   }
 
   function set_html(id, value) {
-    var el = document.getElementById(id)
+    let el = document.getElementById(id)
     if (el !== null) {
       el.innerHTML = value
     } else {
@@ -193,15 +200,6 @@ const shuffle_array = array => {
     }
   }
   
-  function update_level() {
-    {
-      var td = document.getElementById("level");
-      if (td !== null) {
-        td.innerHTML = "LEVEL " + level;
-      }
-    }
-  }
-
   function level_remaining() {
     var ends_at = last_model?.State?.CurrentLevelEndsAt;
     if (ends_at) {
@@ -229,8 +227,10 @@ const shuffle_array = array => {
       return
     }
 
-    if (typeof model.Transients.NextBreakAt === 'undefined') {
-      console.log("update_break_clock: NextBreakAt not defined");
+    if (!model.Transients.NextBreakAt) {
+        td.innerHTML = "N/A";
+    } else if (typeof model.Transients.NextBreakAt !== 'number') {
+      console.log("update_break_clock: NextBreakAt is nonsense");
       td.innerHTML = "???";
     } else {
       var remaining = (next_break_at - Date.now());
@@ -244,17 +244,38 @@ const shuffle_array = array => {
     }
   }
 
+  // TODO: ideally, we would not re-sync with the server because we hit end of level;
+  // our calculation should be just as good as the server's.  in reality this is
+  // unlikely and our clocks are likely to be at least hundreds of milliseconds out
+  // of sync in even typical operation.
   function tick() {
     var rem = level_remaining();
     if (typeof rem === 'undefined') {
       // paused, no math to do?
     } else if (rem <= 0) {
-      console.Log("rem = " + rem);
+      
+      let oldEndsAt = new Date(last_model.State.CurrentLevelEndsAt)
       last_model.State.CurrentLevelNumber++
-      // apply the model which should move us to the next level
+
+      // fudge model while we wait for update from server
+
+      if (last_model.State.CurrentLevelNumber >= last_model.Structure.Levels.length) {
+        // fudge model while we wait for update from server
+        console.log("local stop clock");
+        last_model.State.CurrentLevelNumber = last_model.Structure.Levels.length - 1;
+        last_model.State.IsClockRunning = false;
+      } else {
+        let nextDurationMinutes = last_model.Structure.Levels[last_model.State.CurrentLevelNumber].DurationMinutes;
+        let oldMinutes = oldEndsAt.getMinutes();
+        last_model.State.CurrentLevelEndsAt = new Date(oldEndsAt.setMinutes(oldMinutes + nextDurationMinutes)); // gross
+      }
+      
+      // apply the (possibly fudged) clock
       apply_model(last_model);
-      // trust the server as authoritative
-      return load();
+
+      // get the real data from the server to verify the end of level calculation;
+      // the local may be different
+      load();
     }
 
     update_clock();
@@ -262,7 +283,6 @@ const shuffle_array = array => {
 
   function set_clock(model) {
     var endsAt = new Date(model.State.CurrentLevelEndsAt)
-    console.log("This level complete at " + endsAt)
     next_level_complete_at = endsAt;
   }
 
@@ -294,9 +314,15 @@ const shuffle_array = array => {
     }
   }
 
+  function next_footer_key() {
+    next_footer();
+    clearInterval(footer_interval_id);
+    footer_interval_id = setInterval(next_footer, next_footer_interval_ms);
+  }
+
   function send_modify(event) {
-    url = "/api/keyboard-control/" + tournament_id();
-    response = fetch(url, {
+    let url = "/api/keyboard-control/" + tournament_id();
+    fetch(url, {
       method: 'POST',
       mode: 'same-origin',
       headers: {
@@ -304,9 +330,9 @@ const shuffle_array = array => {
       },
       body: JSON.stringify({"Event":event})
     })
-      .then(resp => console.log("${url} response: " + resp))
+      .then(resp => console.log(`${url} response: ${resp}`))
       .then(_ => load())
-      .catch(error => console.log("error in request for modify event ${event}: ", error))
+      .catch(error => console.log(`error in request for modify event ${event}: ${error}`))
   }
 
   async function toggle_pause(event) {
@@ -331,13 +357,15 @@ const shuffle_array = array => {
     'End': { call: send_modify, arg: 'RemoveBuyIn'},
     'Equal': { call: send_modify, arg: 'AddBuyIn'},
     'Minus': { call: send_modify, arg: 'RemoveBuyIn'},
+    'Comma': { call: send_modify, arg: 'RemoveBuyIn'},
+    'Period': { call: send_modify, arg: 'AddBuyIn'},
     'KeyG': { call: send_modify, arg: 'StartClock'},
     'KeyS': { call: send_modify, arg: 'StopClock'},
+    'KeyF': { call: next_footer_key, arg: 'N/A' },
   }
 
   document.addEventListener('keyup', (event) => {
     var code = event.code;
-    console.log(`Key pressed, Key code value: ${code}`);
     var handler = keycode_to_handler[code];
     if (typeof handler !== 'undefined') {
       console.log(`Key pressed ${event} ${code} => ${handler}`);
@@ -349,4 +377,3 @@ const shuffle_array = array => {
   
   start_reloader();
   load();
-})();
