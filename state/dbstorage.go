@@ -125,11 +125,6 @@ func (s *DBStorage) FetchTournament(ctx context.Context, id int64) (*model.Tourn
 	if err != nil {
 		return nil, err
 	}
-	sm, err := s.FetchStructure(ctx, tm.StructureID)
-	if err != nil {
-		return nil, err
-	}
-	tm.Structure = sm
 	return tm, nil
 }
 
@@ -147,7 +142,7 @@ func (s *DBStorage) SaveTournament(
 	ctx context.Context,
 	tm *model.Tournament) error {
 	cpy := *tm
-	cpy.Structure = nil
+
 	cpy.Transients = nil
 	bytes, err := json.Marshal(&cpy)
 	if err != nil {

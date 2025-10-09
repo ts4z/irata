@@ -21,9 +21,9 @@ var (
 )
 
 type Level struct {
-	// configuration
+	Banner          string
 	Description     string
-	DurationMinutes int // TODO: convert this to a string
+	DurationMinutes int // TODO: convert this to a string?
 	IsBreak         bool
 }
 
@@ -76,20 +76,24 @@ type Tournament struct {
 	EventName     string
 	Description   string
 	FooterPlugsID int64
-	StructureID   int64
-	Structure     *Structure
-	State         *State
-	Transients    *Transients
+
+	Structure  *StructureData
+	State      *State
+	Transients *Transients
+}
+
+type StructureData struct {
+	Levels        []*Level
+	ChipsPerBuyIn int
+	ChipsPerAddOn int
 }
 
 // Strucutre describes the structure of a tournament.
 type Structure struct {
-	StructureID    int64
-	OptimisticLock int64
-
-	Levels        []*Level
-	ChipsPerBuyIn int
-	ChipsPerAddOn int
+	StructureData
+	StructureName string
+	StructureID   int64
+	Version       int64
 }
 
 // State represents the mutable state of a tournament.

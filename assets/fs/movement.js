@@ -144,21 +144,16 @@ const shuffle_array = array => {
 
     var cln = model.State.CurrentLevelNumber;
     var level = model.Structure.Levels[cln]
-    var level_banner = "[BANNER UNSET]";
+
     if (level.IsBreak) {
-      if (model.State.CurrentLevelNumber === 0) {
-        level_banner = "STARTING IN...";
-      } else {
-        level_banner = "BREAK " + cln;
-      }
       set_html("blinds", level.Description);
       set_class("clock", "clock-break");
     } else {
-      level_banner = "LEVEL " + cln;
-      set_html("blinds", "BLINDS " + level.Description);
+      set_html("blinds", level.Description);
       set_class("clock", "clock");
     }
 
+    let level_banner = level.Banner;
     if (!model.State.IsClockRunning) {
       level_banner += " (PAUSED)";
     }
@@ -261,7 +256,7 @@ const shuffle_array = array => {
 
       if (last_model.State.CurrentLevelNumber >= last_model.Structure.Levels.length) {
         // fudge model while we wait for update from server
-        console.log("local stop clock");
+        console.log("it's the end of the world as we know it");
         last_model.State.CurrentLevelNumber = last_model.Structure.Levels.length - 1;
         last_model.State.IsClockRunning = false;
       } else {
