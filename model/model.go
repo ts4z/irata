@@ -20,6 +20,29 @@ var (
 	dashDashRE = regexp.MustCompile(`\s*--\s*`)
 )
 
+type LoginCookie struct {
+	EmailAddress string
+}
+
+type CookieKeyValidity struct {
+	MintFrom   time.Time
+	MintUntil  time.Time
+	HonorUntil time.Time
+}
+
+type CookieKeyPair struct {
+	Validity   CookieKeyValidity
+	HashKey64  string
+	BlockKey64 string
+}
+
+type SiteConfig struct {
+	Name       string
+	Site       string
+	Theme      string
+	CookieKeys []CookieKeyPair
+}
+
 type Level struct {
 	Banner          string
 	Description     string
@@ -35,10 +58,15 @@ func parseLevelBreak(s string) bool {
 	}
 }
 
+// ParseLevels is for parsing levels from an old text input;
+// it is not clear to me if it needs to exist now.
+//
+// level 0 is *always* a break.
 func ParseLevels(input string) ([]*Level, error) {
 	levels := []*Level{}
 	lines := strings.Split(input, "\n")
 	for _, line := range lines {
+
 		parts := dashDashRE.Split(line, 3)
 		if len(parts) != 3 {
 			return nil, fmt.Errorf("line unparsable: %q", line)
@@ -50,11 +78,16 @@ func ParseLevels(input string) ([]*Level, error) {
 		isBreak := parseLevelBreak(parts[1])
 		description := parts[2]
 		levels = append(levels, &Level{
+			Banner:          description,
 			DurationMinutes: durationMins,
 			IsBreak:         isBreak,
 			Description:     description,
 		})
 	}
+	if len(levels) < 2 {
+		return nil, fmt.Errorf("need at least two levels, got %d", len(levels))
+	}
+	levels[0].IsBreak = true
 	return levels, nil
 }
 
@@ -63,17 +96,18 @@ func ParseLevels(input string) ([]*Level, error) {
 // This is intended to support things other than text, but that's not
 // implemented yet.
 type FooterPlugs struct {
-	FooterPlugsID  int64
-	OptimisticLock int64
-	TextPlugs      []string
+	FooterPlugsID int64
+	Version       int64
+	TextPlugs     []string
 }
 
 // Tournaments are the things that we're running.
 type Tournament struct {
-	EventID        int64 // TODO: rename to TournamentID
-	OptimisticLock int64
+	EventID int64 // TODO: rename to TournamentID
+	Version int64
 
 	EventName     string
+	Handle        string // datbase unique key
 	Description   string
 	FooterPlugsID int64
 
@@ -82,6 +116,7 @@ type Tournament struct {
 	Transients *Transients
 }
 
+// Data for a structure.  Embedded in Structure and referenced in Tournament.
 type StructureData struct {
 	Levels        []*Level
 	ChipsPerBuyIn int
@@ -91,9 +126,14 @@ type StructureData struct {
 // Strucutre describes the structure of a tournament.
 type Structure struct {
 	StructureData
-	StructureName string
-	StructureID   int64
-	Version       int64
+	Name    string
+	ID      int64
+	Version int64
+}
+
+type StructureSlug struct {
+	Name string
+	ID   int64
 }
 
 // State represents the mutable state of a tournament.
@@ -105,6 +145,7 @@ type State struct {
 	CurrentLevelNumber int
 	CurrentPlayers     int
 	BuyIns             int
+	AddOns             int
 	TotalChips         int
 	PrizePool          string // right-hand side display
 
@@ -223,6 +264,13 @@ func (m *Tournament) RestartLastLevel() {
 // from templates and maybe JS.)
 func (m *Tournament) FillTransients() {
 	m.Transients = &Transients{}
+
+	// TODO: move this to edit
+	minimumTotalChips := m.State.BuyIns*m.Structure.ChipsPerBuyIn + m.State.AddOns*m.Structure.ChipsPerAddOn
+	if minimumTotalChips > m.State.TotalChips {
+		m.State.TotalChips = minimumTotalChips
+	}
+
 	m.Transients.AverageChips = m.State.TotalChips / m.State.CurrentPlayers
 
 	m.adjustStateForElapsedTime()
@@ -492,6 +540,5 @@ type TournamentSlug struct {
 
 // Overview describes the available events for the event list.
 type Overview struct {
-	IsAdmin bool
-	Slugs   []TournamentSlug
+	Slugs []TournamentSlug
 }

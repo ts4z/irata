@@ -72,3 +72,20 @@ func CheckWriteAccessToTournamentID(ctx context.Context, _ int64) error {
 	// TODO more checks needed, eh?
 	return nil
 }
+
+func CheckCreateTournamentAccess(ctx context.Context) error {
+	u := UserFromContext(ctx)
+	if !u.IsAdmin() {
+		return he.HTTPCodedErrorf(http.StatusUnauthorized, "permission denied")
+	}
+	// TODO more checks needed, eh?
+	return nil
+}
+
+func CheckAdminAccess(ctx context.Context) error {
+	u := UserFromContext(ctx)
+	if !u.IsAdmin() {
+		return he.HTTPCodedErrorf(http.StatusUnauthorized, "permission denied")
+	}
+	return nil
+}

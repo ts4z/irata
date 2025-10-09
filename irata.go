@@ -10,7 +10,9 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"time"
 
+	"github.com/jonboulle/clockwork"
 	"github.com/ts4z/irata/action"
 	"github.com/ts4z/irata/assets"
 	"github.com/ts4z/irata/defaults"
@@ -59,6 +61,7 @@ type irataApp struct {
 	storage   state.Storage
 	mutator   *action.Actor
 	subFS     fs.FS
+	bakery    *permission.Bakery
 }
 
 func (app *irataApp) fetchTournament(ctx context.Context, id int64) (*model.Tournament, error) {
@@ -78,7 +81,8 @@ func (app *irataApp) installHandlers() {
 				IsAdmin  bool
 				Overview *model.Overview
 			}
-			o, err := app.storage.FetchOverview(ctx)
+			// TODO: pagination
+			o, err := app.storage.FetchOverview(ctx, 0, 100)
 			if err != nil {
 				he.SendErrorToHTTPClient(w, "fetch overview", err)
 				return
@@ -89,6 +93,18 @@ func (app *irataApp) installHandlers() {
 				return
 			}
 		})
+
+	http.HandleFunc("/favicon.ico", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFileFS(w, r, app.subFS, "favicon.ico")
+	})
+
+	http.HandleFunc("/logout", func(w http.ResponseWriter, r *http.Request) {
+		http.SetCookie(w, &http.Cookie{
+			Name:   permission.AuthCookieName,
+			Value:  "",
+			MaxAge: -1,
+		})
+	})
 
 	// anything in fs is a file trivially shared
 	http.Handle("/fs/", http.StripPrefix("/fs/", http.FileServer(http.FS(app.subFS))))
@@ -277,7 +293,15 @@ func (app *irataApp) serve() error {
 	return http.ListenAndServe(listenAddress, nil)
 }
 
+func readSiteConfig(ctx context.Context, s state.Storage) (*model.SiteConfig, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	return s.FetchSiteConfig(ctx)
+}
+
 func main() {
+	ctx := context.Background()
+	clock := clockwork.NewRealClock()
 	subFS, err := fs.Sub(assets.FS, "fs")
 	if err != nil {
 		log.Fatalf("fs.Sub: %v", err)
@@ -288,11 +312,21 @@ func main() {
 		log.Fatalf("can't configure database: %v", err)
 	}
 
+	siteConfig, err := readSiteConfig(ctx, unprotectedStorage)
+	if err != nil {
+		log.Fatalf("can't fetch site config: %v", err)
+	}
+
+	bakery, err := permission.NewBakery(clock, siteConfig)
+	if err != nil {
+		log.Fatalf("can't create bakery: %v", err)
+	}
+
 	storage := &permission.StorageDecorator{Storage: unprotectedStorage}
 
 	mutator := action.New(storage)
 
-	app := &irataApp{storage: storage, mutator: mutator, subFS: subFS}
+	app := &irataApp{storage: storage, mutator: mutator, subFS: subFS, bakery: bakery}
 	app.loadTemplates()
 	app.installHandlers()
 	if err := app.serve(); err != nil {

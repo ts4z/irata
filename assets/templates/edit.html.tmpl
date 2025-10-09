@@ -32,20 +32,24 @@
 
     <h1> EDIT EVENT {{ $.Tournament.EventID }} ... </h1>
 
-    <p> VERSION {{ .OptimisticLock }}</p>
+    <p> VERSION {{ .Version }}</p>
 
     <form method="post">
-      <input type="hidden" name="OptimisticLock" value="{{ .OptimisticLock }}">
+      <input type="hidden" name="Version" value="{{ .Version }}">
       <table>
         <tr> <td width="10%"> EVENT NAME
           <td width="90%"> <input name="EventName" size="30" maxlength="30"
                                          value="{{- .EventName -}}"> </tr>
+        <tr> <td width="10%"> HANDLE
+          <td width="90%"> <input name="EventName" size="30" maxlength="30"
+                                         value="{{- .Handle -}}"> </tr>
         <tr> <td width="10%"> DESCRIPTION
           <td width="90%"> <input name="Description" size="30" maxlength="50"
                                          value="{{- .Description -}}"> </tr>
         <tr> <td> PRIZE POOL <td> Free-form text. No HTML tags. <br>
             <textarea name="PrizePool" type="textarea" cols="13" rows="10">{{- .State.PrizePool -}}</textarea>
         </tr>
+
         <tr>
           <td colspan="2">
             <table>
