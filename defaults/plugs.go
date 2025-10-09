@@ -23,15 +23,20 @@ you haven't met yet."
 		"this space intentionally left blank",
 		"SPONSORED BY PINBALLPIRATE.COM",
 		"SPONSORED BY TS4Z.NET",
+		"NOT SPONSORED BY\nPOKERSTARS.COM",
 		"WWW.BARGE.ORG",
 		"WWW.BJRGE.ORG",
 		"FARGOPOKER.ORG",
 		"ATLARGEPOKER.COM",
 		"ARGEMPOKER.COM",
+		"PETER.BARGE.ORG",
+		"CRAFTPOKER.COM",
+		"BARGECHIPS.ORG",
 		"this space for rent",
 		"\"COCKTAILS!\"",
 		"WABOR",
 		"WHEN IN NEW YORK...\nVISIT THE MAYFAIR CLUB",
+		"WHEN IN PARIS...\nVISIT THE AVIATION CLUB",
 		"May the flop be with you.\n-Doyle Brunson",
 		"Don't you know who **I** am?\n-Phil Gordon",
 		"WHO BUT W.B. MASON?",
@@ -55,12 +60,16 @@ you haven't met yet."
 		"It's hard to convince\na winner that he's losing.\n-Mike Caro",
 		"If an opponent\nwon't watch you bet,\nthen you\nprobably shouldn't.\n-Mike Caro",
 
+		"You're not going\nto like this,\nNolan.",
+
 		// extractred from QB trip reports
 		"I toss a chip to the dealer.\nDealer: \"What's this for?\"\nMe: \"You laughed at my dumb joke.\"\nDealer: \"Appreciate it.\" -QB",
 		"Gillian: \"So Dan,\nhow does\nthis work?\"Deadhead: \"Dan puts\nout chips. People take 'em.\"\n-as reported by QB",
 		"Here's the thing about poker...\nnobody gives a shit.\n-Dan Goldman",
 		"It cost me a couple\nmillion dollars\nto develop\nthis reputation.\n-Daniel Negreanu,\non being known to be\nhard-to-bluff",
 		"\"But it's a great game!\"\n\"Yeah, it's a great game\nbecause YOU'RE in it!\"\n-Daniel Negreanu",
+
+		"This is my third rodeo.", // because it's PeterBARGE 3
 	}
 
 	for i, s := range a {
