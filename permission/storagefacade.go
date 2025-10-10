@@ -2,21 +2,16 @@ package permission
 
 import (
 	"context"
-	"errors"
 
 	"github.com/ts4z/irata/model"
 	"github.com/ts4z/irata/state"
 )
 
 type StorageDecorator struct {
-	Storage state.Storage
+	Storage state.AppStorage
 }
 
-var _ state.Storage = &StorageDecorator{}
-
-func (s *StorageDecorator) FetchSiteConfig(ctx context.Context) (*model.SiteConfig, error) {
-	return nil, errors.ErrUnsupported
-}
+var _ state.AppStorage = &StorageDecorator{}
 
 func (s *StorageDecorator) CreateTournament(ctx context.Context, t *model.Tournament) (int64, error) {
 	if err := CheckCreateTournamentAccess(ctx); err != nil {
@@ -78,8 +73,4 @@ func (s *StorageDecorator) CreateStructure(ctx context.Context, st *model.Struct
 		return -1, err
 	}
 	return s.Storage.CreateStructure(ctx, st)
-}
-
-func (s *StorageDecorator) SaveSiteConfig(ctx context.Context, cfg *model.SiteConfig) error {
-	return errors.ErrUnsupported
 }

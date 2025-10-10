@@ -20,8 +20,20 @@ var (
 	dashDashRE = regexp.MustCompile(`\s*--\s*`)
 )
 
-type LoginCookie struct {
-	EmailAddress string
+type AuthCookieData struct {
+	RealUserID      int64
+	EffectiveUserID int64
+}
+
+type UserRow struct {
+	UserIdentity
+	PasswordHash string
+}
+
+type UserIdentity struct {
+	ID      int64
+	Nick    string
+	IsAdmin bool
 }
 
 type CookieKeyValidity struct {

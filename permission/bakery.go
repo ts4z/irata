@@ -70,15 +70,15 @@ func New(clock BakeryClock, conf *model.SiteConfig) (*Bakery, error) {
 	}, nil
 }
 
-func (b *Bakery) ReadCookie(r *http.Request) (*model.LoginCookie, error) {
-	cookie, err := r.Cookie("cookie-name")
+func (b *Bakery) ReadCookie(r *http.Request) (*model.AuthCookieData, error) {
+	cookie, err := r.Cookie(AuthCookieName)
 	if err != nil {
 		return nil, fmt.Errorf("can't get cookie: %w", err)
 	}
 
 	errors := []error{}
 
-	c := &model.LoginCookie{}
+	c := &model.AuthCookieData{}
 	for _, baker := range b.bakers {
 		if !baker.honorable(time.Now()) {
 			continue
@@ -118,7 +118,7 @@ func (b *Bakery) bestKeyForMinting(now time.Time) (*cookieBaker, error) {
 	return best, nil
 }
 
-func (b *Bakery) BakeCookie(w http.ResponseWriter, lc *model.LoginCookie) error {
+func (b *Bakery) BakeCookie(w http.ResponseWriter, lc *model.AuthCookieData) error {
 	bb, err := b.bestKeyForMinting(time.Now())
 	if err != nil {
 		return fmt.Errorf("can't find key for minting: %w", err)
@@ -126,6 +126,7 @@ func (b *Bakery) BakeCookie(w http.ResponseWriter, lc *model.LoginCookie) error 
 
 	encrypted, err := bb.sc.Encode(AuthCookieName, lc)
 	if err != nil {
+		log.Printf("can't encrypt cookie: %v", err)
 		return fmt.Errorf("can't encrypt cookie: %w", err)
 	}
 
@@ -133,8 +134,9 @@ func (b *Bakery) BakeCookie(w http.ResponseWriter, lc *model.LoginCookie) error 
 		Name:     AuthCookieName,
 		Value:    encrypted,
 		Path:     "/",
-		Secure:   true,
+		Secure:   false, // TODO set to true when we have HTTPS
 		HttpOnly: true,
+		SameSite: http.SameSiteStrictMode,
 	})
 
 	return nil

@@ -11,10 +11,10 @@ import (
 )
 
 type Actor struct {
-	storage state.Storage
+	storage state.AppStorage
 }
 
-func New(s state.Storage) *Actor {
+func New(s state.AppStorage) *Actor {
 	return &Actor{storage: s}
 }
 

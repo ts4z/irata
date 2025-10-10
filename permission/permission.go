@@ -5,68 +5,36 @@ import (
 	"net/http"
 
 	"github.com/ts4z/irata/he"
+	"github.com/ts4z/irata/model"
 )
-
-type EmailAddress string
-
-func (em EmailAddress) String() string {
-	return string(em)
-}
-
-// private guarantees that Auth structs were made by this package.
-type private struct{}
-
-type Identity struct {
-	emailAddress EmailAddress
-}
-
-// User combines both auth-n and auth-z in one confused package.
-type User struct {
-	private
-	effective *Identity
-	isAdmin   bool
-}
-
-func (a *User) IsAdmin() bool {
-	return a.isAdmin
-}
-
-func (a *User) Effective() *Identity {
-	return a.effective
-}
 
 type contextKeyType struct{}
 
 var contextKeyTypeValue = contextKeyType{}
 
-func InContext(ctx context.Context, a *User) context.Context {
+func IsAdmin(context context.Context) bool {
+	u := UserFromContext(context)
+	if u == nil {
+		return false
+	}
+	return u.IsAdmin
+}
+
+func UserIdentityInContext(ctx context.Context, a *model.UserIdentity) context.Context {
 	return context.WithValue(ctx, contextKeyType{}, a)
 }
 
-func UserFromContext(ctx context.Context) *User {
+func UserFromContext(ctx context.Context) *model.UserIdentity {
 	v := ctx.Value(contextKeyTypeValue)
-	if a, ok := v.(*User); ok {
+	if a, ok := v.(*model.UserIdentity); ok {
 		return a
 	} else {
-		panic("at the disco")
+		return nil
 	}
-}
-
-// DecoratedContext provides a Context that has a setting for this module,
-// so any layer of the stack can recover authz/authn information.
-func DecoratedContext(r *http.Request) (context.Context, *User) {
-	ctx := r.Context()
-	u := &User{
-		private:   private{},
-		effective: &Identity{emailAddress: "devnull@psaux.com"}, // TODO: implement users
-		isAdmin:   true,
-	}
-	return context.WithValue(ctx, contextKeyTypeValue, u), u
 }
 
 func CheckWriteAccessToTournamentID(ctx context.Context, _ int64) error {
-	u := UserFromContext(ctx)
-	if !u.IsAdmin() {
+	if !IsAdmin(ctx) {
 		return he.HTTPCodedErrorf(http.StatusUnauthorized, "permission denied")
 	}
 	// TODO more checks needed, eh?
@@ -74,8 +42,7 @@ func CheckWriteAccessToTournamentID(ctx context.Context, _ int64) error {
 }
 
 func CheckCreateTournamentAccess(ctx context.Context) error {
-	u := UserFromContext(ctx)
-	if !u.IsAdmin() {
+	if !IsAdmin(ctx) {
 		return he.HTTPCodedErrorf(http.StatusUnauthorized, "permission denied")
 	}
 	// TODO more checks needed, eh?
@@ -83,8 +50,7 @@ func CheckCreateTournamentAccess(ctx context.Context) error {
 }
 
 func CheckAdminAccess(ctx context.Context) error {
-	u := UserFromContext(ctx)
-	if !u.IsAdmin() {
+	if !IsAdmin(ctx) {
 		return he.HTTPCodedErrorf(http.StatusUnauthorized, "permission denied")
 	}
 	return nil

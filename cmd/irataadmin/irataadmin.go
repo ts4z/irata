@@ -6,18 +6,25 @@ import (
 	"encoding/base64"
 	"fmt"
 	"os"
+	"syscall"
+	"text/tabwriter"
 	"time"
+
+	"golang.org/x/term"
 
 	"github.com/jonboulle/clockwork"
 	"github.com/spf13/cobra"
 
 	"github.com/ts4z/irata/model"
+	"github.com/ts4z/irata/password"
 	"github.com/ts4z/irata/state"
 )
 
 const (
+	// these sizes are recommended by the gorilla/securecookie package
+	// https://pkg.go.dev/github.com/gorilla/securecookie#New
 	hashKeySize  = 32
-	blockKeySize = 128
+	blockKeySize = 16
 )
 
 var (
@@ -26,6 +33,10 @@ var (
 	mintDuration time.Duration
 	startOffset  time.Duration
 	clock        clockwork.Clock = clockwork.NewRealClock()
+
+	userNick    string
+	userEmail   string
+	userIsAdmin bool
 )
 
 func generateKey(sz int) ([]byte, error) {
@@ -140,6 +151,122 @@ func rotateKeys(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
+func addUser(cmd *cobra.Command, args []string) error {
+	ctx := context.Background()
+	storage, err := state.NewDBStorage(ctx, dbURL)
+	if err != nil {
+		return fmt.Errorf("connecting to database: %w", err)
+	}
+	defer storage.Close()
+
+	if userNick == "" || userEmail == "" {
+		return fmt.Errorf("name and email are required")
+	}
+
+	fmt.Print("Enter password: ")
+	pwBytes, err := term.ReadPassword(int(syscall.Stdin))
+	fmt.Println()
+	if err != nil {
+		return fmt.Errorf("reading password: %w", err)
+	}
+	userPassword := string(pwBytes)
+	if userPassword == "" {
+		return fmt.Errorf("password is required")
+	}
+
+	hashedPassword := password.Hash(userPassword)
+
+	err = storage.CreateUser(ctx, userNick, userEmail, hashedPassword, userIsAdmin)
+	if err != nil {
+		return fmt.Errorf("creating user: %w", err)
+	}
+
+	fmt.Printf("User %q added successfully.\n", userNick)
+	return nil
+}
+
+func listUsers(cmd *cobra.Command, args []string) error {
+	ctx := context.Background()
+	storage, err := state.NewDBStorage(ctx, dbURL)
+	if err != nil {
+		return fmt.Errorf("connecting to database: %w", err)
+	}
+	defer storage.Close()
+
+	users, err := storage.FetchUsers(ctx)
+	if err != nil {
+		return fmt.Errorf("fetching users: %w", err)
+	}
+
+	w := tabwriter.NewWriter(os.Stdout, 0, 8, 2, ' ', 0)
+
+	fmt.Fprintf(w, "id\tnick\tadmin\n")
+	for _, user := range users {
+		fmt.Fprintf(w, "%d\t%s\t%v\n", user.ID, user.Nick, user.IsAdmin)
+	}
+	w.Flush()
+	return nil
+}
+
+func checkpw(cmd *cobra.Command, args []string) error {
+	ctx := context.Background()
+	storage, err := state.NewDBStorage(ctx, dbURL)
+	if err != nil {
+		return fmt.Errorf("connecting to database: %w", err)
+	}
+	defer storage.Close()
+
+	nick := args[0]
+
+	fmt.Print("Enter password: ")
+	pwBytes, err := term.ReadPassword(int(syscall.Stdin))
+	fmt.Println()
+	if err != nil {
+		return fmt.Errorf("reading password: %w", err)
+	}
+	userPassword := string(pwBytes)
+	if userPassword == "" {
+		return fmt.Errorf("password is required")
+	}
+
+	userRow, err := storage.FetchUserRow(ctx, nick)
+	if err != nil {
+		return fmt.Errorf("fetching user %q: %w", nick, err)
+	}
+
+	checker, err := password.NewChecker(userRow)
+	if err != nil {
+		return fmt.Errorf("setting up password checker: %w", err)
+	}
+
+	_, err = checker.Validate(userPassword)
+	if err != nil {
+		fmt.Printf("error: %v\n", err)
+		return nil
+	}
+
+	fmt.Printf("ok\n")
+	return nil
+}
+
+func deleteUser(cmd *cobra.Command, args []string) error {
+	ctx := context.Background()
+	storage, err := state.NewDBStorage(ctx, dbURL)
+	if err != nil {
+		return fmt.Errorf("connecting to database: %w", err)
+	}
+	defer storage.Close()
+
+	nick := args[0]
+
+	err = storage.DeleteUserByNick(ctx, nick)
+	if err != nil {
+		return fmt.Errorf("deleting user %q: %w", nick, err)
+	}
+
+	return nil
+}
+
 func main() {
 	rootCmd := &cobra.Command{
 		Short: "Irata administration tool",
@@ -169,6 +296,43 @@ func main() {
 
 	keyCmd.AddCommand(listCmd, rotateCmd)
 	rootCmd.AddCommand(keyCmd)
+
+	userCmd := &cobra.Command{
+		Short: "Manage users",
+		Use:   "user",
+	}
+
+	addUserCmd := &cobra.Command{
+		Use:   "add",
+		Short: "Add a new user",
+		RunE:  addUser,
+	}
+	addUserCmd.Flags().StringVar(&userNick, "nick", "", "User's nick")
+	addUserCmd.Flags().StringVar(&userEmail, "email", "", "User's email address")
+	addUserCmd.Flags().BoolVar(&userIsAdmin, "admin", false, "Set user as admin")
+
+	deleteUserCmd := &cobra.Command{
+		Use:   "delete [nick]",
+		Short: "Delete a user",
+		Args:  cobra.ExactArgs(1),
+		RunE:  deleteUser,
+	}
+
+	listUserCmd := &cobra.Command{
+		Use:   "list",
+		Short: "List all users",
+		RunE:  listUsers,
+	}
+
+	checkPwCmd := &cobra.Command{
+		Use:   "checkpw [nick]",
+		Short: "Check a user's password",
+		Args:  cobra.ExactArgs(1),
+		RunE:  checkpw,
+	}
+
+	userCmd.AddCommand(addUserCmd, listUserCmd, checkPwCmd, deleteUserCmd)
+	rootCmd.AddCommand(userCmd)
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)

@@ -10,15 +10,23 @@ import (
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 
+	"github.com/ts4z/irata/dbutil"
 	"github.com/ts4z/irata/he"
 	"github.com/ts4z/irata/model"
 )
 
+// DBStorage stores stuff in the associated database.
+//
+// TODO: Split apart.  There is too much in one class, and the three
+// interfaces are easily seperable.  (The database handle can
+// be shared.)
 type DBStorage struct {
 	db *sql.DB
 }
 
-var _ Storage = &DBStorage{}
+var _ AppStorage = &DBStorage{}
+var _ SiteStorage = &DBStorage{}
+var _ UserStorage = &DBStorage{}
 
 func NewDBStorage(ctx context.Context, url string) (*DBStorage, error) {
 	db, err := sql.Open("pgx", url)
@@ -402,4 +410,111 @@ func (s *DBStorage) SaveSiteConfig(ctx context.Context, config *model.SiteConfig
 	}
 
 	return nil
+}
+
+func (s *DBStorage) CreateUser(ctx context.Context, nick string, emailAddress string, passwordHash string, isAdmin bool) error {
+	tx, err := dbutil.NewTx(ctx, s.db, nil)
+	if err != nil {
+		return fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.MaybeRollback()
+
+	var userID int64
+	// Insert into users table
+	err = tx.QueryRow(ctx,
+		`INSERT INTO users (is_admin, nick) VALUES ($1, $2) RETURNING user_id`,
+		isAdmin, nick).Scan(&userID)
+	if err != nil {
+		return fmt.Errorf("insert users: %w", err)
+	}
+
+	_, err = tx.Exec(ctx,
+		`INSERT INTO user_email_addresses (email_address, user_id) VALUES ($1, $2)`,
+		emailAddress, userID)
+	if err != nil {
+		return fmt.Errorf("insert user_email_addresses: %w", err)
+	}
+
+	_, err = tx.Exec(ctx,
+		`INSERT INTO passwords (user_id, hashed_password) VALUES ($1, $2)`,
+		userID, passwordHash)
+	if err != nil {
+		return fmt.Errorf("insert passwords: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit tx: %w", err)
+	}
+
+	return nil
+}
+
+// TODO: This is broken in the case of multiple passwords.
+func (s *DBStorage) FetchUserRow(ctx context.Context, nick string) (*model.UserRow, error) {
+	var row model.UserRow
+	err := s.db.QueryRowContext(ctx,
+		`SELECT user_id, hashed_password, is_admin FROM users
+		NATURAL JOIN passwords
+		WHERE nick=$1;`,
+		nick).Scan(
+		&row.ID, &row.PasswordHash, &row.IsAdmin)
+	if err == sql.ErrNoRows {
+		return nil, errors.New("user not found")
+	}
+	if err != nil {
+		log.Printf("error fetching user row: %v", err)
+		return nil, err
+	}
+	return &row, nil
+}
+
+func (s *DBStorage) FetchUserByUserID(ctx context.Context, id int64) (*model.UserIdentity, error) {
+	row := &model.UserIdentity{}
+	err := s.db.QueryRowContext(ctx,
+		"SELECT nick, is_admin FROM users WHERE user_id=$1;", id).Scan(
+		&row.Nick, &row.IsAdmin)
+	if err == sql.ErrNoRows {
+		return nil, errors.New("user not found")
+	}
+	if err != nil {
+		return nil, err
+	}
+	return row, nil
+}
+
+func (s *DBStorage) FetchUsers(ctx context.Context) ([]*model.UserIdentity, error) {
+	// TODO: pagination
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT user_id, nick, is_admin FROM users ORDER BY user_id`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var users []*model.UserIdentity
+	for rows.Next() {
+		var user model.UserIdentity
+		if err := rows.Scan(&user.ID, &user.Nick, &user.IsAdmin); err != nil {
+			return nil, err
+		}
+		users = append(users, &user)
+	}
+	return users, nil
+}
+
+func (s *DBStorage) DeleteUserByNick(ctx context.Context, nick string) error {
+	result, err := s.db.ExecContext(ctx,
+		"DELETE from users WHERE nick=$1", nick)
+
+	if err != nil {
+		return err
+	} else {
+		if n, err := result.RowsAffected(); err != nil {
+			return err
+		} else if n != 1 {
+			return fmt.Errorf("%d rows deleted", n)
+		} else {
+			return nil
+		}
+	}
 }

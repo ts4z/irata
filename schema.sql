@@ -9,8 +9,11 @@ DROP TABLE user_email_addresses CASCADE;
 
 CREATE TABLE users (
     user_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    nick VARCHAR(20) NOT NULL UNIQUE,
     is_admin BOOLEAN DEFAULT FALSE NOT NULL
 );
+
+CREATE INDEX idx_user_nick ON users(nick);
 
 CREATE TABLE passwords (
     password_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -20,9 +23,8 @@ CREATE TABLE passwords (
 );
 
 CREATE TABLE user_email_addresses (
+    email_address VARCHAR(255) NOT NULL PRIMARY KEY,
     user_id BIGINT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
-    email_address VARCHAR(255) NOT NULL,
-    PRIMARY KEY (user_id, email_address),
     FOREIGN KEY (user_id) REFERENCES users(user_id)
 );
 

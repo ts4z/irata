@@ -8,10 +8,8 @@ import (
 	"github.com/ts4z/irata/model"
 )
 
-// Storage describes storage's view of state management.
-type Storage interface {
-	FetchSiteConfig(ctx context.Context) (*model.SiteConfig, error)
-
+// AppStorage describes storage's view of state management.
+type AppStorage interface {
 	FetchOverview(ctx context.Context, offset, limit int) (*model.Overview, error)
 
 	CreateTournament(ctx context.Context, t *model.Tournament) (int64, error)
@@ -26,6 +24,15 @@ type Storage interface {
 	SaveStructure(ctx context.Context, s *model.Structure) error
 	DeleteStructure(ctx context.Context, id int64) error
 	CreateStructure(ctx context.Context, s *model.Structure) (int64, error)
+}
 
+type SiteStorage interface {
+	FetchSiteConfig(ctx context.Context) (*model.SiteConfig, error)
 	SaveSiteConfig(ctx context.Context, config *model.SiteConfig) error
+}
+
+type UserStorage interface {
+	CreateUser(ctx context.Context, nick string, emailAddress string, passwordHash string, isAdmin bool) error
+	FetchUserByUserID(ctx context.Context, id int64) (*model.UserIdentity, error)
+	FetchUserRow(ctx context.Context, nick string) (*model.UserRow, error)
 }

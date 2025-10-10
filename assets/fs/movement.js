@@ -315,6 +315,10 @@ const shuffle_array = array => {
     footer_interval_id = setInterval(next_footer, next_footer_interval_ms);
   }
 
+  function redirect(where) {
+    window.location.href = where;
+  }
+
   function send_modify(event) {
     let url = "/api/keyboard-control/" + tournament_id();
     fetch(url, {
@@ -358,6 +362,7 @@ const shuffle_array = array => {
     'KeyG': { call: send_modify, arg: 'StartClock'},
     'KeyS': { call: send_modify, arg: 'StopClock'},
     'KeyF': { call: next_footer_key, arg: 'N/A' },
+    'Escape': { call: redirect, arg: '/' },
   }
 
   document.addEventListener('keyup', (event) => {

@@ -17,6 +17,7 @@ import (
 	"github.com/ts4z/irata/defaults"
 	"github.com/ts4z/irata/he"
 	"github.com/ts4z/irata/model"
+	"github.com/ts4z/irata/password"
 	"github.com/ts4z/irata/permission"
 	"github.com/ts4z/irata/state"
 	"github.com/ts4z/irata/textutil"
@@ -57,12 +58,13 @@ func idPathValue(w http.ResponseWriter, r *http.Request) (int64, error) {
 
 // irataApp prevents the proliferation of global variables.
 type irataApp struct {
-	templates *template.Template
-	storage   state.Storage
-	mutator   *action.Actor
-	subFS     fs.FS
-	bakery    *permission.Bakery
-	clock     *ts.Clock
+	templates   *template.Template
+	storage     state.AppStorage
+	userStorage state.UserStorage
+	mutator     *action.Actor
+	subFS       fs.FS
+	bakery      *permission.Bakery
+	clock       *ts.Clock
 }
 
 func (app *irataApp) fetchTournament(ctx context.Context, id int64) (*model.Tournament, error) {
@@ -74,21 +76,44 @@ func (app *irataApp) fetchTournament(ctx context.Context, id int64) (*model.Tour
 	return t, nil
 }
 
+func (app *irataApp) fetchUserFromCookie(ctx context.Context, r *http.Request) (*model.UserIdentity, error) {
+	cookieData, err := app.bakery.ReadCookie(r)
+	if err != nil {
+		return nil, err
+	}
+
+	identity, err := app.userStorage.FetchUserByUserID(ctx, cookieData.EffectiveUserID)
+	if err == nil {
+		log.Printf("can't fetch user: %v", err)
+	}
+	return identity, nil
+}
+
+func (app *irataApp) saveUserInRequestContext(r *http.Request) (context.Context, *model.UserIdentity) {
+	ctx := r.Context()
+	identity, err := app.fetchUserFromCookie(ctx, r)
+	if err != nil {
+		return ctx, nil
+	}
+	return permission.UserIdentityInContext(ctx, identity), identity
+}
+
 func (app *irataApp) installHandlers() {
 	http.HandleFunc("/",
 		func(w http.ResponseWriter, r *http.Request) {
-			ctx, u := permission.DecoratedContext(r)
-			type Inputs struct {
-				IsAdmin  bool
-				Overview *model.Overview
-			}
+			ctx, _ := app.saveUserInRequestContext(r)
+
 			// TODO: pagination
 			o, err := app.storage.FetchOverview(ctx, 0, 100)
 			if err != nil {
 				he.SendErrorToHTTPClient(w, "fetch overview", err)
 				return
 			}
-			inputs := &Inputs{IsAdmin: u.IsAdmin(), Overview: o}
+			type Inputs struct {
+				IsAdmin  bool
+				Overview *model.Overview
+			}
+			inputs := &Inputs{IsAdmin: permission.IsAdmin(ctx), Overview: o}
 			if err := app.templates.ExecuteTemplate(w, "slash.html.tmpl", inputs); err != nil {
 				log.Printf("can't render template: %v", err)
 				return
@@ -111,7 +136,7 @@ func (app *irataApp) installHandlers() {
 	http.Handle("/fs/", http.StripPrefix("/fs/", http.FileServer(http.FS(app.subFS))))
 
 	renderTournament := func(w http.ResponseWriter, r *http.Request) {
-		ctx, _ := permission.DecoratedContext(r)
+		ctx, _ := app.saveUserInRequestContext(r)
 
 		id, err := idPathValue(w, r)
 		if err != nil {
@@ -144,7 +169,8 @@ func (app *irataApp) installHandlers() {
 	})
 
 	http.HandleFunc("/t/{id}/edit", func(w http.ResponseWriter, r *http.Request) {
-		ctx, u := permission.DecoratedContext(r)
+		ctx, _ := app.saveUserInRequestContext(r)
+
 		id64, err := idPathValue(w, r)
 		if err != nil {
 			return
@@ -170,7 +196,7 @@ func (app *irataApp) installHandlers() {
 			IsAdmin    bool
 		}{
 			Tournament: t,
-			IsAdmin:    u.IsAdmin(),
+			IsAdmin:    permission.IsAdmin(ctx),
 		}
 
 		if err := app.templates.ExecuteTemplate(w, "edit.html.tmpl", args); err != nil {
@@ -220,6 +246,64 @@ func (app *irataApp) installHandlers() {
 		}
 	})
 
+	http.HandleFunc("/login", func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		switch r.Method {
+		default:
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		case http.MethodGet:
+			flash := r.URL.Query().Get("error")
+			data := struct {
+				Flash string
+			}{Flash: flash}
+			if err := app.templates.ExecuteTemplate(w, "login.html.tmpl", data); err != nil {
+				log.Printf("can't render login template: %v", err)
+			}
+			return
+		case http.MethodPost:
+			nope := func() {
+				http.Redirect(w, r, "/login?error=internal+error", http.StatusSeeOther)
+			}
+
+			if err := r.ParseForm(); err != nil {
+				he.SendErrorToHTTPClient(w, "parse login form", err)
+				return
+			}
+			nick := r.FormValue("username")
+			pw := r.FormValue("password")
+			if nick == "" || pw == "" {
+				http.Redirect(w, r, "/login?error=username+and+password+required", http.StatusSeeOther)
+				return
+			}
+
+			row, err := app.userStorage.FetchUserRow(ctx, nick)
+			if err != nil {
+				nope()
+				return
+			}
+			checker, err := password.NewChecker(row)
+			if err != nil {
+				nope()
+				return
+			}
+			identity, err := checker.Validate(pw)
+			if err != nil {
+				nope()
+				return
+			}
+			err = app.bakery.BakeCookie(w, &model.AuthCookieData{
+				RealUserID:      identity.ID,
+				EffectiveUserID: identity.ID,
+			})
+			if err != nil {
+				http.Redirect(w, r, "/login?error=internal+error+baking+cookie", http.StatusSeeOther)
+			}
+
+			http.Redirect(w, r, "/", http.StatusSeeOther)
+		}
+	})
+
 	app.installKeyboardHandlers()
 }
 
@@ -238,7 +322,8 @@ func (app *irataApp) installKeyboardHandlers() {
 	}
 
 	http.HandleFunc("/api/keyboard-control/{id}", func(w http.ResponseWriter, r *http.Request) {
-		ctx, _ := permission.DecoratedContext(r)
+		ctx, _ := app.saveUserInRequestContext(r)
+
 		log.Printf("keypress received")
 		id64, err := idPathValue(w, r)
 		if err != nil {
@@ -294,8 +379,8 @@ func (app *irataApp) serve() error {
 	return http.ListenAndServe(listenAddress, nil)
 }
 
-func readSiteConfig(ctx context.Context, s state.Storage) (*model.SiteConfig, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+func readSiteConfig(ctx context.Context, s state.SiteStorage) (*model.SiteConfig, error) {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	return s.FetchSiteConfig(ctx)
 }
@@ -327,7 +412,8 @@ func main() {
 
 	mutator := action.New(storage)
 
-	app := &irataApp{storage: storage, mutator: mutator, subFS: subFS, bakery: bakery, clock: clock}
+	app := &irataApp{storage: storage, userStorage: unprotectedStorage,
+		mutator: mutator, subFS: subFS, bakery: bakery, clock: clock}
 	app.loadTemplates()
 	app.installHandlers()
 	if err := app.serve(); err != nil {
