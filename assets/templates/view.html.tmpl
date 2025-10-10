@@ -86,6 +86,33 @@
           font-size: 1.7vi;
           line-height: 140%;
       }
+      .help-dialog-overlay {
+        display: none;
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(0,0,0,0.95);
+        color: #fff;
+        z-index: 9999;
+        font-family: arcade, monospace;
+        font-size: 2vi;
+        text-align: center;
+        padding-top: 5vi;
+      }
+      .help-dialog-content {
+        margin: auto;
+        background: #222;
+        border: 2px solid #aaaaff;
+        border-radius: 1vi;
+        padding: 2vi;
+        display: inline-block;
+        text-align: left;
+        color: #fff;
+      }
+      .help-dialog-close {
+        font-size: 1.5vi;
+        color: #aaaaff;
+        margin-top: 2vi;
+      }
     </style>
 
     <table class="fullsize">
@@ -166,6 +193,30 @@
         </td>
       </tr>
     </table>
+
+    <div id="help-dialog" class="help-dialog-overlay">
+      <div class="help-dialog-content">
+        <h2>Keyboard Control</h2>
+        <ul style="list-style:none; padding:0;">
+          <li><b>←</b>: Previous Level</li>
+          <li><b>→</b>: Skip to Next Level</li>
+          <li><b>Space</b>: Pause/Resume Clock (also Enter)</li>
+          <li><b>↑</b>: Add 1 Minute</li>
+          <li><b>↓</b>: Subtract 1 Minute</li>
+          <li><b>PgUp</b>: Add Player</li>
+          <li><b>PgDn</b>: Remove Player</li>
+          <li><b>Home</b>: Add Buy-In (alias = or .)</li>
+          <li><b>End</b>: Remove Buy-In (alias - or ,</li>
+          <li><b>G</b>: Start Clock</li>
+          <li><b>S</b>: Stop Clock</li>
+          <li><b>F1 or ? or /</b>: This</li>
+          <li><b>Esc</b>: Exit to Overview (also BS)</li>
+        </ul>
+        <div class="help-dialog-close">
+          Press <b>Esc</b> to close this help.
+        </div>
+      </div>
+    </div>
 
     <script src="/fs/movement.js"></script>
   </body>

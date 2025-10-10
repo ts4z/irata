@@ -125,11 +125,8 @@ func (app *irataApp) installHandlers() {
 	})
 
 	http.HandleFunc("/logout", func(w http.ResponseWriter, r *http.Request) {
-		http.SetCookie(w, &http.Cookie{
-			Name:   permission.AuthCookieName,
-			Value:  "",
-			MaxAge: -1,
-		})
+		app.bakery.ClearCookie(w)
+		http.Redirect(w, r, "/", http.StatusSeeOther)
 	})
 
 	// anything in fs is a file trivially shared

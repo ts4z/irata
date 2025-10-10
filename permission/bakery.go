@@ -70,6 +70,14 @@ func New(clock BakeryClock, conf *model.SiteConfig) (*Bakery, error) {
 	}, nil
 }
 
+func (b *Bakery) ClearCookie(w http.ResponseWriter) {
+	http.SetCookie(w, &http.Cookie{
+		Name:    AuthCookieName,
+		Value:   "",
+		Expires: time.Unix(-1, 0),
+	})
+}
+
 func (b *Bakery) ReadCookie(r *http.Request) (*model.AuthCookieData, error) {
 	cookie, err := r.Cookie(AuthCookieName)
 	if err != nil {

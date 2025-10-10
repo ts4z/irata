@@ -279,9 +279,9 @@ func (m *Tournament) FillTransients(clock *ts.Clock) {
 
 	// TODO: move this to edit
 	minimumTotalChips := m.State.BuyIns*m.Structure.ChipsPerBuyIn + m.State.AddOns*m.Structure.ChipsPerAddOn
-	if minimumTotalChips > m.State.TotalChips {
-		m.State.TotalChips = minimumTotalChips
-	}
+	// if minimumTotalChips > m.State.TotalChips {
+	m.State.TotalChips = minimumTotalChips
+	// }
 
 	m.Transients.AverageChips = m.State.TotalChips / m.State.CurrentPlayers
 

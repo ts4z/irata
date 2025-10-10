@@ -137,7 +137,7 @@ const shuffle_array = array => {
 
   function apply_model(model) {
     
-    console.log("got model: " + JSON.stringify(model))
+    // console.log("got model: " + JSON.stringify(model))
 
     next_level_complete_at = model.Transients.EndsAt;
     next_break_at = model.Transients.NextBreakAt;
@@ -343,34 +343,80 @@ const shuffle_array = array => {
       send_modify('StartClock')
     }
   }
+
+  var showing_help = false;
  
-  var keycode_to_handler = {
-    'ArrowLeft': { call: send_modify, arg: 'PreviousLevel'},
-    'ArrowRight': { call: send_modify, arg: 'SkipLevel'},
-    'Space': { call: toggle_pause, arg: 'N/A'},
-    'ArrowDown': { call: send_modify, arg: 'MinusMinute'},
-    'ArrowUp': { call: send_modify, arg: 'PlusMinute'},
-    'PageUp': { call: send_modify, arg: 'AddPlayer'},
-    'PageDown': { call: send_modify, arg: 'RemovePlayer'},
-    'Enter': { call: toggle_pause, arg: 'N/A'},
-    'Home': { call: send_modify, arg: 'AddBuyIn'},
-    'End': { call: send_modify, arg: 'RemoveBuyIn'},
-    'Equal': { call: send_modify, arg: 'AddBuyIn'},
-    'Minus': { call: send_modify, arg: 'RemoveBuyIn'},
-    'Comma': { call: send_modify, arg: 'RemoveBuyIn'},
-    'Period': { call: send_modify, arg: 'AddBuyIn'},
-    'KeyG': { call: send_modify, arg: 'StartClock'},
-    'KeyS': { call: send_modify, arg: 'StopClock'},
-    'KeyF': { call: next_footer_key, arg: 'N/A' },
-    'Escape': { call: redirect, arg: '/' },
+  function show_help_dialog(ignored) {
+    const helpDialog = document.getElementById("help-dialog");
+    if (helpDialog) {
+      helpDialog.style.display = "block";
+      showing_help = true;
+    }
   }
+
+  function hide_help_dialog() {
+    const helpDialog = document.getElementById("help-dialog");
+    if (helpDialog) {
+      helpDialog.style.display = "none";
+      showing_help = false;
+    }
+  }
+
+  function handle_escape(ignored) {
+    if (showing_help) {
+      hide_help_dialog();
+    } else {
+      redirect('/');
+    }
+  }
+
+  function exit_view(_) {
+    redirect('/');
+  }
+
+  function smwa(arg) {
+    return function() { send_modify(arg); }
+  }
+
+  var keycode_to_handler = {
+      'ArrowLeft': smwa('PreviousLevel'),
+      'ArrowRight': smwa('SkipLevel'),
+      'Space': toggle_pause,
+      'ArrowDown': smwa('MinusMinute'),
+      'ArrowUp': smwa('PlusMinute'),
+      'PageUp': smwa('AddPlayer'),
+      'PageDown': smwa('RemovePlayer'),
+      'Enter': toggle_pause,
+      'Home': smwa('AddBuyIn'),
+      'End': smwa('RemoveBuyIn'),
+      'Equal': smwa('AddBuyIn'),
+      'Minus': smwa('RemoveBuyIn'),
+      'Comma': smwa('RemoveBuyIn'),
+      'Period': smwa('AddBuyIn'),
+      'KeyG': smwa('StartClock'),
+      'KeyS': smwa('StopClock'),
+      'KeyF': next_footer_key,
+      'Backspace': exit_view,
+      'Escape': handle_escape,
+      'Slash': show_help_dialog,
+      'F1': show_help_dialog,
+  }
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'F1') {
+      event.preventDefault();
+    }
+  }, false);
 
   document.addEventListener('keyup', (event) => {
     var code = event.code;
+    if (event.key === 'F1') {
+      event.preventDefault();
+    }
     var handler = keycode_to_handler[code];
     if (typeof handler !== 'undefined') {
-      console.log(`Key pressed ${event} ${code} => ${handler}`);
-      handler.call(handler.arg);
+        // console.log(`Key pressed ${event} ${code} => ${handler}`);
+        handler();
     } else {
       console.log(`drop key ${code}`)
     }
