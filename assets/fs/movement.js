@@ -348,6 +348,7 @@ const shuffle_array = array => {
     'ArrowUp': { call: send_modify, arg: 'PlusMinute'},
     'PageUp': { call: send_modify, arg: 'AddPlayer'},
     'PageDown': { call: send_modify, arg: 'RemovePlayer'},
+    'Enter': { call: toggle_pause, arg: 'N/A'},
     'Home': { call: send_modify, arg: 'AddBuyIn'},
     'End': { call: send_modify, arg: 'RemoveBuyIn'},
     'Equal': { call: send_modify, arg: 'AddBuyIn'},

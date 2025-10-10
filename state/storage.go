@@ -26,4 +26,6 @@ type Storage interface {
 	SaveStructure(ctx context.Context, s *model.Structure) error
 	DeleteStructure(ctx context.Context, id int64) error
 	CreateStructure(ctx context.Context, s *model.Structure) (int64, error)
+
+	SaveSiteConfig(ctx context.Context, config *model.SiteConfig) error
 }

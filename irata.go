@@ -11,8 +11,8 @@ import (
 	"net/http"
 	"strconv"
 	"time"
+	"ts"
 
-	"github.com/jonboulle/clockwork"
 	"github.com/ts4z/irata/action"
 	"github.com/ts4z/irata/assets"
 	"github.com/ts4z/irata/defaults"
@@ -43,7 +43,7 @@ var templateFuncs template.FuncMap = template.FuncMap{
 // TODO: make these configurable.
 
 const listenAddress = ":8888"
-const databaseLocation = "postgresql:///irata"
+const dbURL = "postgresql:///irata"
 
 // idPathValue extracts the "id" path variable from the request and parses it.
 func idPathValue(w http.ResponseWriter, r *http.Request) (int64, error) {
@@ -301,13 +301,13 @@ func readSiteConfig(ctx context.Context, s state.Storage) (*model.SiteConfig, er
 
 func main() {
 	ctx := context.Background()
-	clock := clockwork.NewRealClock()
+	clock := ts.NewRealClock()
 	subFS, err := fs.Sub(assets.FS, "fs")
 	if err != nil {
 		log.Fatalf("fs.Sub: %v", err)
 	}
 
-	unprotectedStorage, err := state.NewDBStorage(context.Background(), databaseLocation)
+	unprotectedStorage, err := state.NewDBStorage(context.Background(), dbURL)
 	if err != nil {
 		log.Fatalf("can't configure database: %v", err)
 	}

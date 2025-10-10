@@ -1,0 +1,136 @@
+package permission
+
+import (
+	"encoding/base64"
+	"fmt"
+	"log"
+	"net/http"
+	"time"
+
+	"github.com/gorilla/securecookie"
+	"github.com/jonboulle/clockwork"
+
+	"github.com/ts4z/irata/model"
+)
+
+const (
+	AuthCookieName = "irata-auth"
+)
+
+type cookieBaker struct {
+	v  model.CookieKeyValidity
+	sc *securecookie.SecureCookie
+}
+
+func (cb *cookieBaker) honorable(now time.Time) bool {
+	return now.After(cb.v.MintFrom) && now.Before(cb.v.MintUntil)
+}
+
+func (cb *cookieBaker) mintable(now time.Time) bool {
+	return now.After(cb.v.MintFrom) && now.Before(cb.v.MintUntil)
+}
+
+type Bakery struct {
+	bakers []cookieBaker
+}
+
+// NewBakery creates a new Bakery instance.
+func NewBakery(clock clockwork.Clock, conf *model.SiteConfig) (*Bakery, error) {
+	now := clock.Now()
+	keys := []cookieBaker{}
+	for i, inputKey := range conf.CookieKeys {
+		if inputKey.Validity.HonorUntil.After(now) {
+			log.Printf("disregarding key conf.CookieKeys[%d] since it is expired", i)
+			continue
+		}
+		hashKey, err := base64.StdEncoding.DecodeString(inputKey.HashKey64)
+		if err != nil {
+			log.Printf("disregarding key conf.CookieKeys[%d] due to bad HashKey64: %v", i, err)
+			continue
+		}
+		blockKey, err := base64.StdEncoding.DecodeString(inputKey.BlockKey64)
+		if err != nil {
+			log.Printf("disregarding key conf.CookieKeys[%d] due to bad BlockKey64: %v", i, err)
+			continue
+		}
+		keys = append(keys,
+			cookieBaker{
+				sc: securecookie.New(hashKey, blockKey),
+				v:  inputKey.Validity,
+			})
+	}
+
+	return &Bakery{
+		bakers: keys,
+	}, nil
+}
+
+func (b *Bakery) ReadCookie(r *http.Request) (*model.LoginCookie, error) {
+	cookie, err := r.Cookie("cookie-name")
+	if err != nil {
+		return nil, fmt.Errorf("can't get cookie: %w", err)
+	}
+
+	errors := []error{}
+
+	c := &model.LoginCookie{}
+	for _, baker := range b.bakers {
+		if !baker.honorable(time.Now()) {
+			continue
+		}
+
+		err := baker.sc.Decode(AuthCookieName, cookie.Value, c)
+		if err == nil {
+			return c, nil
+		}
+
+		errors = append(errors, err)
+	}
+
+	if len(errors) == 0 {
+		return nil, fmt.Errorf("no valid keys to validate cookie")
+	}
+	return nil, fmt.Errorf("can't validate cookie (%d decoders): %w", len(errors), errors[0])
+}
+
+func (b *Bakery) bestKeyForMinting(now time.Time) (*cookieBaker, error) {
+	var best *cookieBaker
+	for _, key := range b.bakers {
+		if !key.mintable(now) {
+			continue
+		}
+
+		// Pick the key that is valid for the longest amount of time.
+		if best == nil || best.v.HonorUntil.Before(key.v.HonorUntil) {
+			best = &key
+		}
+	}
+
+	if best == nil {
+		return nil, fmt.Errorf("no valid key for minting")
+	}
+
+	return best, nil
+}
+
+func (b *Bakery) BakeCookie(w http.ResponseWriter, lc *model.LoginCookie) error {
+	bb, err := b.bestKeyForMinting(time.Now())
+	if err != nil {
+		return fmt.Errorf("can't find key for minting: %w", err)
+	}
+
+	encrypted, err := bb.sc.Encode(AuthCookieName, lc)
+	if err != nil {
+		return fmt.Errorf("can't encrypt cookie: %w", err)
+	}
+
+	http.SetCookie(w, &http.Cookie{
+		Name:     AuthCookieName,
+		Value:    encrypted,
+		Path:     "/",
+		Secure:   true,
+		HttpOnly: true,
+	})
+
+	return nil
+}

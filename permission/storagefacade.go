@@ -79,3 +79,7 @@ func (s *StorageDecorator) CreateStructure(ctx context.Context, st *model.Struct
 	}
 	return s.Storage.CreateStructure(ctx, st)
 }
+
+func (s *StorageDecorator) SaveSiteConfig(ctx context.Context, cfg *model.SiteConfig) error {
+	return errors.ErrUnsupported
+}

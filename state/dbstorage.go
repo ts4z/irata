@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"sync"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 
@@ -16,8 +15,7 @@ import (
 )
 
 type DBStorage struct {
-	lock sync.Mutex
-	db   *sql.DB
+	db *sql.DB
 }
 
 var _ Storage = &DBStorage{}
@@ -28,8 +26,7 @@ func NewDBStorage(ctx context.Context, url string) (*DBStorage, error) {
 		return nil, err
 	}
 	return &DBStorage{
-		lock: sync.Mutex{},
-		db:   db,
+		db: db,
 	}, nil
 }
 
@@ -86,8 +83,10 @@ func (s *DBStorage) FetchStructure(ctx context.Context, id int64) (*model.Struct
 
 	defer rows.Close()
 
+	n := 0
 	st := &model.Structure{}
 	for rows.Next() {
+		n++
 		var name string
 		var lock int64
 		var bytes []byte
@@ -110,7 +109,7 @@ func (s *DBStorage) FetchStructure(ctx context.Context, id int64) (*model.Struct
 		return nil, rows.Err()
 	}
 
-	if st == nil {
+	if n != 1 {
 		return nil, he.New(404, fmt.Errorf("no such structure id %d", id))
 	}
 
@@ -379,4 +378,28 @@ func (s *DBStorage) CreateStructure(
 		return 0, err
 	}
 	return id, nil
+}
+
+func (s *DBStorage) SaveSiteConfig(ctx context.Context, config *model.SiteConfig) error {
+	bytes, err := json.Marshal(config)
+	if err != nil {
+		return fmt.Errorf("marshaling config: %w", err)
+	}
+
+	result, err := s.db.ExecContext(ctx,
+		`UPDATE site_info SET value=$1 WHERE key='conf'`,
+		bytes)
+	if err != nil {
+		return fmt.Errorf("updating site_info: %w", err)
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("checking rows affected: %w", err)
+	}
+	if rows != 1 {
+		return fmt.Errorf("expected 1 row affected, got %d", rows)
+	}
+
+	return nil
 }
