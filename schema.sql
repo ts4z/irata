@@ -99,7 +99,7 @@ VALUES (1, 'peterbarge', $json$
            { "Banner": "LEVEL 9", "Description": "BLINDS 500-1000", "DurationMinutes": 18, "IsBreak": false },
            { "Banner": "LEVEL 10", "Description": "BLINDS 800-1600", "DurationMinutes": 18, "IsBreak": false },
            { "Banner": "BREAK", "Description": "REMOVE 100s", "DurationMinutes": 5, "IsBreak": true },
-           { "Banner": "LEVEL 11", "Description": "BLINDS 1500-2000", "DurationMinutes": 18, "IsBreak": false },
+           { "Banner": "LEVEL 11", "Description": "BLINDS 1500-2500", "DurationMinutes": 18, "IsBreak": false },
            { "Banner": "LEVEL 12", "Description": "BLINDS 2K-4K", "DurationMinutes": 18, "IsBreak": false },
            { "Banner": "LEVEL 13?!", "Description": "BLINDS 3K-6K", "DurationMinutes": 18, "IsBreak": false },
            { "Banner": "LEVEL 14?!!", "Description": "BLINDS 5K-10K", "DurationMinutes": 18, "IsBreak": false },
@@ -130,7 +130,7 @@ VALUES (2, 'main', $json$
        "ChipsPerBuyIn": 60000,
        "ChipsPerAddOn": 0,
            "Levels":   [
-           { "Banner": "SETTING UP", "Description": "PLAYERS: PLEASE TAKE YOUR SEATS", "DurationMinutes": 60, "IsBreak": true },
+           { "Banner": "SETTING UP", "Description": "PLAYERS: TAKE YOUR SEATS", "DurationMinutes": 60, "IsBreak": true },
            { "Banner": "LEVEL 1 - NO LIMIT TEXAS HOLDEM", "Description": "BLINDS 100-100 w/100 BB ANTE", "DurationMinutes": 120 },
            { "Banner": "LEVEL 2 - NO LIMIT TEXAS HOLDEM", "Description": "BLINDS 100-200 w/200 BB ANTE", "DurationMinutes": 120 },
            { "Banner": "LEVEL 3 - NO LIMIT TEXAS HOLDEM", "Description": "BLINDS 200-300 w/300 BB ANTE", "DurationMinutes": 120 },

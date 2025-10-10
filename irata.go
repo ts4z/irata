@@ -48,10 +48,17 @@ const dbURL = "postgresql:///irata"
 
 // idPathValue extracts the "id" path variable from the request and parses it.
 func idPathValue(w http.ResponseWriter, r *http.Request) (int64, error) {
+	id, err := idPathValueFromRequest(r)
+	if err != nil {
+		he.SendErrorToHTTPClient(w, "parsing URL", err)
+	}
+	return id, nil
+}
+
+func idPathValueFromRequest(r *http.Request) (int64, error) {
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
-		log.Printf("400: can't parse id from url path: %v", err)
-		http.Error(w, fmt.Sprintf("can't parse id from url path: %v", err), 400)
+		return -1, he.HTTPCodedErrorf(400, "can't parse id from url path: %v", err)
 	}
 	return id, nil
 }
@@ -83,8 +90,8 @@ func (app *irataApp) fetchUserFromCookie(ctx context.Context, r *http.Request) (
 	}
 
 	identity, err := app.userStorage.FetchUserByUserID(ctx, cookieData.EffectiveUserID)
-	if err == nil {
-		log.Printf("can't fetch user: %v", err)
+	if err != nil {
+		log.Printf("can't fetch user %+v: %v", cookieData.EffectiveUserID, err)
 	}
 	return identity, nil
 }
@@ -149,8 +156,7 @@ func (app *irataApp) installHandlers() {
 			log.Printf("500: can't render template: %v", err)
 		}
 	}
-	http.HandleFunc("/t/{id}", renderTournament) // TODO: remove
-	http.HandleFunc("/{id}", renderTournament)
+	http.HandleFunc("/t/{id}", renderTournament)
 
 	http.HandleFunc("/t/{id}/delete", func(w http.ResponseWriter, r *http.Request) {
 		id64, err := idPathValue(w, r)
@@ -180,6 +186,8 @@ func (app *irataApp) installHandlers() {
 				he.SendErrorToHTTPClient(w, "parsing form", err)
 				return
 			}
+			http.Redirect(w, r, fmt.Sprintf("/t/%d", id64), http.StatusSeeOther)
+			return
 		}
 
 		t, err := app.fetchTournament(ctx, id64)
@@ -304,7 +312,7 @@ func (app *irataApp) installHandlers() {
 	app.installKeyboardHandlers()
 }
 
-func (app *irataApp) installKeyboardHandlers() {
+func (app *irataApp) handleKeypress(r *http.Request) error {
 	var keyboardModifyEventHandlers = map[string]func(*model.Tournament) error{
 		"PreviousLevel": func(t *model.Tournament) error { return t.PreviousLevel(app.clock) },
 		"SkipLevel":     func(t *model.Tournament) error { return t.AdvanceLevel(app.clock) },
@@ -318,45 +326,51 @@ func (app *irataApp) installKeyboardHandlers() {
 		"MinusMinute":   func(t *model.Tournament) error { return t.MinusMinute(app.clock) },
 	}
 
+	ctx, _ := app.saveUserInRequestContext(r)
+
+	log.Printf("keypress received")
+	id64, err := idPathValueFromRequest(r)
+	if err != nil {
+		return err
+	}
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		log.Printf("can't read response body: %v", err)
+	}
+
+	type KeyboardModifyEvent struct {
+		Event string
+	}
+
+	var event KeyboardModifyEvent
+	if err := json.Unmarshal(body, &event); err != nil {
+		log.Printf("can't unmarshal event %s: %v", string(body), err)
+	}
+
+	if h, ok := keyboardModifyEventHandlers[event.Event]; !ok {
+		return he.HTTPCodedErrorf(404, "unknown keyboard event")
+	} else {
+		t, err := app.fetchTournament(r.Context(), id64)
+		if err != nil {
+			return he.HTTPCodedErrorf(404, "tournament not found: %w", err)
+		}
+
+		if err := h(t); err != nil {
+			return he.HTTPCodedErrorf(500, "while applying keyboard event: %w", err)
+		}
+
+		if err := app.storage.SaveTournament(ctx, t); err != nil {
+			return he.HTTPCodedErrorf(500, "save tournament after keypress: %w", err)
+		}
+	}
+	return nil
+}
+
+func (app *irataApp) installKeyboardHandlers() {
 	http.HandleFunc("/api/keyboard-control/{id}", func(w http.ResponseWriter, r *http.Request) {
-		ctx, _ := app.saveUserInRequestContext(r)
-
-		log.Printf("keypress received")
-		id64, err := idPathValue(w, r)
+		err := app.handleKeypress(r)
 		if err != nil {
-			return
-		}
-		body, err := io.ReadAll(r.Body)
-		if err != nil {
-			log.Printf("can't read response body: %v", err)
-		}
-
-		type KeyboardModifyEvent struct {
-			Event string
-		}
-
-		var event KeyboardModifyEvent
-		if err := json.Unmarshal(body, &event); err != nil {
-			log.Printf("can't unmarshal event %s: %v", string(body), err)
-		}
-
-		if h, ok := keyboardModifyEventHandlers[event.Event]; !ok {
-			http.Error(w, "unknown event", 404)
-		} else {
-			t, err := app.fetchTournament(r.Context(), id64)
-			if err != nil {
-				http.Error(w, fmt.Sprintf("tournament not found %v", err), 404)
-			}
-
-			if err := h(t); err != nil {
-				he.SendErrorToHTTPClient(w, "applying keyboard event", err)
-				return
-			}
-
-			if err := app.storage.SaveTournament(ctx, t); err != nil {
-				he.SendErrorToHTTPClient(w, "save tournament after keypress", err)
-				return
-			}
+			he.SendErrorToHTTPClient(w, "handling keypress", err)
 		}
 	})
 }

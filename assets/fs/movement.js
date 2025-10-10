@@ -346,7 +346,7 @@ const shuffle_array = array => {
 
   var showing_help = false;
  
-  function show_help_dialog(ignored) {
+  function show_help_dialog() {
     const helpDialog = document.getElementById("help-dialog");
     if (helpDialog) {
       helpDialog.style.display = "block";
@@ -362,7 +362,7 @@ const shuffle_array = array => {
     }
   }
 
-  function handle_escape(ignored) {
+  function handle_escape() {
     if (showing_help) {
       hide_help_dialog();
     } else {
@@ -370,8 +370,12 @@ const shuffle_array = array => {
     }
   }
 
-  function exit_view(_) {
+  function exit_view() {
     redirect('/');
+  }
+
+  function redirect_to_edit() {
+    redirect(window.location.pathname + "/edit");
   }
 
   function smwa(arg) {
@@ -393,6 +397,7 @@ const shuffle_array = array => {
       'Minus': smwa('RemoveBuyIn'),
       'Comma': smwa('RemoveBuyIn'),
       'Period': smwa('AddBuyIn'),
+      'KeyE': redirect_to_edit,
       'KeyG': smwa('StartClock'),
       'KeyS': smwa('StopClock'),
       'KeyF': next_footer_key,

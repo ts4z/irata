@@ -194,45 +194,28 @@ func (s *DBStorage) FetchOverview(ctx context.Context, offset, limit int) (*mode
 
 // fetchTournamentPartial fetches without structure.
 func (s *DBStorage) fetchTournamentPartial(ctx context.Context, id int64) (*model.Tournament, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT version, model_data FROM tournaments where tournament_id=$1`, id)
+	var lock int64
+	var handle string
+	var bytes []byte
 
+	err := s.db.QueryRowContext(ctx, `SELECT version, handle, model_data FROM tournaments where tournament_id=$1`, id).Scan(&lock, &handle, &bytes)
+
+	if err == sql.ErrNoRows {
+		return nil, he.New(404, fmt.Errorf("no such tournament id %d", id))
+	} else if err != nil {
+		return nil, he.New(500, fmt.Errorf("querying tournament: %w", err))
+	}
+
+	tm := &model.Tournament{}
+	err = json.Unmarshal(bytes, tm)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
 
-	var tm *model.Tournament
-
-	for rows.Next() {
-		if tm != nil {
-			return nil, fmt.Errorf("can't happen: duplicate tournament id %d", id)
-		}
-
-		var lock int64
-		var bytes []byte
-
-		if err := rows.Scan(&lock, &bytes); err != nil {
-			return nil, err
-		}
-
-		tm = &model.Tournament{}
-		err := json.Unmarshal(bytes, tm)
-		if err != nil {
-			return nil, err
-		}
-
-		// These come from the databae row, not the JSON.
-		tm.EventID = id
-		tm.Version = lock
-	}
-
-	if rows.Err() != nil {
-		return nil, rows.Err()
-	}
-
-	if tm == nil {
-		return nil, he.New(404, fmt.Errorf("no such tournament id %d", id))
-	}
+	// These come from the databae row, not the JSON.
+	tm.EventID = id
+	tm.Handle = handle
+	tm.Version = lock
 
 	return tm, nil
 }
