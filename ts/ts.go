@@ -26,11 +26,3 @@ func (c *Clock) Now() time.Time {
 func (c *Clock) RealClock() clockwork.Clock {
 	return c.realClock
 }
-
-// Now provides a timestamp truncated to the second, and in local time,
-// convenient for human-readable times.
-//
-// Obsolete; do not call.  We should change this to use a Clock object.
-func Now() time.Time {
-	return time.Now().Local().Truncate(time.Second)
-}

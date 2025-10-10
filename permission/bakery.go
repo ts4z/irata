@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/gorilla/securecookie"
-	"github.com/jonboulle/clockwork"
 
 	"github.com/ts4z/irata/model"
 )
@@ -16,6 +15,10 @@ import (
 const (
 	AuthCookieName = "irata-auth"
 )
+
+type BakeryClock interface {
+	Now() time.Time
+}
 
 type cookieBaker struct {
 	v  model.CookieKeyValidity
@@ -34,12 +37,12 @@ type Bakery struct {
 	bakers []cookieBaker
 }
 
-// NewBakery creates a new Bakery instance.
-func NewBakery(clock clockwork.Clock, conf *model.SiteConfig) (*Bakery, error) {
+// New creates a new Bakery instance.
+func New(clock BakeryClock, conf *model.SiteConfig) (*Bakery, error) {
 	now := clock.Now()
 	keys := []cookieBaker{}
 	for i, inputKey := range conf.CookieKeys {
-		if inputKey.Validity.HonorUntil.After(now) {
+		if inputKey.Validity.HonorUntil.Before(now) {
 			log.Printf("disregarding key conf.CookieKeys[%d] since it is expired", i)
 			continue
 		}
@@ -59,6 +62,8 @@ func NewBakery(clock clockwork.Clock, conf *model.SiteConfig) (*Bakery, error) {
 				v:  inputKey.Validity,
 			})
 	}
+
+	log.Printf("bakery: %d valid keys", len(keys))
 
 	return &Bakery{
 		bakers: keys,

@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"strconv"
 	"time"
-	"ts"
 
 	"github.com/ts4z/irata/action"
 	"github.com/ts4z/irata/assets"
@@ -21,6 +20,7 @@ import (
 	"github.com/ts4z/irata/permission"
 	"github.com/ts4z/irata/state"
 	"github.com/ts4z/irata/textutil"
+	"github.com/ts4z/irata/ts"
 )
 
 var templateFuncs template.FuncMap = template.FuncMap{
@@ -62,6 +62,7 @@ type irataApp struct {
 	mutator   *action.Actor
 	subFS     fs.FS
 	bakery    *permission.Bakery
+	clock     *ts.Clock
 }
 
 func (app *irataApp) fetchTournament(ctx context.Context, id int64) (*model.Tournament, error) {
@@ -69,7 +70,7 @@ func (app *irataApp) fetchTournament(ctx context.Context, id int64) (*model.Tour
 	if err != nil {
 		return nil, err
 	}
-	t.FillTransients()
+	t.FillTransients(app.clock)
 	return t, nil
 }
 
@@ -224,16 +225,16 @@ func (app *irataApp) installHandlers() {
 
 func (app *irataApp) installKeyboardHandlers() {
 	var keyboardModifyEventHandlers = map[string]func(*model.Tournament) error{
-		"PreviousLevel": func(t *model.Tournament) error { return t.PreviousLevel() },
-		"SkipLevel":     func(t *model.Tournament) error { return t.AdvanceLevel() },
-		"StopClock":     func(t *model.Tournament) error { return t.StopClock() },
-		"StartClock":    func(t *model.Tournament) error { return t.StartClock() },
-		"RemovePlayer":  func(t *model.Tournament) error { return t.RemovePlayer() },
-		"AddPlayer":     func(t *model.Tournament) error { return t.AddPlayer() },
-		"AddBuyIn":      func(t *model.Tournament) error { return t.AddBuyIn() },
-		"RemoveBuyIn":   func(t *model.Tournament) error { return t.RemoveBuyIn() },
-		"PlusMinute":    func(t *model.Tournament) error { return t.PlusMinute() },
-		"MinusMinute":   func(t *model.Tournament) error { return t.MinusMinute() },
+		"PreviousLevel": func(t *model.Tournament) error { return t.PreviousLevel(app.clock) },
+		"SkipLevel":     func(t *model.Tournament) error { return t.AdvanceLevel(app.clock) },
+		"StopClock":     func(t *model.Tournament) error { return t.StopClock(app.clock) },
+		"StartClock":    func(t *model.Tournament) error { return t.StartClock(app.clock) },
+		"RemovePlayer":  func(t *model.Tournament) error { return t.RemovePlayer(app.clock) },
+		"AddPlayer":     func(t *model.Tournament) error { return t.AddPlayer(app.clock) },
+		"AddBuyIn":      func(t *model.Tournament) error { return t.AddBuyIn(app.clock) },
+		"RemoveBuyIn":   func(t *model.Tournament) error { return t.RemoveBuyIn(app.clock) },
+		"PlusMinute":    func(t *model.Tournament) error { return t.PlusMinute(app.clock) },
+		"MinusMinute":   func(t *model.Tournament) error { return t.MinusMinute(app.clock) },
 	}
 
 	http.HandleFunc("/api/keyboard-control/{id}", func(w http.ResponseWriter, r *http.Request) {
@@ -317,7 +318,7 @@ func main() {
 		log.Fatalf("can't fetch site config: %v", err)
 	}
 
-	bakery, err := permission.NewBakery(clock, siteConfig)
+	bakery, err := permission.New(clock, siteConfig)
 	if err != nil {
 		log.Fatalf("can't create bakery: %v", err)
 	}
@@ -326,7 +327,7 @@ func main() {
 
 	mutator := action.New(storage)
 
-	app := &irataApp{storage: storage, mutator: mutator, subFS: subFS, bakery: bakery}
+	app := &irataApp{storage: storage, mutator: mutator, subFS: subFS, bakery: bakery, clock: clock}
 	app.loadTemplates()
 	app.installHandlers()
 	if err := app.serve(); err != nil {

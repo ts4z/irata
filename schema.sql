@@ -1,9 +1,32 @@
+DROP TABLE structures CASCADE;
+DROP TABLE tournaments CASCADE;
+DROP TABLE text_footer_plugs CASCADE;
+DROP TABLE footer_plug_sets CASCADE;
+DROP TABLE site_info CASCADE;
+DROP TABLE users CASCADE;
+DROP TABLE passwords CASCADE;
+DROP TABLE user_email_addresses CASCADE;
 
-DROP TABLE structures;
-DROP TABLE tournaments;
-DROP TABLE text_footer_plugs;
-DROP TABLE footer_plug_sets;
-DROP TABLE site_info;
+CREATE TABLE users (
+    user_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY
+);
+
+CREATE TABLE passwords (
+    password_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    hashed_password VARCHAR(255) NOT NULL,
+    expires TIMESTAMP WITHOUT TIME ZONE
+);
+
+CREATE TABLE user_email_addresses (
+    user_id BIGINT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    email_address VARCHAR(255) NOT NULL,
+    PRIMARY KEY (user_id, email_address),
+    FOREIGN KEY (user_id) REFERENCES users(user_id)
+);
+
+CREATE INDEX idx_user_email_addresses_email 
+    ON user_email_addresses(email_address);
 
 CREATE TABLE footer_plug_sets (
    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -38,6 +61,9 @@ CREATE TABLE tournaments (
        version BIGINT DEFAULT 0 NOT NULL,
        model_data JSONB NOT NULL
 );
+
+CREATE INDEX idx_tournaments_handle 
+    ON tournaments(handle); 
 
 CREATE TABLE structures (
        structure_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
