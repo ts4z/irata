@@ -262,7 +262,6 @@ func (m *Tournament) adjustStateForElapsedTime(clock *ts.Clock) {
 		newEndsAt := endsAt.Add(levelDuration).UnixMilli()
 		asInt64 := int64(newEndsAt)
 		m.State.CurrentLevelEndsAt = &asInt64
-		log.Printf("stepping to level %d, ends at %v", m.State.CurrentLevelNumber, newEndsAt)
 	}
 }
 

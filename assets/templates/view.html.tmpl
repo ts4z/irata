@@ -113,6 +113,15 @@
         color: #aaaaff;
         margin-top: 2vi;
       }
+      .help-dialog-table-key {
+        width: 18%;
+        text-align: left;
+        padding: 0.1vi 0.4vi 0.1vi 0;
+      }
+      .help-dialog-table-desc {
+        text-align: left;
+        padding: 0.1vi 0;
+      }
     </style>
 
     <table class="fullsize">
@@ -197,24 +206,65 @@
     <div id="help-dialog" class="help-dialog-overlay">
       <div class="help-dialog-content">
         <h2>Keyboard Control</h2>
-        <ul style="list-style:none; padding:0;">
-          <li><b>←</b>: Previous Level</li>
-          <li><b>→</b>: Skip to Next Level</li>
-          <li><b>Space</b>: Pause/Resume Clock (also Enter)</li>
-          <li><b>↑</b>: Add 1 Minute</li>
-          <li><b>↓</b>: Subtract 1 Minute</li>
-          <li><b>PgUp</b>: Add Player</li>
-          <li><b>PgDn</b>: Remove Player</li>
-          <li><b>Home</b>: Add Buy-In (alias = or .)</li>
-          <li><b>End</b>: Remove Buy-In (alias - or ,</li>
-          <li><b>G</b>: Start Clock</li>
-          <li><b>S</b>: Stop Clock</li>
-          <li><b>E</b>: Edit Event</li>
-          <li><b>F1 or ? or /</b>: This</li>
-          <li><b>Esc</b>: Exit to Overview (also Backspace)</li>
-        </ul>
+        <table style="width:100%; border-collapse:collapse; margin:0; font-size:1.3vi;">
+          <tbody>
+            <tr>
+              <td class="help-dialog-table-key"><b>Space</b></td>
+              <td class="help-dialog-table-desc">Pause/Resume Clock (or [Enter])</td>
+            </tr>
+            <tr>
+              <td class="help-dialog-table-key"><b>←</b></td>
+              <td class="help-dialog-table-desc">Previous Level*</td>
+            </tr>
+            <tr>
+              <td class="help-dialog-table-key"><b>→</b></td>
+              <td class="help-dialog-table-desc">Skip to Next Level*</td>
+            </tr>
+            <tr>
+              <td class="help-dialog-table-key"><b>↑</b></td>
+              <td class="help-dialog-table-desc">Add 1 Minute*</td>
+            </tr>
+            <tr>
+              <td class="help-dialog-table-key"><b>↓</b></td>
+              <td class="help-dialog-table-desc">Subtract 1 Minute*</td>
+            </tr>
+            <tr>
+              <td class="help-dialog-table-key"><b>PgUp</b></td>
+              <td class="help-dialog-table-desc">Add Player</td>
+            </tr>
+            <tr>
+              <td class="help-dialog-table-key"><b>PgDn</b></td>
+              <td class="help-dialog-table-desc">Remove Player</td>
+            </tr>
+            <tr>
+              <td class="help-dialog-table-key"><b>Home</b></td>
+              <td class="help-dialog-table-desc">Add Buy-In (or [=] or [.])</td>
+            </tr>
+            <tr>
+              <td class="help-dialog-table-key"><b>End</b></td>
+              <td class="help-dialog-table-desc">Remove Buy-In (or [-] or [,])</td>
+            </tr>
+            <tr>
+            <td colspan="2"> <hr>
+            </tr>
+            <tr>
+              <td class="help-dialog-table-key"><b>BS</b></td>
+              <td class="help-dialog-table-desc">Unlock level/clock keys</td>
+            </tr>
+            <tr>
+              <td class="help-dialog-table-key"><b>E</b></td>
+              <td class="help-dialog-table-desc">Edit Event</td>
+            </tr>
+            <tr>
+              <td class="help-dialog-table-key"><b>Esc</b></td>
+              <td class="help-dialog-table-desc">Exit to Overview</td>
+            </tr>
+          </tbody>
+        </table>
         <div class="help-dialog-close">
-          Press <b>Esc</b> to close this help.
+          * These are disabled unless clock is paused and unlocked. <br>
+          <b>F1</b>, <b>?</b>, or <b>/</b> will show this message. <br>
+          <b>Esc</b> to close this help.
         </div>
       </div>
     </div>

@@ -13,6 +13,9 @@ function to_hmmss(t) {
     console.log("can't clock " + t);
     return "♠♠:♠♠";
   }
+  if (t === -1) {
+    return "&nbsp;&nbsp;:&nbsp;&nbsp;";
+  }
   if (typeof t === 'undefined') {
     return "♦♦:♦♦";
   }
@@ -50,8 +53,7 @@ const shuffle_array = array => {
   const clock_tick_ms = 250;
   const next_footer_interval_ms = 30000;
 
-  var next_level_complete_at = undefined,
-  next_break_at = undefined;
+  let next_level_complete_at = undefined, next_break_at = undefined, clock_locked = true;
   
   // Initialize last_model (the last model we loaded) with a fail-safe initial
   // model value
@@ -60,7 +62,7 @@ const shuffle_array = array => {
     "State": {
       "CurrentLevelNumber": 0,
       "IsClockRunning": false,
-      "TimeRemainingMillis":(59+(59*60))*1000,
+      "TimeRemainingMillis": -1,
       "CurrentLevelEndsAt": undefined,
     },
     "Structure": {
@@ -115,6 +117,10 @@ const shuffle_array = array => {
     var next_footer_offset = 99999;
 
     return function() {
+        if (!clock_locked) {
+          return
+        }
+
       next_footer_offset++;
       if (next_footer_offset > footers.length) {
         next_footer_offset = 0;
@@ -124,7 +130,19 @@ const shuffle_array = array => {
     }
   })()
 
-  let footer_interval_id = setInterval(next_footer, next_footer_interval_ms);
+  let footer_interval_id = undefined;
+  function start_rotating_footers() {
+      if (typeof footer_interval_id === 'undefined') {
+          footer_interval_id = setInterval(next_footer, next_footer_interval_ms);
+      }
+  }
+
+  function stop_rotating_footers() {
+    if (typeof footer_interval_id !== 'undefined') {
+      clearInterval(footer_interval_id);
+      footer_interval_id = undefined;
+    }
+  }
   
   async function load() {
     console.log("called: load()");
@@ -382,12 +400,36 @@ const shuffle_array = array => {
     return function() { send_modify(arg); }
   }
 
+  // if paused && clock unlocked, send modify with arg
+  function ipcusmwa(arg) {
+      return function() {
+          if (!clock_locked && !last_model.State.IsClockRunning) {
+              send_modify(arg);
+          } else {
+              console.log(`clock_locked=${clock_locked} and running=$(last_model.State.IsClockRunning}`)
+          }
+      }
+  }
+
+  function toggle_clock_lock() {
+    clock_locked = !clock_locked;
+    if (clock_locked) {
+      console.log("clock controls locked");
+      set_html("footer", "level/clock controls re-locked");
+      start_rotating_footers();
+    } else {
+      console.log("clock unlocked");
+      stop_rotating_footers();
+      set_html("footer", "level/clock controls unlocked");
+    }
+  }
+
   var keycode_to_handler = {
-      'ArrowLeft': smwa('PreviousLevel'),
-      'ArrowRight': smwa('SkipLevel'),
       'Space': toggle_pause,
-      'ArrowDown': smwa('MinusMinute'),
-      'ArrowUp': smwa('PlusMinute'),
+      'ArrowLeft': ipcusmwa('PreviousLevel'),
+      'ArrowRight': ipcusmwa('SkipLevel'),
+      'ArrowDown': ipcusmwa('MinusMinute'),
+      'ArrowUp': ipcusmwa('PlusMinute'),
       'PageUp': smwa('AddPlayer'),
       'PageDown': smwa('RemovePlayer'),
       'Enter': toggle_pause,
@@ -398,10 +440,8 @@ const shuffle_array = array => {
       'Comma': smwa('RemoveBuyIn'),
       'Period': smwa('AddBuyIn'),
       'KeyE': redirect_to_edit,
-      'KeyG': smwa('StartClock'),
-      'KeyS': smwa('StopClock'),
       'KeyF': next_footer_key,
-      'Backspace': exit_view,
+      'Backspace': toggle_clock_lock,
       'Escape': handle_escape,
       'Slash': show_help_dialog,
       'F1': show_help_dialog,
