@@ -128,14 +128,14 @@
         left: 50%;
         top: 50%;
         transform: translate(-50%, -50%) rotate(-25deg);
-        font-size: 7vi;
-        color: #fff;
+        font-size: 8vi;
+        color: #dddd00;
         text-shadow:
-          -5px -5px 0 #000,
-          5px -5px 0 #000,
-          -5px 5px 0 #000,
-          5px 5px 0 #000,
-          0 0 50px #000;
+          -0.7vi -0.7vi 0 #000,
+          0.7vi -0.7vi 0 #000,
+          -0.7vi 0.7vi 0 #000,
+          0.7vi 0.7vi 0 #000,
+          0 0 100px #000;
         font-family: arcade, monospace;
         pointer-events: none;
         z-index: 10;
@@ -229,28 +229,12 @@
 
     <div id="help-dialog" class="help-dialog-overlay">
       <div class="help-dialog-content">
-        <h2>Keyboard Control</h2>
+        <h3>Keyboard Control</h3>
         <table style="width:100%; border-collapse:collapse; margin:0; font-size:1.3vi;">
           <tbody>
             <tr>
               <td class="help-dialog-table-key"><b>Space</b></td>
               <td class="help-dialog-table-desc">Pause/Resume Clock (or [Enter])</td>
-            </tr>
-            <tr>
-              <td class="help-dialog-table-key"><b>←</b></td>
-              <td class="help-dialog-table-desc">Previous Level*</td>
-            </tr>
-            <tr>
-              <td class="help-dialog-table-key"><b>→</b></td>
-              <td class="help-dialog-table-desc">Skip to Next Level*</td>
-            </tr>
-            <tr>
-              <td class="help-dialog-table-key"><b>↑</b></td>
-              <td class="help-dialog-table-desc">Add 1 Minute*</td>
-            </tr>
-            <tr>
-              <td class="help-dialog-table-key"><b>↓</b></td>
-              <td class="help-dialog-table-desc">Subtract 1 Minute*</td>
             </tr>
             <tr>
               <td class="help-dialog-table-key"><b>PgUp</b></td>
@@ -268,13 +252,28 @@
               <td class="help-dialog-table-key"><b>End</b></td>
               <td class="help-dialog-table-desc">Remove Buy-In (or [-] or [,])</td>
             </tr>
-            <tr>
-            <td colspan="2"> <hr>
-            </tr>
+            <tr> <td colspan="2"> <hr> </td> </tr>
             <tr>
               <td class="help-dialog-table-key"><b>BS</b></td>
               <td class="help-dialog-table-desc">Unlock level/clock keys</td>
             </tr>
+            <tr>
+              <td class="help-dialog-table-key"><b>←</b></td>
+              <td class="help-dialog-table-desc">*Previous Level</td>
+            </tr>
+            <tr>
+              <td class="help-dialog-table-key"><b>→</b></td>
+              <td class="help-dialog-table-desc">*Skip to Next Level</td>
+            </tr>
+            <tr>
+              <td class="help-dialog-table-key"><b>↑</b></td>
+              <td class="help-dialog-table-desc">*Add 1 Minute</td>
+            </tr>
+            <tr>
+              <td class="help-dialog-table-key"><b>↓</b></td>
+              <td class="help-dialog-table-desc">*Subtract 1 Minute</td>
+            </tr>
+            <tr> <td colspan="2"> <hr> </td> </tr>
             <tr>
               <td class="help-dialog-table-key"><b>E</b></td>
               <td class="help-dialog-table-desc">Edit Event</td>
