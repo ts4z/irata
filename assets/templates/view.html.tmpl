@@ -122,6 +122,27 @@
         text-align: left;
         padding: 0.1vi 0;
       }
+      .paused-overlay {
+        display: none;
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%) rotate(-25deg);
+        font-size: 7vi;
+        color: #fff;
+        text-shadow:
+          -5px -5px 0 #000,
+          5px -5px 0 #000,
+          -5px 5px 0 #000,
+          5px 5px 0 #000,
+          0 0 50px #000;
+        font-family: arcade, monospace;
+        pointer-events: none;
+        z-index: 10;
+        white-space: nowrap;
+        letter-spacing: 0.1em;
+        font-weight: bold;
+      }
     </style>
 
     <table class="fullsize">
@@ -138,7 +159,10 @@
               <td class="level" width="80%" id="level"> LOADING... </td>
             </tr>
             <tr>
-              <td width="80%" class="clock" id="clock"> &#9824;&#9829;:&#9830;&#9827; </td>
+              <td width="80%" class="clock" id="clock-td" style="position:relative;">
+              <span id="clock">&#9824;&#9829;:&#9830;&#9827;</span>
+                <div id="paused-overlay" class="paused-overlay">PAUSED</div>
+              </td>
             </tr>
             <tr>
               <td width="80%" class="blinds" id="blinds"> LOADING...

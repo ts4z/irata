@@ -86,7 +86,7 @@ VALUES (1, 'peterbarge', $json$
        "ChipsPerBuyIn": 3000,
        "ChipsPerAddOn": 0,
            "Levels":   [
-           { "Banner": "PeterBARGE 3D", "Description": "SU & DEAL @ 11:00AM", "DurationMinutes": 60, "IsBreak": true },
+           { "Banner": "PeterBARGE 3D", "Description": "SU & DEAL @ 11:00AM", "DurationMinutes": 59, "IsBreak": true },
            { "Banner": "LEVEL 1", "Description": "BLINDS 25-50", "DurationMinutes": 18, "IsBreak": false },
            { "Banner": "LEVEL 2", "Description": "BLINDS 50-75", "DurationMinutes": 18, "IsBreak": false },
            { "Banner": "LEVEL 3", "Description": "BLINDS 50-100", "DurationMinutes": 18, "IsBreak": false },

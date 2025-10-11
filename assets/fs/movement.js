@@ -165,16 +165,13 @@ const shuffle_array = array => {
 
     if (level.IsBreak) {
       set_html("blinds", level.Description);
-      set_class("clock", "clock-break");
+      set_class("clock-td", "clock-break");
     } else {
       set_html("blinds", level.Description);
-      set_class("clock", "clock");
+      set_class("clock-td", "clock");
     }
 
     let level_banner = level.Banner;
-    if (!model.State.IsClockRunning) {
-      level_banner += " (PAUSED)";
-    }
     set_html("level", level_banner);
 
     set_html("current-players", model.State.CurrentPlayers)
@@ -190,9 +187,19 @@ const shuffle_array = array => {
     update_clock();
     start_clock();
 
+    // Show/hide PAUSED overlay
+    show_paused_overlay(!model.State.IsClockRunning);
+
     maybe_fetch_footers(model.FooterPlugsID);
 
     last_model = model;
+  }
+
+  function show_paused_overlay(show) {
+    const pausedEl = document.getElementById("paused-overlay");
+    if (pausedEl) {
+      pausedEl.style.display = show ? "block" : "none";
+    }
   }
 
   function set_html(id, value) {
@@ -420,7 +427,7 @@ const shuffle_array = array => {
     } else {
       console.log("clock unlocked");
       stop_rotating_footers();
-      set_html("footer", "level/clock controls unlocked");
+      set_html("footer", "<nobr>level/clock controls</nobr> <nobr>available when paused</nobr>");
     }
   }
 
