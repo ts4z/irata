@@ -63,6 +63,10 @@ func idPathValueFromRequest(r *http.Request) (int64, error) {
 	return id, nil
 }
 
+type clock interface {
+	Now() time.Time
+}
+
 // irataApp prevents the proliferation of global variables.
 type irataApp struct {
 	templates   *template.Template
@@ -71,7 +75,7 @@ type irataApp struct {
 	mutator     *action.Actor
 	subFS       fs.FS
 	bakery      *permission.Bakery
-	clock       *ts.Clock
+	clock       clock
 }
 
 func (app *irataApp) fetchTournament(ctx context.Context, id int64) (*model.Tournament, error) {
@@ -79,7 +83,6 @@ func (app *irataApp) fetchTournament(ctx context.Context, id int64) (*model.Tour
 	if err != nil {
 		return nil, err
 	}
-	t.FillTransients(app.clock)
 	return t, nil
 }
 
@@ -152,7 +155,12 @@ func (app *irataApp) installHandlers() {
 			he.SendErrorToHTTPClient(w, "get tournament from database", err)
 			return
 		}
-		if err := app.templates.ExecuteTemplate(w, "view.html.tmpl", t); err != nil {
+		type viewArgs struct {
+			Tournament              *model.Tournament
+			InstallKeyboardHandlers bool
+		}
+		args := &viewArgs{Tournament: t, InstallKeyboardHandlers: permission.CheckWriteAccessToTournamentID(ctx, id) == nil}
+		if err := app.templates.ExecuteTemplate(w, "view.html.tmpl", args); err != nil {
 			log.Printf("500: can't render template: %v", err)
 		}
 	}
@@ -309,6 +317,42 @@ func (app *irataApp) installHandlers() {
 		}
 	})
 
+	// Handler for /api/tournament-listen
+	http.HandleFunc("/api/tournament-listen", func(w http.ResponseWriter, r *http.Request) {
+		type reqBody struct {
+			TournamentID int64 `json:"tournament_id"`
+			Version      int64 `json:"version"`
+		}
+		var req reqBody
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			log.Printf("can't decode body: %v", err)
+			he.SendErrorToHTTPClient(w, "/api/tournament-listen", he.HTTPCodedErrorf(400, "decoding json: %w", err))
+			return
+		}
+		errCh := make(chan error, 1)
+		tournamentCh := make(chan *model.Tournament, 1)
+		timeoutCh := time.After(time.Hour)
+		go app.storage.ListenTournamentVersion(r.Context(), req.TournamentID, req.Version, errCh, tournamentCh)
+		select {
+		case err := <-errCh:
+			he.SendErrorToHTTPClient(w, "listening for tournament version change", err)
+			return
+		case tm := <-tournamentCh:
+			bytes, err := json.Marshal(tm)
+			if err != nil {
+				he.SendErrorToHTTPClient(w, "marshal model", err)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.Write(bytes)
+			return
+		case <-timeoutCh:
+			he.SendErrorToHTTPClient(w, "waiting for tournament update",
+				he.HTTPCodedErrorf(http.StatusGatewayTimeout, "timeout"))
+			return
+		}
+	})
+
 	app.installKeyboardHandlers()
 }
 
@@ -329,17 +373,15 @@ func (app *irataApp) handleKeypress(r *http.Request) error {
 	ctx, _ := app.saveUserInRequestContext(r)
 
 	log.Printf("keypress received")
-	id64, err := idPathValueFromRequest(r)
-	if err != nil {
-		return err
-	}
+
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		log.Printf("can't read response body: %v", err)
 	}
 
 	type KeyboardModifyEvent struct {
-		Event string
+		TournamentID int64
+		Event        string
 	}
 
 	var event KeyboardModifyEvent
@@ -347,10 +389,15 @@ func (app *irataApp) handleKeypress(r *http.Request) error {
 		log.Printf("can't unmarshal event %s: %v", string(body), err)
 	}
 
+	// Redundant check (storage checks too) to marginally improve logs + error.
+	if permission.CheckWriteAccessToTournamentID(ctx, event.TournamentID) != nil {
+		return he.HTTPCodedErrorf(http.StatusUnauthorized, "permission denied")
+	}
+
 	if h, ok := keyboardModifyEventHandlers[event.Event]; !ok {
 		return he.HTTPCodedErrorf(404, "unknown keyboard event")
 	} else {
-		t, err := app.fetchTournament(r.Context(), id64)
+		t, err := app.fetchTournament(r.Context(), event.TournamentID)
 		if err != nil {
 			return he.HTTPCodedErrorf(404, "tournament not found: %w", err)
 		}
@@ -367,10 +414,10 @@ func (app *irataApp) handleKeypress(r *http.Request) error {
 }
 
 func (app *irataApp) installKeyboardHandlers() {
-	http.HandleFunc("/api/keyboard-control/{id}", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/api/keyboard-control", func(w http.ResponseWriter, r *http.Request) {
 		err := app.handleKeypress(r)
 		if err != nil {
-			he.SendErrorToHTTPClient(w, "handling keypress", err)
+			he.SendErrorToHTTPClient(w, "handleKeypress", err)
 		}
 	})
 }
@@ -404,7 +451,7 @@ func main() {
 		log.Fatalf("fs.Sub: %v", err)
 	}
 
-	unprotectedStorage, err := state.NewDBStorage(context.Background(), dbURL)
+	unprotectedStorage, err := state.NewDBStorage(context.Background(), dbURL, clock)
 	if err != nil {
 		log.Fatalf("can't configure database: %v", err)
 	}

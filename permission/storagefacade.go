@@ -74,3 +74,7 @@ func (s *StorageDecorator) CreateStructure(ctx context.Context, st *model.Struct
 	}
 	return s.Storage.CreateStructure(ctx, st)
 }
+
+func (s *StorageDecorator) ListenTournamentVersion(ctx context.Context, id int64, version int64, errCh chan<- error, tournamentCh chan<- *model.Tournament) {
+	s.Storage.ListenTournamentVersion(ctx, id, version, errCh, tournamentCh)
+}

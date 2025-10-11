@@ -24,6 +24,7 @@ type AppStorage interface {
 	SaveStructure(ctx context.Context, s *model.Structure) error
 	DeleteStructure(ctx context.Context, id int64) error
 	CreateStructure(ctx context.Context, s *model.Structure) (int64, error)
+	ListenTournamentVersion(ctx context.Context, id int64, version int64, errCh chan<- error, tournamentCh chan<- *model.Tournament)
 }
 
 type SiteStorage interface {

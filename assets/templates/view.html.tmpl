@@ -1,7 +1,7 @@
 <html>
   <head>
     <title>
-      Irata Poker Clock: {{ .EventName }}
+      Irata Poker Clock: {{ .Tournament.EventName }}
     </title>
   </head>
   <body>
@@ -152,7 +152,7 @@
           <table class="fullsize">
             <tr>
               <td class="title">
-                &#9824; {{ .EventName }} &#9824;
+                &#9824; {{ .Tournament.EventName }} &#9824;
               </td>
             </tr>
             <tr>
@@ -189,8 +189,8 @@
           <!-- right rail -->
           <table width="100%" class="fullsize">
             <tr> <td class="rr-label"> PLAYERS </tr>
-            <tr> <td class="current-players" id="current-players"> {{ .State.CurrentPlayers }} </tr>
-            <tr> <td class="buyins"><span id="buyins">{{- .State.BuyIns -}}</span> BUYINS </tr>
+            <tr> <td class="current-players" id="current-players">{{ .Tournament.State.CurrentPlayers }}</td></tr>
+            <tr> <td class="buyins"><span id="buyins">{{- .Tournament.State.BuyIns -}}</span> BUYINS </td></tr>
             <tr>
               <td style="font-size: 3vi;" align="center">
                 &#9830;
@@ -201,7 +201,7 @@
                   <!-- <tr> <td class="rr-label"> PRIZE POOL </td> </tr> -->
                   <tr>
                     <td class="prize-pool">
-                      {{ .State.PrizePool }}
+                      {{ .Tournament.State.PrizePool }}
                     </td>
                 </table>
             </td></tr>
@@ -214,7 +214,7 @@
                 <table width="100%">
                   <tbody>
                   <tr> <td class="rr-label"> AVG CHIPS </tr>
-                  <tr> <td class="avg-chips" id="avg-chips"> {{ .Transients.AverageChips }} </tr>
+                  <tr> <td class="avg-chips" id="avg-chips"> {{ .Tournament.Transients.AverageChips }} </tr>
                   <tr> <td class="rr-label"> NEXT LEVEL </tr>
                   <tr> <td class="next-level" id="next-level"> TBD </tr>
                   <tr> <td class="rr-label"> NEXT BREAK </tr>
@@ -293,5 +293,8 @@
     </div>
 
     <script src="/fs/movement.js"></script>
+    {{ if .InstallKeyboardHandlers }}
+    <script> installKeyboardHandlers(); </script>
+    {{ end }}
   </body>
 </html>

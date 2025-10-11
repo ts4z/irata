@@ -8,8 +8,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/ts4z/irata/ts"
 )
 
 const (
@@ -199,7 +197,7 @@ func (m *Tournament) CurrentLevelEndsAtAsTime() time.Time {
 }
 
 // adjustStateForElapsedTime fixes the state to reflect the current time.
-func (m *Tournament) adjustStateForElapsedTime(clock *ts.Clock) {
+func (m *Tournament) adjustStateForElapsedTime(clock Clock) {
 	if m.CurrentLevel() == nil {
 		m.RestartLastLevel(clock)
 		return
@@ -265,15 +263,19 @@ func (m *Tournament) adjustStateForElapsedTime(clock *ts.Clock) {
 	}
 }
 
-func (m *Tournament) RestartLastLevel(clock *ts.Clock) {
+func (m *Tournament) RestartLastLevel(clock Clock) {
 	m.State.CurrentLevelNumber = len(m.Structure.Levels) - 1
 	m.restartLevel(clock)
+}
+
+type Clock interface {
+	Now() time.Time
 }
 
 // FillTransients fills out computed fields.  (These shouldn't be serialized to
 // the database as they're redundant, but they are very convenient for access
 // from templates and maybe JS.)
-func (m *Tournament) FillTransients(clock *ts.Clock) {
+func (m *Tournament) FillTransients(clock Clock) {
 	m.Transients = &Transients{}
 
 	// TODO: move this to edit
@@ -329,7 +331,7 @@ func (m *Tournament) fillNextLevel() {
 	m.Transients.NextLevel = nil
 }
 
-func (t *Tournament) PreviousLevel(clock *ts.Clock) error {
+func (t *Tournament) PreviousLevel(clock Clock) error {
 	if t.State.CurrentLevelNumber <= 0 {
 		return errors.New("already at min level")
 	}
@@ -347,7 +349,7 @@ func (t *Tournament) endOfTime() {
 	t.State.IsClockRunning = false
 }
 
-func (t *Tournament) AdvanceLevel(clock *ts.Clock) error {
+func (t *Tournament) AdvanceLevel(clock Clock) error {
 	if t.State.CurrentLevelNumber >= len(t.Structure.Levels)-1 {
 		t.endOfTime()
 		return nil
@@ -368,7 +370,7 @@ func (t *Tournament) CurrentLevelDuration() *time.Duration {
 
 // restartLevel resets the current level's clocks after a manual level change.
 // (It doesn't make sense to call this externally.)
-func (t *Tournament) restartLevel(clock *ts.Clock) {
+func (t *Tournament) restartLevel(clock Clock) {
 	if t.CurrentLevel() == nil {
 		log.Printf("debug: can't restart level: no current level")
 	}
@@ -385,7 +387,7 @@ func (t *Tournament) restartLevel(clock *ts.Clock) {
 	}
 }
 
-func (t *Tournament) StopClock(clock *ts.Clock) error {
+func (t *Tournament) StopClock(clock Clock) error {
 	log.Printf("STOP CLOCK")
 	t.adjustStateForElapsedTime(clock)
 
@@ -407,7 +409,7 @@ func (t *Tournament) StopClock(clock *ts.Clock) error {
 	return nil
 }
 
-func (t *Tournament) StartClock(clock *ts.Clock) error {
+func (t *Tournament) StartClock(clock Clock) error {
 	t.adjustStateForElapsedTime(clock)
 
 	if t.State.IsClockRunning {
@@ -435,7 +437,7 @@ func (t *Tournament) StartClock(clock *ts.Clock) error {
 	return nil
 }
 
-func (t *Tournament) RemovePlayer(clock *ts.Clock) error {
+func (t *Tournament) RemovePlayer(clock Clock) error {
 	if t.State.CurrentPlayers > 1 {
 		t.State.CurrentPlayers--
 		t.FillTransients(clock)
@@ -444,19 +446,19 @@ func (t *Tournament) RemovePlayer(clock *ts.Clock) error {
 	return errors.New("can't remove the last player")
 }
 
-func (t *Tournament) AddPlayer(clock *ts.Clock) error {
+func (t *Tournament) AddPlayer(clock Clock) error {
 	t.State.CurrentPlayers++
 	t.FillTransients(clock)
 	return nil
 }
 
-func (t *Tournament) AddBuyIn(clock *ts.Clock) error {
+func (t *Tournament) AddBuyIn(clock Clock) error {
 	t.State.BuyIns++
 	t.FillTransients(clock)
 	return nil
 }
 
-func (t *Tournament) RemoveBuyIn(clock *ts.Clock) error {
+func (t *Tournament) RemoveBuyIn(clock Clock) error {
 	if t.State.BuyIns > 0 {
 		t.State.BuyIns--
 		t.FillTransients(clock)
@@ -465,7 +467,7 @@ func (t *Tournament) RemoveBuyIn(clock *ts.Clock) error {
 	return errors.New("can't buy in less than zero")
 }
 
-func (t *Tournament) PlusMinute(clock *ts.Clock) error {
+func (t *Tournament) PlusMinute(clock Clock) error {
 	t.adjustStateForElapsedTime(clock)
 
 	if t.CurrentLevel() == nil {
@@ -494,7 +496,7 @@ func (t *Tournament) PlusMinute(clock *ts.Clock) error {
 	return nil
 }
 
-func (t *Tournament) MinusMinute(clock *ts.Clock) error {
+func (t *Tournament) MinusMinute(clock Clock) error {
 	t.adjustStateForElapsedTime(clock)
 
 	if t.CurrentLevel() == nil {

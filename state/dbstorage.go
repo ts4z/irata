@@ -7,6 +7,8 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"sync"
+	"time"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 
@@ -15,26 +17,36 @@ import (
 	"github.com/ts4z/irata/model"
 )
 
+type Clock interface {
+	Now() time.Time
+}
+
 // DBStorage stores stuff in the associated database.
 //
 // TODO: Split apart.  There is too much in one class, and the three
 // interfaces are easily seperable.  (The database handle can
 // be shared.)
 type DBStorage struct {
-	db *sql.DB
+	db    *sql.DB
+	clock Clock
+	// Map from tournament id to slice of notification functions
+	tournamentListeners   map[int64][]chan<- *model.Tournament
+	tournamentListenersMu sync.Mutex
 }
 
 var _ AppStorage = &DBStorage{}
 var _ SiteStorage = &DBStorage{}
 var _ UserStorage = &DBStorage{}
 
-func NewDBStorage(ctx context.Context, url string) (*DBStorage, error) {
+func NewDBStorage(ctx context.Context, url string, clock Clock) (*DBStorage, error) {
 	db, err := sql.Open("pgx", url)
 	if err != nil {
 		return nil, err
 	}
 	return &DBStorage{
-		db: db,
+		clock:               clock,
+		db:                  db,
+		tournamentListeners: make(map[int64][]chan<- *model.Tournament),
 	}, nil
 }
 
@@ -192,8 +204,7 @@ func (s *DBStorage) FetchOverview(ctx context.Context, offset, limit int) (*mode
 	return overview, nil
 }
 
-// fetchTournamentPartial fetches without structure.
-func (s *DBStorage) fetchTournamentPartial(ctx context.Context, id int64) (*model.Tournament, error) {
+func (s *DBStorage) FetchTournament(ctx context.Context, id int64) (*model.Tournament, error) {
 	var lock int64
 	var handle string
 	var bytes []byte
@@ -212,19 +223,13 @@ func (s *DBStorage) fetchTournamentPartial(ctx context.Context, id int64) (*mode
 		return nil, err
 	}
 
-	// These come from the databae row, not the JSON.
+	// These come from the database row, not the JSON.
 	tm.EventID = id
 	tm.Handle = handle
 	tm.Version = lock
+	// These don't come from the database at all.
+	tm.FillTransients(s.clock)
 
-	return tm, nil
-}
-
-func (s *DBStorage) FetchTournament(ctx context.Context, id int64) (*model.Tournament, error) {
-	tm, err := s.fetchTournamentPartial(ctx, id)
-	if err != nil {
-		return nil, err
-	}
 	return tm, nil
 }
 
@@ -266,11 +271,13 @@ func (s *DBStorage) SaveTournament(
 	if err != nil {
 		return err
 	}
+	newVersion := tm.Version + 1
 	if result, err := s.db.ExecContext(ctx,
-		`UPDATE tournaments SET version=$1+1, model_data=$2 WHERE tournament_id=$3 AND version=$1;`,
+		`UPDATE tournaments SET version=$4, model_data=$2 WHERE tournament_id=$3 AND version=$1;`,
 		tm.Version,
 		bytes,
-		tm.EventID); err != nil {
+		tm.EventID,
+		newVersion); err != nil {
 		log.Printf("update failed: %v", err)
 		return err
 	} else {
@@ -281,7 +288,24 @@ func (s *DBStorage) SaveTournament(
 		}
 	}
 
-	log.Printf("wrote: id=%d, bytes=%q", tm.EventID, bytes)
+	cpy.Version = newVersion
+	cpy.FillTransients(s.clock)
+
+	// Notify listeners for this tournament id
+	var listeners []chan<- *model.Tournament
+	s.tournamentListenersMu.Lock()
+	listeners = s.tournamentListeners[tm.EventID]
+	delete(s.tournamentListeners, tm.EventID)
+	s.tournamentListenersMu.Unlock()
+
+	for _, ch := range listeners {
+		// Pass the updated tournament directly
+		go func(ch chan<- *model.Tournament) {
+			ch <- &cpy
+		}(ch)
+	}
+
+	log.Printf("wrote: tournament id=%d version=%d notified %d listeners", tm.EventID, tm.Version, len(listeners))
 	return nil
 }
 
@@ -324,7 +348,6 @@ func (s *DBStorage) SaveStructure(
 		}
 	}
 
-	// log.Printf("wrote: id=%d, bytes=%q", st.ID, bytes)
 	return nil
 }
 
@@ -500,4 +523,30 @@ func (s *DBStorage) DeleteUserByNick(ctx context.Context, nick string) error {
 			return nil
 		}
 	}
+}
+
+// ListenTournamentVersion registers a channel to be notified when the tournament version changes.
+// If the version is already different, closes the channel immediately.
+// If tournament not found, sends error on channel and closes it.
+func (s *DBStorage) ListenTournamentVersion(ctx context.Context, id int64, clientVersion int64, errCh chan<- error, tournamentCh chan<- *model.Tournament) {
+	var dbVersion int64
+	err := s.db.QueryRowContext(ctx, "SELECT version FROM tournaments WHERE tournament_id=$1", id).Scan(&dbVersion)
+	if err != nil {
+		errCh <- err
+		return
+	}
+	if dbVersion != clientVersion {
+		tm, fetchErr := s.FetchTournament(ctx, id)
+		if fetchErr != nil {
+			errCh <- fetchErr
+		} else {
+			tournamentCh <- tm
+		}
+		return
+	}
+
+	s.tournamentListenersMu.Lock()
+	s.tournamentListeners[id] = append(s.tournamentListeners[id], tournamentCh)
+	log.Printf("%d listeners for tournament id %d", len(s.tournamentListeners[id]), id)
+	s.tournamentListenersMu.Unlock()
 }
