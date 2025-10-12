@@ -111,10 +111,12 @@ func (app *irataApp) saveUserInRequestContext(r *http.Request) (context.Context,
 	return permission.UserIdentityInContext(ctx, identity), identity
 }
 
+var RegexpLFLF = regexp.MustCompile(`\n\n+`)
+
 func parseFooterPlugsBox(plugsRaw string) []string {
 	plugs := []string{}
 	plugsRaw = strings.ReplaceAll(plugsRaw, "\r", "")
-	for plug := range regexp.SplitSeq("\n\n+", plugsRaw) {
+	for _, plug := range RegexpLFLF.Split(plugsRaw, -1) {
 		plug = strings.TrimSpace(plug)
 		if plug != "" {
 			plugs = append(plugs, plug)
@@ -124,7 +126,62 @@ func parseFooterPlugsBox(plugsRaw string) []string {
 }
 
 func (app *irataApp) installHandlers() {
-	// Handler for /create/footer-set
+	http.HandleFunc("/manage/footer-set/{id}/edit", func(w http.ResponseWriter, r *http.Request) {
+		ctx, _ := app.saveUserInRequestContext(r)
+		if !permission.IsAdmin(ctx) {
+			he.SendErrorToHTTPClient(w, "authorizing", he.HTTPCodedErrorf(http.StatusUnauthorized, "permission denied"))
+			return
+		}
+
+		id, err := idPathValue(w, r)
+		if err != nil {
+			return
+		}
+
+		var flash string
+		if r.Method == http.MethodPost {
+			if err := r.ParseForm(); err != nil {
+				flash = "Error parsing form"
+			} else {
+				name := r.FormValue("Name")
+				plugs := []string{}
+				for i := 0; ; i++ {
+					plug := r.FormValue(fmt.Sprintf("Plug%d", i))
+					if plug == "" && i >= len(r.Form)-1 {
+						break
+					}
+					plug = strings.TrimSpace(plug)
+					if plug != "" {
+						plugs = append(plugs, plug)
+					}
+				}
+				if name == "" {
+					flash = "Set name required"
+				} else {
+					err := app.storage.UpdateFooterPlugSet(ctx, id, name, plugs)
+					if err != nil {
+						flash = "Error saving footer plug set"
+					} else {
+						// http.Redirect(w, r, fmt.Sprintf("/manage/footer-set/%d/edit", id), http.StatusSeeOther)
+						return
+					}
+				}
+			}
+		}
+		fp, err := app.storage.FetchPlugs(ctx, id)
+		if err != nil {
+			he.SendErrorToHTTPClient(w, "fetch footer plug set", err)
+			return
+		}
+		data := struct {
+			FooterSet *model.FooterPlugs
+			Flash     string
+		}{FooterSet: fp, Flash: flash}
+		if err := app.templates.ExecuteTemplate(w, "edit-footer-set.html.tmpl", data); err != nil {
+			log.Printf("can't render edit-footer-set template: %v", err)
+		}
+	})
+
 	http.HandleFunc("/create/footer-set", func(w http.ResponseWriter, r *http.Request) {
 		ctx, _ := app.saveUserInRequestContext(r)
 		if !permission.IsAdmin(ctx) {
@@ -157,34 +214,6 @@ func (app *irataApp) installHandlers() {
 		if err := app.templates.ExecuteTemplate(w, "create-footer-set.html.tmpl", data); err != nil {
 			log.Printf("can't render create-footer-set template: %v", err)
 		}
-	})
-
-	// Handler for /manage/footer-set/{id} (placeholder)
-	http.HandleFunc("/manage/footer-set/{id}", func(w http.ResponseWriter, r *http.Request) {
-		ctx, _ := app.saveUserInRequestContext(r)
-		if !permission.IsAdmin(ctx) {
-			http.Error(w, "permission denied", http.StatusForbidden)
-			return
-		}
-
-		id, err := idPathValue(w, r)
-		if err != nil {
-			return
-		}
-
-		if !permission.IsAdmin(ctx) {
-			http.Error(w, "permission denied", http.StatusForbidden)
-			return
-		}
-
-		fp, err := app.storage.FetchPlugs(ctx, id)
-		if err != nil {
-			he.SendErrorToHTTPClient(w, "fetch footer plugs", err)
-			return
-		}
-
-		// jank
-		fmt.Fprintf(w, "<html><body><h2>Footer Plug Set %s %d</h2><p>Not implemented yet.</p><a href='/manage/footers'>Back</a></body></html>", fp.Name, id)
 	})
 
 	http.HandleFunc("/manage/footer-set/{id}/delete", func(w http.ResponseWriter, r *http.Request) {

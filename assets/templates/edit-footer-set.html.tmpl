@@ -1,0 +1,120 @@
+{{ define "edit-footer-set.html.tmpl" }}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Edit Footer Plug Set</title>
+    <style>
+      @font-face {
+          font-family: arcade;
+          src: url('/fs/PressStart2P-vaV7.ttf') format('truetype');
+      }
+      body {
+          font-family: arcade, monospace;
+          background-color: #000000;
+          color: #ffffff;
+      }
+      .container {
+          max-width: 700px;
+          margin: 2em auto;
+          background: #111;
+          padding: 2em;
+          border-radius: 8px;
+      }
+      label {
+          display: block;
+          margin-top: 1em;
+          font-weight: bold;
+      }
+      input[type=text], textarea {
+          width: 100%;
+          padding: 0.5em;
+          margin-top: 0.5em;
+          background: #000;
+          color: #fff;
+          border: 1px solid #555;
+          border-radius: 4px;
+          font-family: arcade, monospace;
+      }
+      textarea {
+          min-height: 60px;
+      }
+      .plug-row {
+          display: flex;
+          align-items: flex-start;
+          gap: 0.5em;
+          margin-bottom: 1em;
+      }
+      .plug-row textarea {
+          flex: 1;
+      }
+      .plug-row button {
+          background: #222;
+          color: #fff;
+          border: none;
+          border-radius: 4px;
+          font-size: 1em;
+          cursor: pointer;
+          padding: 0.5em 1em;
+      }
+      .plug-row button:hover {
+          background: #444;
+      }
+      #add-plug-btn {
+          margin-top: 1em;
+          padding: 0.7em 2em;
+          background: #222;
+          color: #fff;
+          border: none;
+          border-radius: 4px;
+          font-size: 1em;
+          cursor: pointer;
+          font-family: arcade, monospace;
+      }
+      #add-plug-btn:hover {
+          background: #444;
+      }
+      .actions {
+          margin-top: 2em;
+      }
+      a {
+          color: #fff;
+          text-decoration: underline;
+          margin-left: 1em;
+      }
+    </style>
+    <script>
+      function addPlug() {
+        const plugsDiv = document.getElementById('plugs');
+        const idx = plugsDiv.children.length;
+        const row = document.createElement('div');
+        row.className = 'plug-row';
+        row.innerHTML = `<textarea name="Plug${idx}" required></textarea> <button type="button" onclick="this.parentNode.remove()">Delete</button>`;
+        plugsDiv.appendChild(row);
+      }
+    </script>
+</head>
+<body>
+    <div class="container">
+        <h1>Edit Footer Plug Set</h1>
+        <form method="POST">
+            <label for="Name">Set Name</label>
+            <input type="text" id="Name" name="Name" value="{{ .FooterSet.Name }}" required>
+            <div id="plugs">
+                {{ range $i, $plug := .FooterSet.TextPlugs }}
+                <div class="plug-row">
+                    <textarea name="Plug{{ $i }}" required>{{ $plug }}</textarea>
+                    <button type="button" onclick="this.parentNode.remove()">Delete</button>
+                </div>
+                {{ end }}
+            </div>
+            <button type="button" id="add-plug-btn" onclick="addPlug()">Add Plug</button>
+            <div class="actions">
+                <button type="submit">Save</button>
+                <a href="/manage/footers">Cancel</a>
+            </div>
+            {{ if .Flash }}<div style="color: #f88; margin-top: 1em;">{{ .Flash }}</div>{{ end }}
+        </form>
+    </div>
+</body>
+</html>
+{{ end }}

@@ -605,7 +605,7 @@ func (s *DBStorage) FetchUserRow(ctx context.Context, nick string) (*model.UserR
 }
 
 func (s *DBStorage) FetchUserByUserID(ctx context.Context, id int64) (*model.UserIdentity, error) {
-	row := &model.UserIdentity{}
+	row := &model.UserIdentity{ID: id}
 	err := s.db.QueryRowContext(ctx,
 		"SELECT nick, is_admin FROM users WHERE user_id=$1;", id).Scan(
 		&row.Nick, &row.IsAdmin)
