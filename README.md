@@ -10,16 +10,20 @@ too tempting.
 This is a Prototype
 -------------------
 
-This isn't complete, and it doesn't work right in many common cases.
+This is limping along, and will keep time.  But it is very rudimentary in a lot
+of ways.
 
-As of this (hopefully unpublished) writing, this clock works as something of a
-demo.  It will keep time, mostly, but there are glaring bugs around times,
-and the notion of client/server is badly abused.
+See "To Do" below.
 
-This should write to stable storage to allow a server restart (at least!) and
-right now it doesn't, it doesn't even manage locks correctly in memory.
+Setup
+-----
 
-This lacks security entirely.
+You need a database, the database has to be called "irata", it has to have
+schema.sql loaded into it (which also has example data), and it has to be
+running on the local host as the same user as the binary, and in the same
+filesystem.
+
+This will be fixed, eventually.
 
 Installing
 ----------
@@ -31,6 +35,9 @@ Run the server and connect a web browser to it.
 There is no way to edit the poker tournament.  To the extent the clock works at
 all, it uses a baked-in example tournament (not coincidentally, the one I
 intended to run).  You may need to do some work here.
+
+In `cmd/irataadmin`, there is a command-line utility which will allow you to
+create a user. 
 
 
 Operation
@@ -57,13 +64,13 @@ There Are Many Poker Clocks; This One Is Mine
 This is a trivial web app with a trivial Go backend to scaffold it.  I was too
 lazy to learn a web framework for something this trivial, so the frontend is
 pretty old-fashioned.  As a result, a lot of the corner cases are not
-well-handled; in particular, JavaScript's time handling is pretty mediocre, and
-there is no current facility for integrating proper JS libraries into the app.
+well-handled.
 
 My friend Patrick Milligan wrote a clock known as the Oakleaf Tournament Timer.
 It was used by a few proper poker rooms in the '00s, notably Bay 101 and
-Bellagio.  Some of this clock is inspired by Patrick's work, in particular, the
-key bindings are very familiar.  (Patrick's clock is no longer available.)
+Bellagio.  Much of this clock is inspired by Patrick's work, in particular, the
+key bindings are very familiar.  (Patrick's clock is no longer sold, and
+requires Windows.)
 
 There are quite a few inside jokes in the current state of the code as well.
 
@@ -86,11 +93,14 @@ line-height (no padding), and allowed the displayed pages to have that very
 To Do
 -----
 
-The model is probably not right and could be simpler.
-
-State needs to be stored.
-
-State is one level, and times do not need to be present on all levels, just the
-active one.  (This may mean a forward-back needs a special case).
-
-Tournaments need an owner and only the owner can modify the tournament.
+* Data models aren't quite right.
+* Tournaments need an owner and only the owner can modify the tournament.
+* There are both admin and non-admin users, but non-admin users are useless.
+  All data is visible without being logged in anyway.  Permissions are, "I can
+  edit everything", or "I can't edit anything."
+* Users have email addresses for no good reason.
+* We use long polling instead of web sockets for no good reason.  This is
+  actually not that big of a problem, but if you load a whole bunch of browser
+  tabs up at the same clock, eventually the browser will starve for
+  connections.  This looks like a server bug but isn't.
+* SSL isn't supported.
