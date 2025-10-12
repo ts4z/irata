@@ -23,9 +23,15 @@ type AuthCookieData struct {
 	EffectiveUserID int64
 }
 
+type Password struct {
+	CreatedAt    time.Time
+	ExpiresAt    *time.Time
+	PasswordHash string
+}
+
 type UserRow struct {
 	UserIdentity
-	PasswordHash string
+	Passwords []Password
 }
 
 type UserIdentity struct {

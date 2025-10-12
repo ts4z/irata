@@ -11,6 +11,7 @@ require (
 	github.com/spf13/cobra v1.10.1
 	golang.org/x/crypto v0.37.0
 	golang.org/x/term v0.36.0
+	maze.io/x/duration v0.0.0-20160924141736-faac084b6075
 )
 
 require (

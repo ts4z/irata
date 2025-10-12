@@ -50,6 +50,7 @@ const dbURL = "postgresql:///irata"
 func idPathValue(w http.ResponseWriter, r *http.Request) (int64, error) {
 	id, err := idPathValueFromRequest(r)
 	if err != nil {
+		time.Sleep(10 * time.Second)
 		he.SendErrorToHTTPClient(w, "parsing URL", err)
 	}
 	return id, nil
@@ -71,6 +72,7 @@ type clock interface {
 type irataApp struct {
 	templates   *template.Template
 	storage     state.AppStorage
+	siteStorage state.SiteStorage
 	userStorage state.UserStorage
 	mutator     *action.Actor
 	subFS       fs.FS
@@ -113,6 +115,12 @@ func (app *irataApp) installHandlers() {
 		func(w http.ResponseWriter, r *http.Request) {
 			ctx, _ := app.saveUserInRequestContext(r)
 
+			sc, err := app.siteStorage.FetchSiteConfig(ctx)
+			if err != nil {
+				he.SendErrorToHTTPClient(w, "fetch site config", err)
+				return
+			}
+
 			// TODO: pagination
 			o, err := app.storage.FetchOverview(ctx, 0, 100)
 			if err != nil {
@@ -120,10 +128,11 @@ func (app *irataApp) installHandlers() {
 				return
 			}
 			type Inputs struct {
-				IsAdmin  bool
-				Overview *model.Overview
+				IsAdmin    bool
+				Overview   *model.Overview
+				SiteConfig *model.SiteConfig
 			}
-			inputs := &Inputs{IsAdmin: permission.IsAdmin(ctx), Overview: o}
+			inputs := &Inputs{IsAdmin: permission.IsAdmin(ctx), Overview: o, SiteConfig: sc}
 			if err := app.templates.ExecuteTemplate(w, "slash.html.tmpl", inputs); err != nil {
 				log.Printf("can't render template: %v", err)
 				return
@@ -160,6 +169,7 @@ func (app *irataApp) installHandlers() {
 			InstallKeyboardHandlers bool
 		}
 		args := &viewArgs{Tournament: t, InstallKeyboardHandlers: permission.CheckWriteAccessToTournamentID(ctx, id) == nil}
+		log.Printf("render with args: %+v", args)
 		if err := app.templates.ExecuteTemplate(w, "view.html.tmpl", args); err != nil {
 			log.Printf("500: can't render template: %v", err)
 		}
@@ -295,14 +305,14 @@ func (app *irataApp) installHandlers() {
 				nope()
 				return
 			}
-			checker, err := password.NewChecker(row)
+			checker, err := password.NewChecker(app.clock, row)
 			if err != nil {
 				nope()
 				return
 			}
 			identity, err := checker.Validate(pw)
 			if err != nil {
-				nope()
+				http.Redirect(w, r, "/login?error=invalid+user+or+password", http.StatusSeeOther)
 				return
 			}
 			err = app.bakery.BakeCookie(w, &model.AuthCookieData{
@@ -354,6 +364,55 @@ func (app *irataApp) installHandlers() {
 	})
 
 	app.installKeyboardHandlers()
+
+	// Handler for /manage/site
+	http.HandleFunc("/manage/site", func(w http.ResponseWriter, r *http.Request) {
+		ctx, _ := app.saveUserInRequestContext(r)
+		if !permission.IsAdmin(ctx) {
+			http.Error(w, "permission denied", http.StatusForbidden)
+			return
+		}
+
+		var flash string
+		// Fetch config
+		config, err := readSiteConfig(ctx, app.siteStorage)
+		if err != nil {
+			he.SendErrorToHTTPClient(w, "fetch site config", err)
+			return
+		}
+
+		if r.Method == http.MethodPost {
+			if err := r.ParseForm(); err != nil {
+				flash = "Error parsing form"
+			} else {
+				name := r.FormValue("Name")
+				site := r.FormValue("Site")
+				theme := r.FormValue("Theme")
+				if name == "" || site == "" || theme == "" {
+					flash = "All fields required"
+				} else {
+					// Update config
+					config.Name = name
+					config.Site = site
+					config.Theme = theme
+					err := app.siteStorage.SaveSiteConfig(ctx, config)
+					if err != nil {
+						flash = "Error saving config"
+					} else {
+						flash = "Saved!"
+					}
+				}
+			}
+		}
+
+		data := struct {
+			Config *model.SiteConfig
+			Flash  string
+		}{Config: config, Flash: flash}
+		if err := app.templates.ExecuteTemplate(w, "manage-site.html.tmpl", data); err != nil {
+			log.Printf("can't render manage-site template: %v", err)
+		}
+	})
 }
 
 func (app *irataApp) handleKeypress(r *http.Request) error {
@@ -371,8 +430,6 @@ func (app *irataApp) handleKeypress(r *http.Request) error {
 	}
 
 	ctx, _ := app.saveUserInRequestContext(r)
-
-	log.Printf("keypress received")
 
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -470,7 +527,7 @@ func main() {
 
 	mutator := action.New(storage)
 
-	app := &irataApp{storage: storage, userStorage: unprotectedStorage,
+	app := &irataApp{storage: storage, siteStorage: unprotectedStorage, userStorage: unprotectedStorage,
 		mutator: mutator, subFS: subFS, bakery: bakery, clock: clock}
 	app.loadTemplates()
 	app.installHandlers()

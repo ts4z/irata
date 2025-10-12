@@ -1,0 +1,80 @@
+{{ define "manage-site.html.tmpl" }}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Manage Site Info</title>
+    <style>
+      @font-face {
+          font-family: arcade;
+          src: url('/fs/PressStart2P-vaV7.ttf') format('truetype');
+      }
+      body {
+          font-family: arcade, monospace;
+          background-color: #000000;
+          color: #ffffff;
+      }
+      .container {
+          max-width: 600px;
+          margin: 2em auto;
+          background: #111;
+          padding: 2em;
+          border-radius: 8px;
+      }
+      label {
+          display: block;
+          margin-top: 1em;
+          font-weight: bold;
+      }
+      input[type=text] {
+          width: 100%;
+          padding: 0.5em;
+          margin-top: 0.5em;
+          background: #000;
+          color: #fff;
+          border: 1px solid #555;
+          border-radius: 4px;
+          font-family: arcade, monospace;
+      }
+      button {
+          margin-top: 2em;
+          padding: 0.7em 2em;
+          background: #222;
+          color: #fff;
+          border: none;
+          border-radius: 4px;
+          font-size: 1em;
+          cursor: pointer;
+          font-family: arcade, monospace;
+      }
+      button:hover {
+          background: #444;
+      }
+      a {
+          color: #fff;
+          text-decoration: underline;
+          margin-left: 1em;
+      }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Manage Site Info</h1>
+        <form method="POST">
+            <label for="Name">Site Name</label>
+            <input type="text" id="Name" name="Name" value="{{ .Config.Name }}" required>
+
+            <label for="Site">Site URL</label>
+            <input type="text" id="Site" name="Site" value="{{ .Config.Site }}" required>
+
+            <label for="Theme">Theme</label>
+            <input type="text" id="Theme" name="Theme" value="{{ .Config.Theme }}" required>
+
+            <button type="submit">Save</button>
+            <button type="submit">Reset</button>
+            <a href="/">Back to Overview</a>
+        </form>
+        {{ if .Flash }}<div style="color: #f88; margin-top: 1em;">{{ .Flash }}</div>{{ end }}
+    </div>
+</body>
+</html>
+{{ end }}

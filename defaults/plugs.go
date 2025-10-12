@@ -59,6 +59,16 @@ you haven't met yet."
 		"In the beginning,\neverything was\neven money.\n-Mike Caro",
 		"It's hard to convince\na winner that he's losing.\n-Mike Caro",
 		"If an opponent\nwon't watch you bet,\nthen you\nprobably shouldn't.\n-Mike Caro",
+		"Just play every hand,\nyou can’t miss them all.\n~Sammy Farha",
+		"Last night\nI stayed\nup late playing\npoker\nwith Tarot cards.\nI got a full house\nand four\npeople died.\n~Steven Wright",
+		"Going on tilt\nis not \n'mixing up your play.'\n~Steve Badger",
+		"The guy who invented\npoker was bright,\nbut the guy who\ninvented the chip\nwas a genius.\n~\"Big Julie\" Weintraub",
+		"Sex is good,\nthey say,\nbut poker lasts longer.\n-Al Alvarez",
+		"Money won\nis twice as sweet\nas money earned.\n-\"Fast Eddie\" Felson\nin The Color of Money",
+		"Fold and live\nto fold again. -Stu Ungar",
+		"Life is not\nalways a matter\nof holding good cards,\nbut sometimes,\nplaying a poor hand well.\n~Jack London",
+		"The lack of money is the root of all evil. -Mark Twain",
+		"Learning to\nplay two pairs\ncorrectly is as difficult\nas getting\na college education,\nand just as expensive.\n-Mark Twain",
 
 		"You're not going\nto like this,\nNolan.",
 

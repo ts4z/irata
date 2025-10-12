@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"fmt"
+	"log"
 	"os"
 	"syscall"
 	"text/tabwriter"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/jonboulle/clockwork"
 	"github.com/spf13/cobra"
+	"maze.io/x/duration"
 
 	"github.com/ts4z/irata/model"
 	"github.com/ts4z/irata/password"
@@ -37,7 +39,33 @@ var (
 	userNick    string
 	userEmail   string
 	userIsAdmin bool
+
+	expireTime time.Time
 )
+
+// func newAppStorage(ctx context.Context) state.AppStorage {
+// 	storage, err := state.NewDBStorage(ctx, dbURL, clock)
+// 	if err != nil {
+// 		log.Fatalf("can't connect to database: %v", err)
+// 	}
+// 	return storage
+// }
+
+func newUserStorage(ctx context.Context) state.UserStorage {
+	storage, err := state.NewDBStorage(ctx, dbURL, clock)
+	if err != nil {
+		log.Fatalf("can't connect to database: %v", err)
+	}
+	return storage
+}
+
+// func newSiteStorage(ctx context.Context) state.SiteStorage {
+// 	storage, err := state.NewDBStorage(ctx, dbURL, clock)
+// 	if err != nil {
+// 		log.Fatalf("can't connect to database: %v", err)
+// 	}
+// 	return storage
+// }
 
 func generateKey(sz int) ([]byte, error) {
 	key := make([]byte, sz)
@@ -64,7 +92,7 @@ func getKeyStatus(now time.Time, v model.CookieKeyValidity) string {
 
 func listKeys(cmd *cobra.Command, args []string) error {
 	ctx := context.Background()
-	storage, err := state.NewDBStorage(ctx, dbURL)
+	storage, err := state.NewDBStorage(ctx, dbURL, clock)
 	if err != nil {
 		return fmt.Errorf("connecting to database: %w", err)
 	}
@@ -93,7 +121,7 @@ func listKeys(cmd *cobra.Command, args []string) error {
 
 func rotateKeys(cmd *cobra.Command, args []string) error {
 	ctx := context.Background()
-	storage, err := state.NewDBStorage(ctx, dbURL)
+	storage, err := state.NewDBStorage(ctx, dbURL, clock)
 	if err != nil {
 		return fmt.Errorf("connecting to database: %w", err)
 	}
@@ -153,10 +181,8 @@ func rotateKeys(cmd *cobra.Command, args []string) error {
 
 func addUser(cmd *cobra.Command, args []string) error {
 	ctx := context.Background()
-	storage, err := state.NewDBStorage(ctx, dbURL)
-	if err != nil {
-		return fmt.Errorf("connecting to database: %w", err)
-	}
+	storage := newUserStorage(ctx)
+
 	defer storage.Close()
 
 	if userNick == "" || userEmail == "" {
@@ -187,10 +213,7 @@ func addUser(cmd *cobra.Command, args []string) error {
 
 func listUsers(cmd *cobra.Command, args []string) error {
 	ctx := context.Background()
-	storage, err := state.NewDBStorage(ctx, dbURL)
-	if err != nil {
-		return fmt.Errorf("connecting to database: %w", err)
-	}
+	storage := newUserStorage(ctx)
 	defer storage.Close()
 
 	users, err := storage.FetchUsers(ctx)
@@ -208,12 +231,9 @@ func listUsers(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func checkpw(cmd *cobra.Command, args []string) error {
+func checkPassword(cmd *cobra.Command, args []string) error {
 	ctx := context.Background()
-	storage, err := state.NewDBStorage(ctx, dbURL)
-	if err != nil {
-		return fmt.Errorf("connecting to database: %w", err)
-	}
+	storage := newUserStorage(ctx)
 	defer storage.Close()
 
 	nick := args[0]
@@ -234,7 +254,7 @@ func checkpw(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("fetching user %q: %w", nick, err)
 	}
 
-	checker, err := password.NewChecker(userRow)
+	checker, err := password.NewChecker(clock, userRow)
 	if err != nil {
 		return fmt.Errorf("setting up password checker: %w", err)
 	}
@@ -251,21 +271,98 @@ func checkpw(cmd *cobra.Command, args []string) error {
 
 func deleteUser(cmd *cobra.Command, args []string) error {
 	ctx := context.Background()
-	storage, err := state.NewDBStorage(ctx, dbURL)
-	if err != nil {
-		return fmt.Errorf("connecting to database: %w", err)
-	}
+	storage := newUserStorage(ctx)
 	defer storage.Close()
 
 	nick := args[0]
 
-	err = storage.DeleteUserByNick(ctx, nick)
+	err := storage.DeleteUserByNick(ctx, nick)
 	if err != nil {
 		return fmt.Errorf("deleting user %q: %w", nick, err)
 	}
 
 	return nil
 }
+
+func cleanPasswords(cmd *cobra.Command, args []string) error {
+	ctx := context.Background()
+	storage := newUserStorage(ctx)
+	defer storage.Close()
+
+	return storage.RemoveExpiredPasswords(ctx, clock.Now())
+}
+
+func addPassword(cmd *cobra.Command, args []string) error {
+	ctx := context.Background()
+	storage := newUserStorage(ctx)
+	defer storage.Close()
+
+	nick := args[0]
+
+	userRow, err := storage.FetchUserRow(ctx, nick)
+	if err != nil {
+		return fmt.Errorf("fetching user %q: %w", nick, err)
+	}
+
+	fmt.Print("Enter password: ")
+	pwBytes, err := term.ReadPassword(int(syscall.Stdin))
+	fmt.Println()
+	if err != nil {
+		return fmt.Errorf("reading password: %w", err)
+	}
+	userPassword := string(pwBytes)
+	if userPassword == "" {
+		return fmt.Errorf("password is required")
+	}
+
+	hashedPassword := password.Hash(userPassword)
+
+	err = storage.AddPassword(ctx, userRow.ID, hashedPassword)
+	if err != nil {
+		return fmt.Errorf("adding password for user %q: %w", nick, err)
+	}
+
+	fmt.Printf("Password added successfully for user %q.\n", nick)
+	return nil
+}
+
+func replacePassword(cmd *cobra.Command, args []string) error {
+	ctx := context.Background()
+	storage := newUserStorage(ctx)
+	defer storage.Close()
+
+	nick := args[0]
+
+	userRow, err := storage.FetchUserRow(ctx, nick)
+	if err != nil {
+		return fmt.Errorf("fetching user %q: %v", nick, err)
+	}
+
+	fmt.Print("Enter new password: ")
+	pwBytes, err := term.ReadPassword(int(syscall.Stdin))
+	fmt.Println()
+	if err != nil {
+		return fmt.Errorf("reading password: %w", err)
+	}
+	newPassword := string(pwBytes)
+	if newPassword == "" {
+		return fmt.Errorf("password is required")
+	}
+
+	hashedPassword := password.Hash(newPassword)
+
+	err = storage.ReplacePassword(ctx, userRow.ID, hashedPassword, expireTime)
+	if err != nil {
+		return fmt.Errorf("replacing password for user %q: %w", nick, err)
+	}
+
+	fmt.Printf("Password replaced successfully for user %q. Old passwords expire at %v.\n", nick, expireTime)
+	return nil
+}
+
+// ...existing code...
+
+// ...existing code...
 
 func main() {
 	rootCmd := &cobra.Command{
@@ -324,14 +421,55 @@ func main() {
 		RunE:  listUsers,
 	}
 
-	checkPwCmd := &cobra.Command{
-		Use:   "checkpw [nick]",
-		Short: "Check a user's password",
-		Args:  cobra.ExactArgs(1),
-		RunE:  checkpw,
+	pwCmd := &cobra.Command{
+		Use:   "pw",
+		Short: "Password-related operations for users",
 	}
 
-	userCmd.AddCommand(addUserCmd, listUserCmd, checkPwCmd, deleteUserCmd)
+	checkCmd := &cobra.Command{
+		Use:   "check [nick]",
+		Short: "Check a user's password",
+		Args:  cobra.ExactArgs(1),
+		RunE:  checkPassword,
+	}
+
+	clean := &cobra.Command{
+		Use:   "clean",
+		Short: "Remove expired passwords",
+		RunE:  cleanPasswords,
+	}
+
+	addPassword := &cobra.Command{
+		Use:   "add [nick]",
+		Short: "Add a password for a user",
+		Args:  cobra.ExactArgs(1),
+		RunE:  addPassword,
+	}
+
+	replacePasswordCmd := &cobra.Command{
+		Use:   "replace [nick]",
+		Short: "Replace a user's password and expire old passwords",
+		Args:  cobra.ExactArgs(1),
+		RunE:  replacePassword,
+	}
+	replacePasswordCmd.Flags().Func("expire-time", "Expiration time for old passwords (RFC3339)", func(s string) error {
+		if s == "" {
+			expireTime = clock.Now()
+			return nil
+		}
+		if t, err := time.Parse(time.RFC3339, s); err == nil {
+			expireTime = t
+			return nil
+		}
+		if d, err := duration.ParseDuration(s); err == nil {
+			expireTime = clock.Now().Add(time.Duration(d))
+			return nil
+		}
+
+		return nil
+	})
+	pwCmd.AddCommand(checkCmd, clean, addPassword, replacePasswordCmd)
+	userCmd.AddCommand(addUserCmd, listUserCmd, deleteUserCmd, pwCmd)
 	rootCmd.AddCommand(userCmd)
 
 	if err := rootCmd.Execute(); err != nil {

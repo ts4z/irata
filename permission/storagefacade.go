@@ -13,6 +13,10 @@ type StorageDecorator struct {
 
 var _ state.AppStorage = &StorageDecorator{}
 
+func (s *StorageDecorator) Close() {
+	s.Storage.Close()
+}
+
 func (s *StorageDecorator) CreateTournament(ctx context.Context, t *model.Tournament) (int64, error) {
 	if err := CheckCreateTournamentAccess(ctx); err != nil {
 		return -1, err

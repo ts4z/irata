@@ -2,10 +2,16 @@
 
 "use strict";
 
+async function sleep(ms) {
+  await new Promise(resolve => setTimeout(resolve, ms));
+}
+
 function tournament_id() {
   var parts = window.location.pathname.split("/");
   return parseInt(parts[parts.length - 1]);
 }
+
+function randN(n) { return Math.floor(Math.random() * n); }
 
 // t is in milliseconds
 function to_hmmss(t) {
@@ -40,20 +46,18 @@ function to_hmmss(t) {
 }
 
 // https://dev.to/codebubb/how-to-shuffle-an-array-in-javascript-2ikj
-const shuffle_array = array => {
-  for (let i = array.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    const temp = array[i];
-    array[i] = array[j];
-    array[j] = temp;
+function shuffle_array(a) {
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = randN(i + 1);
+    const temp = a[i];
+    a[i] = a[j];
+    a[j] = temp;
   }
 }
 
-const reload_model_ms = 15000;
-const clock_tick_ms = 250;
 const next_footer_interval_ms = 30000;
 
-let next_level_complete_at = undefined, next_break_at = undefined, clock_locked = true;
+let next_level_complete_at = undefined, next_break_at = undefined, clock_controls_locked = true;
 
 // Initialize last_model (the last model we loaded) with a fail-safe initial
 // model value
@@ -92,32 +96,37 @@ var footers = [
   "CONGRATULATIONS, YOU AREN'T RUNNING EUNICE...",
   "TAPPING AQUARIUM...",
 ];
-var fetched_footer_plugs_id = NaN;
+var fetched_footer_plugs_id = undefined;
 
-async function maybe_fetch_footers(footer_plugs_id) {
-  if (footer_plugs_id === fetched_footer_plugs_id) {
-    return
+function want_footers() {
+  var want_id = last_model.FooterPlugsID
+  if (!want_id) {
+    return false;
   }
-  fetch("/api/footerPlugs/" + footer_plugs_id)
-    .then(response => {
-      console.log("response " + response);
-      return response;
-    })
-    .then(response => response.json())
-    .then(model => {
-      fetched_footer_plugs_id = footer_plugs_id;
-      footers = model.TextPlugs
-      shuffle_array(footers);
-      next_footer();
-    })
-    .catch(error => console.log("error getting footers: ", error))
+  if (fetched_footer_plugs_id && want_id === fetched_footer_plugs_id) {
+    return false;
+  }
+  return true;
+}
+
+async function fetch_footers(abortSignal) {
+  var want_footer_plugs_id = last_model.FooterPlugsID;
+  const response = await fetch("/api/footerPlugs/" + want_footer_plugs_id, { signal: abortSignal });
+  console.log("response " + response);
+  const response_1 = response;
+  const footer_model = await response_1.json();
+  fetched_footer_plugs_id = want_footer_plugs_id;
+  footers = footer_model.TextPlugs;
+  shuffle_array(footers);
+  next_footer();
+  return "footers fetched";
 }
 
 const next_footer = (function () {
   var next_footer_offset = 99999;
 
   return function () {
-    if (!clock_locked) {
+    if (!clock_controls_locked) {
       return
     }
 
@@ -144,49 +153,38 @@ function stop_rotating_footers() {
   }
 }
 
-async function load_once() {
+function listen_for_changes_once(abortSignal) {
   const tid = tournament_id();
+  if (!tid) {
+    console.log("no tournament id");
+    return Promise.reject("no tournament id");
+  }
   const version = last_model?.Version ?? 0;
   return fetch("/api/tournament-listen", {
+    signal: abortSignal,
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ tournament_id: tid, version: version })
-  }).then(response => response.json()
-    .then(model => apply_model(model))
-    .catch(error => console.log("error in getting model: ", error)))
+  }).then(response => response.json())
+    .then(model => import_new_model_from_server(model))
+    .then(() => "fetched new model")
+    .catch(e => {
+      if (e.name === 'AbortError') {
+        console.log(`fetch aborted ${e.stack}`);
+        return Promise.reject("fetch aborted");
+      } else {
+        console.log(`fetch threw up: ${e}`);
+        return Promise.reject(`fetch threw up: ${e}`);
+      }
+    });
 }
 
-async function listen_for_changes() {
-  let callCount = 0;
-  let windowStart = Date.now();
+function update_next_level_and_break_fields() {
+  next_level_complete_at = last_model.Transients.EndsAt;
+  next_break_at = last_model.Transients.NextBreakAt;
 
-  for (; ;) {
-    const now = Date.now();
-    // Reset window if more than 10 seconds have passed
-    if (now - windowStart > 10000) {
-      windowStart = now;
-      callCount = 0;
-    }
-    if (callCount >= 20) {
-      // Wait until the 10 second window expires
-      await new Promise(resolve => setTimeout(resolve, windowStart + 10000 - now));
-      windowStart = Date.now();
-      callCount = 0;
-    }
-    await load_once();
-    callCount++;
-  }
-}
-
-function apply_model(model) {
-
-  // console.log("got model: " + JSON.stringify(model))
-
-  next_level_complete_at = model.Transients.EndsAt;
-  next_break_at = model.Transients.NextBreakAt;
-
-  var cln = model.State.CurrentLevelNumber;
-  var level = model.Structure.Levels[cln]
+  var cln = last_model.State.CurrentLevelNumber;
+  var level = last_model.Structure.Levels[cln]
 
   if (level.IsBreak) {
     set_html("blinds", level.Description);
@@ -199,6 +197,18 @@ function apply_model(model) {
   let level_banner = level.Banner;
   set_html("level", level_banner);
 
+  next_level_complete_at = new Date(last_model.State.CurrentLevelEndsAt)
+
+  show_paused_overlay(!last_model.State.IsClockRunning);
+}
+
+// Server sent a whole new model.  Update all the fields.
+function import_new_model_from_server(model) {
+  console.log("import new model from server, version " + model.Version);
+  last_model = model;
+
+  update_time_fields();
+
   set_html("current-players", model.State.CurrentPlayers)
   set_html("buyins", model.State.BuyIns)
   // set rebuys
@@ -207,30 +217,16 @@ function apply_model(model) {
   if (model.Transients.NextLevel !== null) {
     set_html("next-level", model.Transients.NextLevel.Description)
   }
-
-  set_clock(model);
-  update_clock();
-  if (model.State.IsClockRunning && stop_clock === null) {
-    start_clock();
-  } else if (!model.State.IsClockRunning && stop_clock !== null) {
-    stop_clock();
-  }
-
-  // Show/hide PAUSED overlay
-  show_paused_overlay(!model.State.IsClockRunning);
-
-  maybe_fetch_footers(model.FooterPlugsID);
-
-  last_model = model;
 }
 
 function show_paused_overlay(show) {
-  const pausedEl = document.getElementById("paused-overlay");
-  if (pausedEl) {
-    pausedEl.style.display = show ? "block" : "none";
+  const el = document.getElementById("paused-overlay");
+  if (el) {
+    el.style.display = show ? "block" : "none";
   }
 }
 
+// Helper.
 function set_html(id, value) {
   let el = document.getElementById(id)
   if (el !== null) {
@@ -249,7 +245,12 @@ function set_class(id, value) {
   }
 }
 
-function level_remaining() {
+// Helper.
+function redirect(where) {
+  window.location.href = where;
+}
+
+function millis_remaining_in_level() {
   var ends_at = last_model?.State?.CurrentLevelEndsAt;
   if (ends_at) {
     return ends_at - Date.now();
@@ -264,21 +265,21 @@ function level_remaining() {
   return 0;
 }
 
-function update_break_clock(model) {
+function update_break_clock() {
   var td = document.getElementById("next-break");
   if (td === null) {
     console.log("update_break_clock: no next-break node to update");
     return;
   }
 
-  if (!model.State.IsClockRunning) {
+  if (!last_model.State.IsClockRunning) {
     td.innerHTML = "PAUSED";
     return
   }
 
-  if (!model.Transients.NextBreakAt) {
+  if (!last_model.Transients.NextBreakAt) {
     td.innerHTML = "N/A";
-  } else if (typeof model.Transients.NextBreakAt !== 'number') {
+  } else if (typeof last_model.Transients.NextBreakAt !== 'number') {
     console.log("update_break_clock: NextBreakAt is nonsense");
     td.innerHTML = "???";
   } else {
@@ -293,13 +294,28 @@ function update_break_clock(model) {
   }
 }
 
-function tick() {
-  var rem = level_remaining();
+async function maybe_clock_tick() {
+  if (!last_model.State.IsClockRunning) {
+    return Promise.reject("clock not running");
+  }
+
+  let time_until_next_tick = 5 + (millis_remaining_in_level() % 1000);
+  console.log(`ramaining until next tick: ${time_until_next_tick}`);
+  return new Promise(resolve => setTimeout(resolve, time_until_next_tick)).then(() => {
+    advance_clock_from_wall_clock();
+    update_time_fields();
+    return "clock ticked";
+  });
+}
+
+function advance_clock_from_wall_clock() {
+  var rem = millis_remaining_in_level();
   if (typeof rem === 'undefined') {
     // paused, no math to do?
     return;
-  } else if (rem <= 0) {
+  }
 
+  if (rem <= 0) {
     let oldEndsAt = new Date(last_model.State.CurrentLevelEndsAt)
     last_model.State.CurrentLevelNumber++
 
@@ -316,21 +332,14 @@ function tick() {
       last_model.State.CurrentLevelEndsAt = new Date(oldEndsAt.setMinutes(oldMinutes + nextDurationMinutes)); // gross
     }
 
-    // apply the (possibly fudged) clock
-    apply_model(last_model);
+    update_time_fields();
   }
-
-  update_clock();
 }
 
-function set_clock(model) {
-  var endsAt = new Date(model.State.CurrentLevelEndsAt)
-  next_level_complete_at = endsAt;
-}
-
-function update_clock() {
+function update_time_fields() {
   update_break_clock(last_model);
   update_big_clock();
+  update_next_level_and_break_fields();
 }
 
 function update_big_clock() {
@@ -338,122 +347,102 @@ function update_big_clock() {
     // this doesn't happen -- why?
     document.getElementById("clock").innerHTML = "??:??";
   }
-  var render = to_hmmss(level_remaining());
+  var render = to_hmmss(millis_remaining_in_level());
   document.getElementById("clock").innerHTML = render
 }
 
-var stop_clock = null;
-function start_clock() {
-  if (stop_clock === null) {
-    var id = setInterval(tick, clock_tick_ms);
-    stop_clock = function () {
-      stop_clock = null;
-      clearInterval(id);
-    }
-  }
-}
 
-function next_footer_key() {
-  next_footer();
-  clearInterval(footer_interval_id);
-  footer_interval_id = setInterval(next_footer, next_footer_interval_ms);
-}
-
-function redirect(where) {
-  window.location.href = where;
-}
-
-function send_modify(event) {
-  fetch('/api/keyboard-control', {
-    method: 'POST',
-    mode: 'same-origin',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      "Event": event,
-      "TournamentID": tournament_id(),
-    })
-  })
-    // .then(resp => console.log(`${url} response: ${resp}`))
-    // .then(_ => load())
-    .catch(error => console.log(`error in request for modify event ${event}: ${error}`))
-}
-
-async function toggle_pause() {
-  if (last_model === undefined) {
-    console.log("last_model undefined")
-  } else if (last_model.State.IsClockRunning) {
-    send_modify('StopClock')
-  } else {
-    send_modify('StartClock')
-  }
-}
-
-var showing_help = false;
-
-function show_help_dialog() {
-  const helpDialog = document.getElementById("help-dialog");
-  if (helpDialog) {
-    helpDialog.style.display = "block";
-    showing_help = true;
-  }
-}
-
-function hide_help_dialog() {
-  const helpDialog = document.getElementById("help-dialog");
-  if (helpDialog) {
-    helpDialog.style.display = "none";
-    showing_help = false;
-  }
-}
-
-function handle_escape() {
-  if (showing_help) {
-    hide_help_dialog();
-  } else {
-    redirect('/');
-  }
-}
-
-function exit_view() {
-  redirect('/');
-}
-
-function redirect_to_edit() {
-  redirect(window.location.pathname + "/edit");
-}
-
-function smwa(arg) {
-  return function () { send_modify(arg); }
-}
-
-// if paused && clock unlocked, send modify with arg
-function ipcusmwa(arg) {
-  return function () {
-    if (!clock_locked && !last_model.State.IsClockRunning) {
-      send_modify(arg);
-    } else {
-      console.log(`clock_locked=${clock_locked} and running=$(last_model.State.IsClockRunning}`)
-    }
-  }
-}
-
-function toggle_clock_lock() {
-  clock_locked = !clock_locked;
-  if (clock_locked) {
-    console.log("clock controls locked");
-    set_html("footer", "level/clock controls re-locked");
-    start_rotating_footers();
-  } else {
-    console.log("clock unlocked");
-    stop_rotating_footers();
-    set_html("footer", "<nobr>level/clock controls</nobr> <nobr>available when paused</nobr>");
-  }
-}
-
-function installKeyboardHandlers() {
+function install_keyboard_handlers() {
   console.log("installing keyboard handlers");
+
+  function toggle_clock_controls_lock() {
+    clock_controls_locked = !clock_controls_locked;
+    if (clock_controls_locked) {
+      console.log("clock controls locked");
+      set_html("footer", "level/clock controls re-locked");
+      start_rotating_footers();
+    } else {
+      console.log("clock unlocked");
+      stop_rotating_footers();
+      set_html("footer", "<nobr>level/clock controls</nobr> <nobr>available when paused</nobr>");
+    }
+  }
+
+  function next_footer_key() {
+    next_footer();
+    clearInterval(footer_interval_id);
+    footer_interval_id = setInterval(next_footer, next_footer_interval_ms);
+  }
+
+  function send_modify(event) {
+    fetch('/api/keyboard-control', {
+      method: 'POST',
+      mode: 'same-origin',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        "Event": event,
+        "TournamentID": tournament_id(),
+      })
+    }).catch(error => console.log(`error in request for modify event ${event}: ${error}`));
+  }
+
+  function smwa(arg) {
+    return function () { send_modify(arg); }
+  }
+
+  // if paused && clock unlocked, send modify with arg
+  function ipcusmwa(arg) {
+    return function () {
+      if (!clock_controls_locked && !last_model.State.IsClockRunning) {
+        send_modify(arg);
+      } else {
+        console.log(`clock_controls_locked=${clock_controls_locked} and running=$(last_model.State.IsClockRunning}`)
+      }
+    }
+  }
+
+  function toggle_pause() {
+    if (last_model === undefined) {
+      console.log("last_model undefined")
+    } else if (last_model.State.IsClockRunning) {
+      send_modify('StopClock')
+    } else {
+      send_modify('StartClock')
+    }
+  }
+
+  var showing_help = false;
+
+  function show_help_dialog() {
+    const helpDialog = document.getElementById("help-dialog");
+    if (helpDialog) {
+      helpDialog.style.display = "block";
+      showing_help = true;
+    }
+  }
+
+  function hide_help_dialog() {
+    const helpDialog = document.getElementById("help-dialog");
+    if (helpDialog) {
+      helpDialog.style.display = "none";
+      showing_help = false;
+    }
+  }
+
+  function handle_escape() {
+    if (showing_help) {
+      hide_help_dialog();
+    } else {
+      redirect('/');
+    }
+  }
+
+  function redirect_to_edit() {
+    redirect(window.location.pathname + "/edit");
+  }
+
   var keycode_to_handler = {
     'Space': toggle_pause,
     'ArrowLeft': ipcusmwa('PreviousLevel'),
@@ -471,7 +460,7 @@ function installKeyboardHandlers() {
     'Period': smwa('AddBuyIn'),
     'KeyE': redirect_to_edit,
     'KeyF': next_footer_key,
-    'Backspace': toggle_clock_lock,
+    'Backspace': toggle_clock_controls_lock,
     'Escape': handle_escape,
     'Slash': show_help_dialog,
     'F1': show_help_dialog,
@@ -496,7 +485,44 @@ function installKeyboardHandlers() {
       console.log(`drop key ${code}`)
     }
   }, false);
-
 }
 
-listen_for_changes();
+// Listen to changes to the current version.
+// This will cancel and make a new version if the version has
+// changed since the previous call.  This way we use the same
+// object across clock ticks.
+const cached_change_listener = function () {
+  let version = -1, controller = new AbortController(), cached_promise;
+  return async function () {
+    if (version != last_model.Version) {
+      controller.abort("new version found");
+      controller = new AbortController();
+      version = last_model.Version;
+      cached_promise = listen_for_changes_once(controller.signal);
+    }
+    return cached_promise;
+  }
+}();
+
+async function tick() {
+  const controller = new AbortController();
+  const abortSignal = controller.signal;
+  let wait = [cached_change_listener(), sleep(30*3600)];
+  if (last_model.State.IsClockRunning) {
+    wait.push(maybe_clock_tick());
+  }
+  if (want_footers()) {
+    wait.push(fetch_footers(abortSignal));
+  }
+
+  Promise.any(wait).then((result) => {
+    console.log(`awaited! result=${result}`);
+  }).catch((e) => {
+    console.log(`tick threw up: ${e}`);
+  }).finally(() => {
+    controller.abort("");
+    setTimeout(tick, 50);
+  });
+}
+
+tick();

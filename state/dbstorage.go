@@ -458,19 +458,34 @@ func (s *DBStorage) CreateUser(ctx context.Context, nick string, emailAddress st
 // TODO: This is broken in the case of multiple passwords.
 func (s *DBStorage) FetchUserRow(ctx context.Context, nick string) (*model.UserRow, error) {
 	var row model.UserRow
-	err := s.db.QueryRowContext(ctx,
-		`SELECT user_id, hashed_password, is_admin FROM users
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT user_id, hashed_password, expires, is_admin, nick FROM users
 		NATURAL JOIN passwords
 		WHERE nick=$1;`,
-		nick).Scan(
-		&row.ID, &row.PasswordHash, &row.IsAdmin)
-	if err == sql.ErrNoRows {
-		return nil, errors.New("user not found")
-	}
+		nick)
 	if err != nil {
-		log.Printf("error fetching user row: %v", err)
+		log.Printf("error querying user row for %a: %v", err, nick)
 		return nil, err
 	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var hashed string
+		var expires *time.Time
+		var nick string
+		var isAdmin bool
+		if err := rows.Scan(&row.ID, &hashed, &expires, &isAdmin, &nick); err != nil {
+			log.Printf("error scanning user row for %q: %v", nick, err)
+			return nil, err
+		}
+		row.Passwords = append(row.Passwords, model.Password{
+			PasswordHash: hashed,
+			ExpiresAt:    expires,
+		})
+		row.Nick = nick
+		row.IsAdmin = isAdmin
+	}
+
 	return &row, nil
 }
 
@@ -549,4 +564,55 @@ func (s *DBStorage) ListenTournamentVersion(ctx context.Context, id int64, clien
 	s.tournamentListeners[id] = append(s.tournamentListeners[id], tournamentCh)
 	log.Printf("%d listeners for tournament id %d", len(s.tournamentListeners[id]), id)
 	s.tournamentListenersMu.Unlock()
+}
+
+// AddPassword adds a new password hash for a user.
+func (s *DBStorage) AddPassword(ctx context.Context, userID int64, passwordHash string) error {
+	_, err := s.db.ExecContext(ctx,
+		`INSERT INTO passwords (user_id, hashed_password) VALUES ($1, $2)`,
+		userID, passwordHash)
+	return err
+}
+
+// RemoveExpiredPasswords removes all passwords that expired before the given time.
+func (s *DBStorage) RemoveExpiredPasswords(ctx context.Context, before time.Time) error {
+	result, err := s.db.ExecContext(ctx,
+		`DELETE FROM passwords WHERE expires IS NOT NULL AND expires < $1`,
+		before)
+	if err != nil {
+		log.Printf("error removing expired passwords: %v", err)
+	}
+	n, err := result.RowsAffected()
+	if err != nil {
+		log.Printf("error checking rows affected removing expired passwords: %v", err)
+	}
+	fmt.Printf("%d expired\n", n)
+	return err
+}
+
+// ReplacePassword replaces a user's password and expires old passwords at the given time.
+func (s *DBStorage) ReplacePassword(ctx context.Context, userID int64, newPasswordHash string, oldPasswordsExpire time.Time) error {
+	tx, err := dbutil.NewTx(ctx, s.db, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.MaybeRollback()
+
+	// Expire all current passwords for the user
+	_, err = tx.Exec(ctx,
+		`UPDATE passwords SET expires = $1 WHERE user_id = $2 AND (expires IS NULL OR expires > $1)`,
+		oldPasswordsExpire, userID)
+	if err != nil {
+		return err
+	}
+
+	// Add the new password
+	_, err = tx.Exec(ctx,
+		`INSERT INTO passwords (user_id, hashed_password) VALUES ($1, $2)`,
+		userID, newPasswordHash)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit()
 }

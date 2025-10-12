@@ -2,7 +2,7 @@
 <html>
   <head>
     <title>
-      Irata Poker Clock
+      {{ .SiteConfig.Name }}
     </title>
   </head>
   <body>
@@ -28,14 +28,14 @@
       }
     </style>
 
-    <h1> IRATA POKER CLOCK </h1>
+    <h1> {{ .SiteConfig.Name }} </h1>
 
     {{ if .IsAdmin }}
     <table width="100%">
     <th> &#9830; Admin &#9830; </th>
     <td> Create: [<a href="/t/create">Tournament</a>] </td>
     <td> Manage: [<a href="/manage/site">Site</a>] [<a href="/manage/footers/">Footer Plugs</a>] [<a href="/manage/structures/">Structures</a>] </td>
-    <td> &#9830;&#9830; [<a href="/logout">LOGOUT</a>]
+    <td> &#9830 [<a href="/logout">LOGOUT</a>] &#9830; </td>
     </tr>
     </table>
     <hr>
