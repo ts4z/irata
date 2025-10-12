@@ -9,7 +9,9 @@ import (
 	"io/fs"
 	"log"
 	"net/http"
+	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/ts4z/irata/action"
@@ -109,7 +111,127 @@ func (app *irataApp) saveUserInRequestContext(r *http.Request) (context.Context,
 	return permission.UserIdentityInContext(ctx, identity), identity
 }
 
+func parseFooterPlugsBox(plugsRaw string) []string {
+	plugs := []string{}
+	plugsRaw = strings.ReplaceAll(plugsRaw, "\r", "")
+	for plug := range regexp.SplitSeq("\n\n+", plugsRaw) {
+		plug = strings.TrimSpace(plug)
+		if plug != "" {
+			plugs = append(plugs, plug)
+		}
+	}
+	return plugs
+}
+
 func (app *irataApp) installHandlers() {
+	// Handler for /create/footer-set
+	http.HandleFunc("/create/footer-set", func(w http.ResponseWriter, r *http.Request) {
+		ctx, _ := app.saveUserInRequestContext(r)
+		if !permission.IsAdmin(ctx) {
+			he.SendErrorToHTTPClient(w, "authorizing", he.HTTPCodedErrorf(http.StatusUnauthorized, "permission denied"))
+			return
+		}
+		var flash string
+		if r.Method == http.MethodPost {
+			if err := r.ParseForm(); err != nil {
+				flash = "Error parsing form"
+			} else {
+				name := r.FormValue("Name")
+				plugsRaw := r.FormValue("Plugs")
+				if name == "" || plugsRaw == "" {
+					flash = "All fields required"
+				} else {
+					plugs := parseFooterPlugsBox(plugsRaw)
+					id, err := app.storage.CreateFooterPlugSet(ctx, name, plugs)
+					if err != nil {
+						log.Printf("error creating footer plug set: %v", err)
+						flash = "Error saving footer plug set"
+					} else {
+						http.Redirect(w, r, fmt.Sprintf("/manage/footer-set/%d", id), http.StatusSeeOther)
+						return
+					}
+				}
+			}
+		}
+		data := struct{ Flash string }{Flash: flash}
+		if err := app.templates.ExecuteTemplate(w, "create-footer-set.html.tmpl", data); err != nil {
+			log.Printf("can't render create-footer-set template: %v", err)
+		}
+	})
+
+	// Handler for /manage/footer-set/{id} (placeholder)
+	http.HandleFunc("/manage/footer-set/{id}", func(w http.ResponseWriter, r *http.Request) {
+		ctx, _ := app.saveUserInRequestContext(r)
+		if !permission.IsAdmin(ctx) {
+			http.Error(w, "permission denied", http.StatusForbidden)
+			return
+		}
+
+		id, err := idPathValue(w, r)
+		if err != nil {
+			return
+		}
+
+		if !permission.IsAdmin(ctx) {
+			http.Error(w, "permission denied", http.StatusForbidden)
+			return
+		}
+
+		fp, err := app.storage.FetchPlugs(ctx, id)
+		if err != nil {
+			he.SendErrorToHTTPClient(w, "fetch footer plugs", err)
+			return
+		}
+
+		// jank
+		fmt.Fprintf(w, "<html><body><h2>Footer Plug Set %s %d</h2><p>Not implemented yet.</p><a href='/manage/footers'>Back</a></body></html>", fp.Name, id)
+	})
+
+	http.HandleFunc("/manage/footer-set/{id}/delete", func(w http.ResponseWriter, r *http.Request) {
+		id, err := idPathValue(w, r)
+		if err != nil {
+			return
+		}
+
+		ctx, _ := app.saveUserInRequestContext(r)
+		if !permission.IsAdmin(ctx) {
+			http.Error(w, "permission denied", http.StatusForbidden)
+			return
+		}
+
+		if r.Method != http.MethodPost {
+			// Render a simple confirmation page
+			fmt.Fprintf(w, "<html><body><h2>Delete Footer Plug Set %d?</h2><form method='POST'><button type='submit'>Delete</button> <a href='/manage/footer-sets'>Cancel</a></form></body></html>", id)
+			return
+		}
+		err = app.storage.DeleteFooterPlugSet(ctx, id)
+		if err != nil {
+			he.SendErrorToHTTPClient(w, "delete footer plug set", err)
+			return
+		}
+		http.Redirect(w, r, "/manage/footers", http.StatusSeeOther)
+	})
+
+	http.HandleFunc("/manage/footer-set/", func(w http.ResponseWriter, r *http.Request) {
+		ctx, _ := app.saveUserInRequestContext(r)
+		if !permission.IsAdmin(ctx) {
+			http.Error(w, "permission denied", http.StatusForbidden)
+			return
+		}
+
+		sets, err := app.storage.ListFooterPlugSets(ctx)
+		if err != nil {
+			he.SendErrorToHTTPClient(w, "fetch footer plug sets", err)
+			return
+		}
+
+		data := struct {
+			FooterSets []*model.FooterPlugs
+		}{FooterSets: sets}
+		if err := app.templates.ExecuteTemplate(w, "manage-footer-sets.html.tmpl", data); err != nil {
+			log.Printf("can't render manage-footer-sets template: %v", err)
+		}
+	})
 	http.HandleFunc("/",
 		func(w http.ResponseWriter, r *http.Request) {
 			ctx, _ := app.saveUserInRequestContext(r)
@@ -501,9 +623,7 @@ func (app *irataApp) loadTemplates() {
 }
 
 func (app *irataApp) serve() error {
-	http.ListenAndServe(":8888", nil) // for pprof
-	server := &http.Server{Addr: listenAddress, Handler: nil}
-	return server.ListenAndServe()
+	return http.ListenAndServe(listenAddress, nil)
 }
 
 func readSiteConfig(ctx context.Context, s state.SiteStorage) (*model.SiteConfig, error) {

@@ -1,0 +1,79 @@
+{{ define "manage-footer-sets.html.tmpl" }}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Manage Footer Plug Sets</title>
+    <style>
+      @font-face {
+          font-family: arcade;
+          src: url('/fs/PressStart2P-vaV7.ttf') format('truetype');
+      }
+      body {
+          font-family: arcade, monospace;
+          background-color: #000000;
+          color: #ffffff;
+      }
+      .container {
+          max-width: 50vw;
+          margin: 2em auto;
+          background: #111;
+          padding: 2em;
+          border-radius: 8px;
+      }
+      h1 {
+          margin-bottom: 1em;
+      }
+      table {
+          width: 100%;
+          border-collapse: collapse;
+          margin-bottom: 2em;
+      }
+      th, td {
+          padding: 0.5em;
+          border-bottom: 1px solid #333;
+          text-align: left;
+      }
+      th {
+          background: #222;
+      }
+      tr:hover {
+          background: #222;
+      }
+      a {
+          color: #fff;
+          text-decoration: underline;
+      }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Manage Footer Plug Sets</h1>
+        <table>
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Version</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{ range .FooterSets }}
+                <tr>
+                    <td>{{ .Name }}</td>
+                    <td>{{ .Version }}</td>
+                    <td>
+                        <a href="/manage/footer-set/{{ .FooterPlugsID }}">Edit</a>
+                        <a href="/manage/footer-set/{{ .FooterPlugsID }}/delete" style="color:#f88;">Delete</a>
+                    </td>
+                </tr>
+                {{ else }}
+                <tr><td colspan="3">No footer plug sets found.</td></tr>
+                {{ end }}
+            </tbody>
+        </table>
+        <a href="/create/footer-set">Create New Footer Plug Set</a> <br>
+        <a href="/">Back to Overview</a>
+    </div>
+</body>
+</html>
+{{ end }}

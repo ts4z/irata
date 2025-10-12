@@ -1,0 +1,79 @@
+{{ define "create-footer-set.html.tmpl" }}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Create Footer Plug Set</title>
+    <style>
+      @font-face {
+          font-family: arcade;
+          src: url('/fs/PressStart2P-vaV7.ttf') format('truetype');
+      }
+      body {
+          font-family: arcade, monospace;
+          background-color: #000000;
+          color: #ffffff;
+      }
+      .container {
+          max-width: 50vw;
+          margin: 2em auto;
+          background: #111;
+          padding: 2em;
+          border-radius: 8px;
+      }
+      label {
+          display: block;
+          margin-top: 1em;
+          font-weight: bold;
+      }
+      input[type=text], textarea {
+          width: 100%;
+          padding: 0.5em;
+          margin-top: 0.5em;
+          background: #000;
+          color: #fff;
+          border: 1px solid #555;
+          border-radius: 4px;
+          font-family: arcade, monospace;
+      }
+      textarea {
+          min-height: 120px;
+      }
+      button {
+          margin-top: 2em;
+          padding: 0.7em 2em;
+          background: #222;
+          color: #fff;
+          border: none;
+          border-radius: 4px;
+          font-size: 1em;
+          cursor: pointer;
+          font-family: arcade, monospace;
+      }
+      button:hover {
+          background: #444;
+      }
+      a {
+          color: #fff;
+          text-decoration: underline;
+          margin-left: 1em;
+      }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Create Footer Plug Set</h1>
+        <form method="POST">
+            <label for="Name">Set Name</label>
+            <input type="text" id="Name" name="Name" required>
+
+            <label for="Plugs">Plugs.  Separate plugs with two blank lines</label>
+            <textarea id="Plugs" name="Plugs" required></textarea>
+
+            <button type="submit">Create</button>
+            <a href="/manage/footers">Cancel</a>
+        </form>
+        {{ if .Flash }}<div style="color: #f88; margin-top: 1em;">{{ .Flash }}</div>{{ end }}
+    </div>
+</body>
+</html>
+{{ end }}
