@@ -93,6 +93,8 @@ line-height (no padding), and allowed the displayed pages to have that very
 To Do
 -----
 
+* No multi-user support.  Can't assign owners to tournaments.
+  (If all tournaments were public it would maybe be OK.)
 * Data models aren't quite right.
 * Tournaments need an owner and only the owner can modify the tournament.
 * There are both admin and non-admin users, but non-admin users are useless.
@@ -104,3 +106,4 @@ To Do
   tabs up at the same clock, eventually the browser will starve for
   connections.  This looks like a server bug but isn't.
 * SSL isn't supported.
+* Pagination isn't supported.
