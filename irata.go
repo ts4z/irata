@@ -523,7 +523,7 @@ func main() {
 		log.Fatalf("can't create bakery: %v", err)
 	}
 
-	storage := &permission.StorageDecorator{Storage: unprotectedStorage}
+	storage := &permission.StoragePermissionFacade{Storage: unprotectedStorage}
 
 	mutator := action.New(storage)
 

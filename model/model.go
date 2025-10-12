@@ -114,6 +114,7 @@ func ParseLevels(input string) ([]*Level, error) {
 type FooterPlugs struct {
 	FooterPlugsID int64
 	Version       int64
+	Name          string
 	TextPlugs     []string
 }
 

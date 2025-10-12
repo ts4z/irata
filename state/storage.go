@@ -26,6 +26,18 @@ type AppStorage interface {
 
 	FetchPlugs(ctx context.Context, id int64) (*model.FooterPlugs, error)
 
+	// List all footer plug sets (metadata only, not plugs).
+	ListFooterPlugSets(ctx context.Context) ([]*model.FooterPlugs, error)
+
+	// Create a new footer plug set with a name and initial plugs.
+	CreateFooterPlugSet(ctx context.Context, name string, plugs []string) (int64, error)
+
+	// Update the name and plugs of a footer plug set.
+	UpdateFooterPlugSet(ctx context.Context, id int64, name string, plugs []string) error
+
+	// Delete a footer plug set and all its plugs.
+	DeleteFooterPlugSet(ctx context.Context, id int64) error
+
 	FetchStructure(ctx context.Context, id int64) (*model.Structure, error)
 	FetchStructureSlugs(ctx context.Context, offset, limit int) ([]*model.StructureSlug, error)
 	SaveStructure(ctx context.Context, s *model.Structure) error

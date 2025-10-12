@@ -34,6 +34,125 @@ type DBStorage struct {
 	tournamentListenersMu sync.Mutex
 }
 
+// FetchPlugs fetches a footer plug set and its plugs by set ID.
+func (s *DBStorage) FetchPlugs(ctx context.Context, id int64) (*model.FooterPlugs, error) {
+	row := s.db.QueryRowContext(ctx, `SELECT id, name, version FROM footer_plug_sets WHERE id = $1`, id)
+	var setID, version int64
+	var name string
+	if err := row.Scan(&setID, &name, &version); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, he.New(404, fmt.Errorf("no such footer plug set id %d", id))
+		}
+		return nil, err
+	}
+	plugs := []string{}
+	rows, err := s.db.QueryContext(ctx, `SELECT text FROM text_footer_plugs WHERE footer_plug_set_id = $1 ORDER BY id`, id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var text string
+		if err := rows.Scan(&text); err != nil {
+			return nil, err
+		}
+		plugs = append(plugs, text)
+	}
+	if rows.Err() != nil {
+		return nil, rows.Err()
+	}
+	return &model.FooterPlugs{
+		FooterPlugsID: setID,
+		Version:       version,
+		Name:          name,
+		TextPlugs:     plugs,
+	}, nil
+}
+
+// ListFooterPlugSets lists all footer plug sets (metadata only).
+func (s *DBStorage) ListFooterPlugSets(ctx context.Context) ([]*model.FooterPlugs, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT id, name, version FROM footer_plug_sets ORDER BY id`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	sets := []*model.FooterPlugs{}
+	for rows.Next() {
+		var setID, version int64
+		var name string
+		if err := rows.Scan(&setID, &name, &version); err != nil {
+			return nil, err
+		}
+		sets = append(sets, &model.FooterPlugs{
+			FooterPlugsID: setID,
+			Version:       version,
+			Name:          name,
+			TextPlugs:     nil, // not loaded here
+		})
+	}
+	if rows.Err() != nil {
+		return nil, rows.Err()
+	}
+	return sets, nil
+}
+
+// CreateFooterPlugSet creates a new footer plug set with a name and initial plugs.
+func (s *DBStorage) CreateFooterPlugSet(ctx context.Context, name string, plugs []string) (int64, error) {
+	tx, err := dbutil.NewTx(ctx, s.db, nil)
+	if err != nil {
+		return 0, err
+	}
+	defer tx.MaybeRollback()
+	var setID int64
+	err = tx.QueryRow(ctx, `INSERT INTO footer_plug_sets (name) VALUES ($1) RETURNING id`, name).Scan(&setID)
+	if err != nil {
+		return 0, err
+	}
+	for _, plug := range plugs {
+		_, err := tx.Exec(ctx, `INSERT INTO text_footer_plugs (footer_plug_set_id, text) VALUES ($1, $2)`, setID, plug)
+		if err != nil {
+			return 0, err
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return 0, err
+	}
+	return setID, nil
+}
+
+// UpdateFooterPlugSet updates the name and plugs of a footer plug set.
+func (s *DBStorage) UpdateFooterPlugSet(ctx context.Context, id int64, name string, plugs []string) error {
+	tx, err := dbutil.NewTx(ctx, s.db, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.MaybeRollback()
+	_, err = tx.Exec(ctx, `UPDATE footer_plug_sets SET name = $1, version = version + 1 WHERE id = $2`, name, id)
+	if err != nil {
+		return err
+	}
+	_, err = tx.Exec(ctx, `DELETE FROM text_footer_plugs WHERE footer_plug_set_id = $1`, id)
+	if err != nil {
+		return err
+	}
+	for _, plug := range plugs {
+		_, err := tx.Exec(ctx, `INSERT INTO text_footer_plugs (footer_plug_set_id, text) VALUES ($1, $2)`, id, plug)
+		if err != nil {
+			return err
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	return nil
+}
+
+// DeleteFooterPlugSet deletes a footer plug set and all its plugs.
+func (s *DBStorage) DeleteFooterPlugSet(ctx context.Context, id int64) error {
+	_, err := s.db.ExecContext(ctx, `DELETE FROM footer_plug_sets WHERE id = $1`, id)
+	return err
+}
+
 var _ AppStorage = &DBStorage{}
 var _ SiteStorage = &DBStorage{}
 var _ UserStorage = &DBStorage{}
@@ -89,10 +208,6 @@ func (s *DBStorage) FetchSiteConfig(ctx context.Context) (*model.SiteConfig, err
 	}
 
 	return config, nil
-}
-
-func (s *DBStorage) FetchPlugs(ctx context.Context, id int64) (*model.FooterPlugs, error) {
-	return nil, errors.ErrUnsupported
 }
 
 func (s *DBStorage) FetchStructure(ctx context.Context, id int64) (*model.Structure, error) {
