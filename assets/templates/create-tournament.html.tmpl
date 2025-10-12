@@ -1,30 +1,85 @@
+
+<!-- create tournament dialog -->
 <html>
-<head>
-<title> Create Tournament <title> 
-    <style>
-      @font-face {
-          font-family: arcade;
-          src: url('/fs/PressStart2P-vaV7.ttf') format('truetype');
-      }
-      body {
-          font-family: arcade, monospace;
-          background-color: #000000;
-          color: #ffffff;
-      }
-      td {
-          vertical-align: top;
-          border-spacing : 100vi;
-      }
-      input {
-          font-family: arcade, monospace;
-      }
-      table {
-          border-spacing: 5px 1rem;
-      }
-    </style>
-</head>
-<body>
+    <head>
+        <title>
+            Irata Poker Clock: Create Tournament
+        </title>
+    </head>
+    <body>
+        <style>
+            @font-face {
+                    font-family: arcade;
+                    src: url('/fs/PressStart2P-vaV7.ttf') format('truetype');
+            }
+            body {
+                    font-family: arcade, monospace;
+                    background-color: #000000;
+                    color: #ffffff;
+            }
+            td {
+                    vertical-align: top;
+                    border-spacing : 100vi;
+            }
+            input {
+                    font-family: arcade, monospace;
+            }
+            table {
+                    border-spacing: 5px 1rem;
+            }
+            select {
+                    font-family: arcade, monospace;
+                    background: #000;
+                    color: #fff;
+                    border: 1px solid #555;
+                    border-radius: 4px;
+            }
+        </style>
 
-    <h1> CREATE TOURNAMENT </h1>
+        <h1> CREATE TOURNAMENT </h1>
 
-</body>
+        <form method="post">
+            <table>
+                <tr> <td width="10%"> EVENT NAME
+                    <td width="90%"> <input name="EventName" size="30" maxlength="30" required> </tr>
+                <tr> <td width="10%"> HANDLE
+                    <td width="90%"> <input name="Handle" size="30" maxlength="30" required> </tr>
+                <tr> <td width="10%"> DESCRIPTION
+                    <td width="90%"> <input name="Description" size="30" maxlength="50"> </tr>
+                <tr> <td> PRIZE POOL <td> Free-form text. No HTML tags. <br>
+                        <textarea name="PrizePool" type="textarea" cols="13" rows="10"></textarea>
+                </tr>
+                <tr> <td> STRUCTURE <td>
+                    <select name="StructureID" required>
+                        {{ range .Structures }}
+                            <option value="{{ .ID }}">{{ .Name }}</option>
+                        {{ end }}
+                    </select>
+                </tr>
+                <tr> <td> FOOTER PLUGS <td>
+                    <select name="FooterPlugsID" required>
+                        {{ range .FooterSets }}
+                            <option value="{{ .FooterPlugsID }}">{{ .Name }}</option>
+                        {{ end }}
+                    </select>
+                </tr>
+                <tr>
+                    <td colspan="2">
+                        <table>
+                            <tr>
+                                <td> <input type="submit" value="   CREATE TOURNAMENT   " style="font-family: arcade, monospace;"> </td>
+                                <td> <input type="reset" value=" RESET " style="font-family: arcade, monospace;"> </td>
+                            </tr>
+                            <tr> 
+                                <td>
+                                    [<a href="/">OVERVIEW</a>]
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+            </table>
+        </form>
+        {{ if .Flash }}<div style="color: #f88; margin-top: 1em;">{{ .Flash }}</div>{{ end }}
+    </body>
+</html>

@@ -252,7 +252,7 @@ func (s *DBStorage) FetchStructure(ctx context.Context, id int64) (*model.Struct
 }
 
 func (s *DBStorage) FetchStructureSlugs(ctx context.Context, offset, limit int) ([]*model.StructureSlug, error) {
-	rows, err := s.db.QueryContext(ctx, "SELECT id, name FROM structures LIMIT $1 OFFSET $2", limit, offset)
+	rows, err := s.db.QueryContext(ctx, "SELECT structure_id, name FROM structures LIMIT $1 OFFSET $2", limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("querying structures: %w", err)
 	}
@@ -352,27 +352,30 @@ func (s *DBStorage) CreateTournament(
 	ctx context.Context,
 	tm *model.Tournament) (int64, error) {
 
+	var id int64
+
 	cpy := *tm
 	cpy.Transients = nil
 	cpy.State.BuyIns = 0
 	cpy.State.AddOns = 0
 	cpy.State.CurrentPlayers = 0
+	cpy.State.IsClockRunning = false
+
+	// Set level to full time.
+	// q.v. Tournament.restartLevel
+	millis := (time.Duration(tm.CurrentLevel().DurationMinutes) * time.Minute).Milliseconds()
+	cpy.State.TimeRemainingMillis = &millis
 
 	bytes, err := json.Marshal(&cpy)
 	if err != nil {
 		return 0, err
 	}
 
-	result, err := s.db.ExecContext(ctx, `INSERT INTO tournaments (handle, model_data) VALUES ($1, $2) RETURNING tournament_id;`,
-		tm.Handle, bytes)
-	if err != nil {
+	if err := s.db.QueryRowContext(ctx, `INSERT INTO tournaments (handle, model_data) VALUES ($1, $2) RETURNING tournament_id;`,
+		tm.Handle, bytes).Scan(&id); err != nil {
 		return 0, err
 	}
 
-	id, err := result.LastInsertId()
-	if err != nil {
-		return 0, err
-	}
 	return id, nil
 }
 
@@ -494,19 +497,13 @@ func (s *DBStorage) CreateStructure(
 		return 0, err
 	}
 
-	result, err := s.db.ExecContext(ctx,
-		`INSERT INTO structures (name, model_data) 
-		    VALUES ($1, $2) RETURNING structure_id;`,
-		st.Name, bytes)
-	if err != nil {
+	if err := s.db.QueryRowContext(ctx,
+		`INSERT INTO structures (name, model_data) VALUES ($1, $2) RETURNING structure_id;`,
+		st.Name, bytes).Scan(&st.ID); err != nil {
 		return 0, err
 	}
 
-	id, err := result.LastInsertId()
-	if err != nil {
-		return 0, err
-	}
-	return id, nil
+	return st.ID, nil
 }
 
 func (s *DBStorage) SaveSiteConfig(ctx context.Context, config *model.SiteConfig) error {

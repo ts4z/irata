@@ -1,0 +1,61 @@
+{{ define "manage-structure.html.tmpl" }}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Manage Structures</title>
+    <style>
+      @font-face {
+          font-family: arcade;
+          src: url('/fs/PressStart2P-vaV7.ttf') format('truetype');
+      }
+      body {
+          font-family: arcade, monospace;
+          background-color: #000000;
+          color: #ffffff;
+      }
+      table {
+          border-spacing: 5px 1rem;
+          width: 100%;
+      }
+      th, td {
+          vertical-align: top;
+          padding: 0.5em;
+      }
+      a {
+          color: #fff;
+          text-decoration: underline;
+      }
+    </style>
+</head>
+<body>
+    <h1>Manage Structures</h1>
+    <table>
+        <tr>
+            <th>Name</th>
+            <th>Levels</th>
+            <th>Actions</th>
+        </tr>
+        {{ range $i, $s := .Structures }}
+        <tr>
+            <td>{{ $s.Name }}</td>
+            <td>
+                <ul>
+                {{ range $lvl := $s.Levels }}
+                    <li>{{ $lvl.DurationMinutes }} min - {{ $lvl.Description }} {{ if $lvl.IsBreak }}(Break){{ end }}</li>
+                {{ end }}
+                </ul>
+            </td>
+            <td>
+                <a href="/manage/structure/{{ $s.ID }}/edit">edit</a>
+                <a href="#" onclick="document.getElementById('really-{{ $i }}').style.display='inline'; return false;">delete</a>
+                <span style="display: none;" id="really-{{ $i }}"> ...really? <a href="/manage/structure/{{ $s.ID }}/delete">yes</a>
+                   <a href="#" onclick="document.getElementById('really-{{ $i }}').style.display='none'; return false;">no</a></span>
+            </td>
+        </tr>
+        {{ end }}
+    </table>
+    <hr>
+    <a href="/">Back to Overview</a>
+</body>
+</html>
+{{ end }}

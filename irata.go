@@ -31,18 +31,6 @@ var templateFuncs template.FuncMap = template.FuncMap{
 	"joinNLNL":        textutil.JoinNLNL,
 }
 
-// func blitSpecialFile(w http.ResponseWriter, filename string) {
-// 	rf, err := assets.Special.Open(filename)
-// 	if err != nil {
-// 		log.Fatalf("can't open special file: %v", err)
-// 	}
-// 	_, err = io.Copy(w, rf)
-// 	if err != nil {
-// 		log.Printf("error copying special static file to client: %v",
-// 			err)
-// 	}
-// }
-
 // TODO: make these configurable.
 
 const listenAddress = ":8888"
@@ -89,6 +77,8 @@ func (app *irataApp) fetchUserFromCookie(ctx context.Context, r *http.Request) (
 	return identity, nil
 }
 
+// TODO: Rename, if I can figure out a better naem.
+// cookieToContextWithUser, perhaps?
 func (app *irataApp) saveUserInRequestContext(r *http.Request) (context.Context, *model.UserIdentity) {
 	ctx := r.Context()
 	identity, err := app.fetchUserFromCookie(ctx, r)
@@ -113,11 +103,105 @@ func parseFooterPlugsBox(plugsRaw string) []string {
 }
 
 func (app *irataApp) installHandlers() {
-	// Handler for /manage/structure/{id}/edit
+	// Handler for /manage/structure
+	http.HandleFunc("/manage/structure", func(w http.ResponseWriter, r *http.Request) {
+		ctx, _ := app.saveUserInRequestContext(r)
+		if !permission.IsAdmin(ctx) {
+			he.SendErrorToHTTPClient(w, "authorize", he.HTTPCodedErrorf(http.StatusUnauthorized, "permission denied"))
+			return
+		}
+		// Fetch all structures
+		slugs, err := app.storage.FetchStructureSlugs(ctx, 0, 100)
+		if err != nil {
+			he.SendErrorToHTTPClient(w, "fetch structure slugs", err)
+			return
+		}
+		structures := []*model.Structure{}
+		for _, slug := range slugs {
+			st, err := app.storage.FetchStructure(ctx, slug.ID)
+			if err == nil {
+				structures = append(structures, st)
+			}
+		}
+		data := struct {
+			Structures []*model.Structure
+		}{Structures: structures}
+		if err := app.templates.ExecuteTemplate(w, "manage-structure.html.tmpl", data); err != nil {
+			log.Printf("can't render manage-structure template: %v", err)
+		}
+	})
+
+	http.HandleFunc("/create/t", func(w http.ResponseWriter, r *http.Request) {
+		ctx, _ := app.saveUserInRequestContext(r)
+		if !permission.IsAdmin(ctx) {
+			he.SendErrorToHTTPClient(w, "authorize", he.HTTPCodedErrorf(http.StatusUnauthorized, "permission denied"))
+			return
+		}
+		var flash string
+		// Fetch available structures and footer plug sets
+		structures, err := app.storage.FetchStructureSlugs(ctx, 0, 100)
+		if err != nil {
+			he.SendErrorToHTTPClient(w, "fetch structure slugs", err)
+			return
+		}
+		footers, err := app.storage.ListFooterPlugSets(ctx)
+		if err != nil {
+			he.SendErrorToHTTPClient(w, "fetch footer plug sets", err)
+			return
+		}
+		if r.Method == http.MethodPost {
+			if err := r.ParseForm(); err != nil {
+				flash = "Error parsing form"
+			} else {
+				eventName := r.FormValue("EventName")
+				handle := r.FormValue("Handle")
+				description := r.FormValue("Description")
+				prizePool := r.FormValue("PrizePool")
+				structureID, _ := strconv.ParseInt(r.FormValue("StructureID"), 10, 64)
+				footerPlugsID, _ := strconv.ParseInt(r.FormValue("FooterPlugsID"), 10, 64)
+				if eventName == "" || handle == "" || structureID == 0 || footerPlugsID == 0 {
+					flash = "All required fields must be filled"
+				} else {
+					// Fetch structure and denormalize into tournament
+					structure, err := app.storage.FetchStructure(ctx, structureID)
+					if err != nil {
+						log.Printf("error fetching structure %d: %v", structureID, err)
+						flash = "Error fetching structure"
+					} else {
+						t := &model.Tournament{
+							EventName:     eventName,
+							Handle:        handle,
+							Description:   description,
+							FooterPlugsID: footerPlugsID,
+							Structure:     &structure.StructureData,
+							State:         &model.State{PrizePool: prizePool},
+						}
+						id, err := app.storage.CreateTournament(ctx, t)
+						if err != nil {
+							log.Printf("error creating tournament: %v", err)
+							flash = "Error creating tournament (is the handle not unique?)"
+						} else {
+							http.Redirect(w, r, fmt.Sprintf("/t/%d", id), http.StatusSeeOther)
+							return
+						}
+					}
+				}
+			}
+		}
+		data := struct {
+			Structures []*model.StructureSlug
+			FooterSets []*model.FooterPlugs
+			Flash      string
+		}{Structures: structures, FooterSets: footers, Flash: flash}
+		if err := app.templates.ExecuteTemplate(w, "create-tournament.html.tmpl", data); err != nil {
+			log.Printf("can't render create-tournament template: %v", err)
+		}
+	})
+
 	http.HandleFunc("/manage/structure/{id}/edit", func(w http.ResponseWriter, r *http.Request) {
 		ctx, _ := app.saveUserInRequestContext(r)
 		if !permission.IsAdmin(ctx) {
-			he.SendErrorToHTTPClient(w, "authorizing", he.HTTPCodedErrorf(http.StatusUnauthorized, "permission denied"))
+			he.SendErrorToHTTPClient(w, "authorize", he.HTTPCodedErrorf(http.StatusUnauthorized, "permission denied"))
 			return
 		}
 		id, err := idPathValue(w, r)
@@ -166,7 +250,7 @@ func (app *irataApp) installHandlers() {
 						if err != nil {
 							flash = "Error saving structure"
 						} else {
-							http.Redirect(w, r, fmt.Sprintf("/manage/structure/%d/edit", id), http.StatusSeeOther)
+							http.Redirect(w, r, "/manage/structure", http.StatusSeeOther)
 							return
 						}
 					}
@@ -190,7 +274,7 @@ func (app *irataApp) installHandlers() {
 	http.HandleFunc("/manage/footer-set/{id}/edit", func(w http.ResponseWriter, r *http.Request) {
 		ctx, _ := app.saveUserInRequestContext(r)
 		if !permission.IsAdmin(ctx) {
-			he.SendErrorToHTTPClient(w, "authorizing", he.HTTPCodedErrorf(http.StatusUnauthorized, "permission denied"))
+			he.SendErrorToHTTPClient(w, "authorize", he.HTTPCodedErrorf(http.StatusUnauthorized, "permission denied"))
 			return
 		}
 
@@ -246,7 +330,7 @@ func (app *irataApp) installHandlers() {
 	http.HandleFunc("/create/footer-set", func(w http.ResponseWriter, r *http.Request) {
 		ctx, _ := app.saveUserInRequestContext(r)
 		if !permission.IsAdmin(ctx) {
-			he.SendErrorToHTTPClient(w, "authorizing", he.HTTPCodedErrorf(http.StatusUnauthorized, "permission denied"))
+			he.SendErrorToHTTPClient(w, "authorize", he.HTTPCodedErrorf(http.StatusUnauthorized, "permission denied"))
 			return
 		}
 		var flash string
@@ -390,13 +474,15 @@ func (app *irataApp) installHandlers() {
 	http.HandleFunc("/t/{id}", renderTournament)
 
 	http.HandleFunc("/t/{id}/delete", func(w http.ResponseWriter, r *http.Request) {
+		ctx, _ := app.saveUserInRequestContext(r)
+
 		id64, err := idPathValue(w, r)
 		if err != nil {
 			return
 		}
 
-		if err := app.storage.DeleteTournament(r.Context(), id64); err != nil {
-			he.SendErrorToHTTPClient(w, "deleting tournament", err)
+		if err := app.storage.DeleteTournament(ctx, id64); err != nil {
+			he.SendErrorToHTTPClient(w, "delete tournament", err)
 		} else {
 			http.Redirect(w, r, "/", http.StatusPermanentRedirect)
 		}

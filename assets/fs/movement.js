@@ -63,10 +63,11 @@ let next_level_complete_at = undefined, next_break_at = undefined, clock_control
 // model value
 var last_model = {
   // State is things that are written to the database.
+  "Version": -1,
   "State": {
     "CurrentLevelNumber": 0,
     "IsClockRunning": false,
-    "TimeRemainingMillis": -1,
+    "TimeRemainingMillis": 59*60*1000,
     "CurrentLevelEndsAt": undefined,
   },
   "Structure": {
@@ -340,16 +341,20 @@ function advance_clock_from_wall_clock() {
 }
 
 function update_time_fields() {
+  console.log("update_time_fields");
   update_break_clock(last_model);
   update_big_clock();
   update_next_level_and_break_fields();
 }
 
 function update_big_clock() {
+  console.log("update_big_clock");
   if (typeof next_level_complete_at === 'undefined') {
+      console.log("NLCA undefined");
     // this doesn't happen -- why?
     document.getElementById("clock").innerHTML = "??:??";
   }
+  console.log("NLCA defined, onna render");
   var render = to_hmmss(millis_remaining_in_level());
   document.getElementById("clock").innerHTML = render
 }
@@ -495,7 +500,7 @@ function install_keyboard_handlers() {
 // changed since the previous call.  This way we use the same
 // object across clock ticks.
 const cached_change_listener = function () {
-  let version = -1, controller = new AbortController(), cached_promise;
+  let version = undefined, controller = new AbortController(), cached_promise;
   return async function () {
     if (version != last_model.Version) {
       controller.abort("new version found");
@@ -510,6 +515,7 @@ const cached_change_listener = function () {
 }();
 
 async function tick() {
+  console.log("Tick!");
   const controller = new AbortController();
   const abortSignal = controller.signal;
   let wait = [cached_change_listener(), sleep(30*3600)];
@@ -525,7 +531,7 @@ async function tick() {
   }).catch((e) => {
     console.log(`tick threw up: ${e}`);
   }).finally(() => {
-    controller.abort("");
+    controller.abort("promise (probably tick) done");
     setTimeout(tick, 50);
   });
 }

@@ -93,6 +93,8 @@ line-height (no padding), and allowed the displayed pages to have that very
 To Do
 -----
 
+* A lot of inconsistency in data model names and variable names.  The whole
+  of `movement.js` is pretty bad.
 * No multi-user support.  Can't assign owners to tournaments.
   (If all tournaments were public it would maybe be OK.)
 * Data models aren't quite right.

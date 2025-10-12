@@ -214,8 +214,7 @@ func (m *Tournament) adjustStateForElapsedTime(clock Clock) {
 		if m.State.TimeRemainingMillis == nil {
 			if m.CurrentLevel() != nil {
 				log.Printf("BUG: clock is not running but TimeRemainingMillis is nil, resetting to full time")
-				remaining := int64(time.Duration(m.CurrentLevel().DurationMinutes) * time.Minute)
-				m.State.TimeRemainingMillis = &remaining
+				m.restartLevel(clock)
 			} else {
 				log.Printf("BUG: clock running, no time remaining, no level?")
 				m.RestartLastLevel(clock)
@@ -291,7 +290,11 @@ func (m *Tournament) FillTransients(clock Clock) {
 	m.State.TotalChips = minimumTotalChips
 	// }
 
-	m.Transients.AverageChips = m.State.TotalChips / m.State.CurrentPlayers
+	if m.State.CurrentPlayers > 0 {
+		m.Transients.AverageChips = m.State.TotalChips / m.State.CurrentPlayers
+	} else {
+		m.Transients.AverageChips = 0
+	}
 
 	m.adjustStateForElapsedTime(clock)
 
