@@ -23,6 +23,7 @@ import (
 	"github.com/ts4z/irata/state"
 	"github.com/ts4z/irata/textutil"
 	"github.com/ts4z/irata/ts"
+	"github.com/ts4z/irata/urlpath"
 )
 
 var templateFuncs template.FuncMap = template.FuncMap{
@@ -47,25 +48,11 @@ var templateFuncs template.FuncMap = template.FuncMap{
 const listenAddress = ":8888"
 const dbURL = "postgresql:///irata"
 
-// idPathValue extracts the "id" path variable from the request and parses it.
 func idPathValue(w http.ResponseWriter, r *http.Request) (int64, error) {
-	id, err := idPathValueFromRequest(r)
-	if err != nil {
-		time.Sleep(10 * time.Second)
-		he.SendErrorToHTTPClient(w, "parsing URL", err)
-	}
-	return id, nil
+	return urlpath.IDPathValue(w, r)
 }
 
-func idPathValueFromRequest(r *http.Request) (int64, error) {
-	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
-	if err != nil {
-		return -1, he.HTTPCodedErrorf(400, "can't parse id from url path: %v", err)
-	}
-	return id, nil
-}
-
-type clock interface {
+type nower interface {
 	Now() time.Time
 }
 
@@ -78,7 +65,7 @@ type irataApp struct {
 	mutator     *action.Actor
 	subFS       fs.FS
 	bakery      *permission.Bakery
-	clock       clock
+	clock       nower
 }
 
 func (app *irataApp) fetchTournament(ctx context.Context, id int64) (*model.Tournament, error) {
@@ -126,6 +113,80 @@ func parseFooterPlugsBox(plugsRaw string) []string {
 }
 
 func (app *irataApp) installHandlers() {
+	// Handler for /manage/structure/{id}/edit
+	http.HandleFunc("/manage/structure/{id}/edit", func(w http.ResponseWriter, r *http.Request) {
+		ctx, _ := app.saveUserInRequestContext(r)
+		if !permission.IsAdmin(ctx) {
+			he.SendErrorToHTTPClient(w, "authorizing", he.HTTPCodedErrorf(http.StatusUnauthorized, "permission denied"))
+			return
+		}
+		id, err := idPathValue(w, r)
+		if err != nil {
+			return
+		}
+		var flash string
+		if r.Method == http.MethodPost {
+			if err := r.ParseForm(); err != nil {
+				flash = "Error parsing form"
+			} else {
+				name := r.FormValue("Name")
+				levels := []*model.Level{}
+				for i := 0; ; i++ {
+					durStr := r.FormValue(fmt.Sprintf("Level%dDuration", i))
+					desc := r.FormValue(fmt.Sprintf("Level%dDescription", i))
+					isBreak := r.FormValue(fmt.Sprintf("Level%dIsBreak", i)) == "on"
+					if durStr == "" && desc == "" && !isBreak && i > 0 {
+						break
+					}
+					if durStr == "" && desc == "" {
+						continue
+					}
+					dur, err := strconv.Atoi(durStr)
+					if err != nil || dur <= 0 || desc == "" {
+						flash = "All fields required for each level"
+						continue
+					}
+					levels = append(levels, &model.Level{
+						DurationMinutes: dur,
+						Description:     desc,
+						IsBreak:         isBreak,
+						Banner:          desc,
+					})
+				}
+				if name == "" || len(levels) == 0 {
+					flash = "Structure name and at least one level required"
+				} else {
+					st, err := app.storage.FetchStructure(ctx, id)
+					if err != nil {
+						flash = "Error fetching structure"
+					} else {
+						st.Name = name
+						st.Levels = levels
+						err := app.storage.SaveStructure(ctx, st)
+						if err != nil {
+							flash = "Error saving structure"
+						} else {
+							http.Redirect(w, r, fmt.Sprintf("/manage/structure/%d/edit", id), http.StatusSeeOther)
+							return
+						}
+					}
+				}
+			}
+		}
+		st, err := app.storage.FetchStructure(ctx, id)
+		if err != nil {
+			he.SendErrorToHTTPClient(w, "fetch structure", err)
+			return
+		}
+		data := struct {
+			Structure *model.Structure
+			Flash     string
+		}{Structure: st, Flash: flash}
+		if err := app.templates.ExecuteTemplate(w, "edit-structure.html.tmpl", data); err != nil {
+			log.Printf("can't render edit-structure template: %v", err)
+		}
+	})
+
 	http.HandleFunc("/manage/footer-set/{id}/edit", func(w http.ResponseWriter, r *http.Request) {
 		ctx, _ := app.saveUserInRequestContext(r)
 		if !permission.IsAdmin(ctx) {
@@ -162,7 +223,7 @@ func (app *irataApp) installHandlers() {
 					if err != nil {
 						flash = "Error saving footer plug set"
 					} else {
-						// http.Redirect(w, r, fmt.Sprintf("/manage/footer-set/%d/edit", id), http.StatusSeeOther)
+						http.Redirect(w, r, fmt.Sprintf("/manage/footer-set/%d/edit", id), http.StatusSeeOther)
 						return
 					}
 				}
@@ -314,11 +375,13 @@ func (app *irataApp) installHandlers() {
 			he.SendErrorToHTTPClient(w, "get tournament from database", err)
 			return
 		}
-		type viewArgs struct {
+		args := struct {
 			Tournament              *model.Tournament
 			InstallKeyboardHandlers bool
+		}{
+			Tournament:              t,
+			InstallKeyboardHandlers: permission.CheckWriteAccessToTournamentID(ctx, id) == nil,
 		}
-		args := &viewArgs{Tournament: t, InstallKeyboardHandlers: permission.CheckWriteAccessToTournamentID(ctx, id) == nil}
 		log.Printf("render with args: %+v", args)
 		if err := app.templates.ExecuteTemplate(w, "view.html.tmpl", args); err != nil {
 			log.Printf("500: can't render template: %v", err)

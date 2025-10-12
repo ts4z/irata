@@ -1,10 +1,49 @@
-        <tr> <td> LEVELS <td> ONE LINE, LIKE THIS: <br>
-            <tt> &lt;duration&gt; -- &lt;level|break&gt; -- &lt;blinds + ante&gt; </tt> <br>
-            <textarea name="levels" type="textarea" cols="72" rows="20">
-              {{- range $level := .Levels -}}
-              {{- $level.DurationMinutes}} -- {{if $level.IsBreak}}BREAK{{else}}LEVEL{{end}} -- {{$level.Description -}}
-              {{- printf "\n" -}}
-              {{- end -}}
-            </textarea>
-        </tr>
+
+<script>
+  function addLevel() {
+    const levelsDiv = document.getElementById('levels');
+    const idx = levelsDiv.children.length;
+    let prevDuration = "";
+    if (idx > 0) {
+      const prevRow = levelsDiv.children[idx - 1];
+      const prevInput = prevRow.querySelector('input[type="number"]');
+      if (prevInput) {
+        prevDuration = prevInput.value;
+      }
+    }
+    const row = document.createElement('div');
+    row.className = 'level-row';
+    row.innerHTML = `
+  <input type="number" name="Level${idx}Duration" min="1" required placeholder="Minutes" value="${prevDuration}" style="max-width: 5em;">
+      <input type="text" name="Level${idx}Description" required placeholder="Description">
+      <label><input type="checkbox" name="Level${idx}IsBreak"> Break</label>
+      <button type="button" onclick="this.parentNode.remove()">Delete</button>
+    `;
+    levelsDiv.appendChild(row);
+  }
+</script>
+
+<div class="container">
+    <h1>Edit Structure</h1>
+    <form method="POST">
+        <label for="Name">Structure Name</label>
+        <input type="text" id="Name" name="Name" value="{{ .Structure.Name }}" required>
+        <div id="levels">
+            {{ range $i, $lvl := .Structure.Levels }}
+            <div class="level-row">
+                <input type="number" name="Level{{ $i }}Duration" min="1" required value="{{ $lvl.DurationMinutes }}" placeholder="Minutes" style="max-width: 5em;">
+                <input type="text" name="Level{{ $i }}Description" required value="{{ $lvl.Description }}" placeholder="Description">
+                <label><input type="checkbox" name="Level{{ $i }}IsBreak" {{ if $lvl.IsBreak }}checked{{ end }}> Break</label>
+                <button type="button" onclick="this.parentNode.remove()">Delete</button>
+            </div>
+            {{ end }}
+        </div>
+        <button type="button" id="add-level-btn" onclick="addLevel()">Add Level</button>
+        <div class="actions">
+            <button type="submit">Save</button>
+            <a href="/">Cancel</a>
+        </div>
+        {{ if .Flash }}<div style="color: #f88; margin-top: 1em;">{{ .Flash }}</div>{{ end }}
+    </form>
+</div>
 

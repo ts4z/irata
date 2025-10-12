@@ -451,7 +451,7 @@ func (s *DBStorage) SaveStructure(
 		return err
 	}
 	if result, err := s.db.ExecContext(ctx,
-		`UPDATE tournaments SET version=$1+1, name=$4, model_data=$2 WHERE structure_id=$3 AND version=$1;`,
+		`UPDATE structures SET version=$1+1, name=$4, model_data=$2 WHERE structure_id=$3 AND version=$1;`,
 		st.Version, bytes, st.ID, st.Name); err != nil {
 		log.Printf("update failed: %v", err)
 		return err

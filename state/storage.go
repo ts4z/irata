@@ -23,6 +23,7 @@ type AppStorage interface {
 	SaveTournament(ctx context.Context, m *model.Tournament) error
 	DeleteTournament(ctx context.Context, id int64) error
 	FetchTournament(ctx context.Context, id int64) (*model.Tournament, error)
+	ListenTournamentVersion(ctx context.Context, id int64, version int64, errCh chan<- error, tournamentCh chan<- *model.Tournament)
 
 	FetchPlugs(ctx context.Context, id int64) (*model.FooterPlugs, error)
 
@@ -43,7 +44,6 @@ type AppStorage interface {
 	SaveStructure(ctx context.Context, s *model.Structure) error
 	DeleteStructure(ctx context.Context, id int64) error
 	CreateStructure(ctx context.Context, s *model.Structure) (int64, error)
-	ListenTournamentVersion(ctx context.Context, id int64, version int64, errCh chan<- error, tournamentCh chan<- *model.Tournament)
 }
 
 type SiteStorage interface {
