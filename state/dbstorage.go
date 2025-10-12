@@ -677,7 +677,7 @@ func (s *DBStorage) ListenTournamentVersion(ctx context.Context, id int64, clien
 
 	s.tournamentListenersMu.Lock()
 	s.tournamentListeners[id] = append(s.tournamentListeners[id], tournamentCh)
-	log.Printf("%d listeners for tournament id %d", len(s.tournamentListeners[id]), id)
+	// log.Printf("%d listeners for tournament id %d", len(s.tournamentListeners[id]), id)
 	s.tournamentListenersMu.Unlock()
 }
 

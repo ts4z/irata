@@ -39,6 +39,7 @@ CREATE TABLE footer_plug_sets (
 
 CREATE TABLE text_footer_plugs (
    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+   version BIGINT DEFAULT 0 NOT NULL,
    footer_plug_set_id BIGINT NOT NULL REFERENCES footer_plug_sets(id) ON DELETE CASCADE,
    text TEXT NOT NuLL
 );
@@ -211,3 +212,187 @@ VALUES (1, 'BREMER 3000', $json$
        ]
     }
     $json$ );
+
+-- Insert a default plug set
+INSERT INTO footer_plug_sets (id, name) OVERRIDING SYSTEM VALUE VALUES (1, 'Mostly BARGE In-Jokes') ;
+
+-- Insert plugs (each plug as a separate row)
+INSERT INTO text_footer_plugs (footer_plug_set_id, text) VALUES
+(1, '"There are no strangers here,
+just friends
+you haven''t met yet."
+-Peter Secor'),
+(1, 'THANK YOU MARIO!
+BUT OUR PRINCESS
+ IS IN ANOTHER CASTLE!'),
+(1, 'I am a lucky player;
+a powerful winning force
+surrounds me.
+-Mike Caro'),
+(1, 'this space intentionally left blank'),
+(1, 'SPONSORED BY PINBALLPIRATE.COM'),
+(1, 'SPONSORED BY TS4Z.NET'),
+(1, 'NOT SPONSORED BY
+POKERSTARS.COM'),
+(1, 'WWW.BARGE.ORG'),
+(1, 'WWW.BJRGE.ORG'),
+(1, 'FARGOPOKER.ORG'),
+(1, 'ATLARGEPOKER.COM'),
+(1, 'ARGEMPOKER.COM'),
+(1, 'PETER.BARGE.ORG'),
+(1, 'CRAFTPOKER.COM'),
+(1, 'BARGECHIPS.ORG'),
+(1, 'this space for rent'),
+(1, '"COCKTAILS!"'),
+(1, 'WABOR'),
+(1, 'WHEN IN NEW YORK...
+VISIT THE MAYFAIR CLUB'),
+(1, 'WHEN IN PARIS...
+VISIT THE AVIATION CLUB'),
+(1, 'May the flop be with you.
+-Doyle Brunson'),
+(1, 'Don''t you know who **I** am?
+-Phil Gordon'),
+(1, 'WHO BUT W.B. MASON?'),
+(1, 'It is morally wrong to allow
+suckers to keep their money.
+-"Canada Bill" Jones'),
+(1, 'May all your cards be
+live and all your
+pots be monsters.
+-Mike Sexton'),
+(1, 'MAKE SEVEN - UP YOURS'),
+(1, '"Daddy, I got cider in my ear"
+-Sky Masterson,
+in Guys and Dolls'),
+(1, 'Trust everyone,
+but always
+cut the cards.
+-Benny Binion'),
+(1, 'Poker is a hard way to
+make an easy living.
+-Doyle Brunson'),
+(1, 'The object of poker is to
+keep your money away from
+Phil Ivey
+for as long as possible.
+-Gus Hansen'),
+(1, 'To be a poker champion,
+you must have a strong bladder.
+-Jack McClelland'),
+(1, 'No-limit hold’em:
+Hours of boredom
+ followed by moments of sheer terror.
+ -Tom McEvoy'),
+(1, 'Please don''t tap on the aquarium.'),
+(1, 'The rule is this:
+you spot a
+man''s tell, you don''t
+say a fucking word.
+-Mike McDermott, in Rounders'),
+(1, 'A Smith & Wesson
+beats four aces.
+-"Canada Bill" Jones'),
+(1, 'Pay that man his money.
+-Teddy KGB, in Rounders'),
+(1, 'You win some,
+you lose some,
+and you keep
+it to yourself.
+-Mike Caro'),
+(1, 'If you speak the truth,
+you spoil the game.
+-Mike Caro'),
+(1, 'In the beginning,
+everything was
+even money.
+-Mike Caro'),
+(1, 'It''s hard to convince
+a winner that he''s losing.
+-Mike Caro'),
+(1, 'If an opponent
+won''t watch you bet,
+then you
+probably shouldn''t.
+-Mike Caro'),
+(1, 'Just play every hand,
+you can’t miss them all.
+-Sammy Farha'),
+(1, 'Last night
+I stayed
+up late playing
+poker
+with Tarot cards.
+I got a full house
+and four
+people died.
+-Steven Wright'),
+(1, 'Going on tilt
+is not 
+"mixing up your play."
+-Steve Badger'),
+(1, 'The guy who invented
+poker was bright,
+but the guy who
+invented the chip
+was a genius.
+-"Big Julie" Weintraub'),
+(1, 'Sex is good,
+they say,
+but poker lasts longer.
+-Al Alvarez'),
+(1, 'Money won
+is twice as sweet
+as money earned.
+-"Fast Eddie" Felson
+in The Color of Money'),
+(1, 'Fold and live
+to fold again. -Stu Ungar'),
+(1, 'Life is not
+always a matter
+of holding
+good cards, but
+sometimes,
+playing a
+poor hand
+well.
+-Jack London'),
+(1, 'The lack of money is the
+root of all evil.
+-Mark Twain'),
+(1, 'Learning to
+play two pairs
+correctly is as difficult
+as getting
+a college education,
+and just as expensive.
+-Mark Twain'),
+(1, 'You''re not going
+to like this,
+Nolan.'),
+(1, 'I toss a chip to the dealer.
+Dealer: "What''s this for?"
+Me: "You laughed at my dumb joke."
+Dealer: "Appreciate it." -QB'),
+(1, 'Gillian: "So Dan,
+how does
+this work?
+"Deadhead: "Dan puts
+out chips.
+People take ''em."
+-as reported by QB'),
+(1, 'Here''s the thing about poker...
+nobody gives a shit.
+-Dan Goldman'),
+(1, 'It cost me a couple
+million dollars
+to develop
+this reputation.
+-Daniel Negreanu,
+on being known to be
+hard-to-bluff'),
+(1, '"But it''s a great game!"
+"Yeah, it''s a great game
+because YOU''RE in it!"
+-Daniel Negreanu'),
+(1, 'This is my third rodeo.');

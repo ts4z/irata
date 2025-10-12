@@ -113,13 +113,16 @@ async function fetch_footers(abortSignal) {
   var want_footer_plugs_id = last_model.FooterPlugsID;
   const response = await fetch("/api/footerPlugs/" + want_footer_plugs_id, { signal: abortSignal });
   console.log("response " + response);
-  const response_1 = response;
-  const footer_model = await response_1.json();
-  fetched_footer_plugs_id = want_footer_plugs_id;
-  footers = footer_model.TextPlugs;
-  shuffle_array(footers);
-  next_footer();
-  return "footers fetched";
+  try {
+      const footer_model = await response.json();
+      fetched_footer_plugs_id = want_footer_plugs_id;
+      footers = footer_model.TextPlugs;
+      shuffle_array(footers);
+      next_footer();
+      return "footers fetched";
+  } catch (e) {
+    console.log(`couldn't fetch footers: ${e}`);
+  }
 }
 
 const next_footer = (function () {
@@ -498,7 +501,9 @@ const cached_change_listener = function () {
       controller.abort("new version found");
       controller = new AbortController();
       version = last_model.Version;
-      cached_promise = listen_for_changes_once(controller.signal);
+      cached_promise = listen_for_changes_once(controller.signal)
+      .then(_ => { cached_promise = undefined; return _; })
+      .catch(e => { cached_promise = undefined; return Promise.reject(e); });
     }
     return cached_promise;
   }
@@ -512,7 +517,7 @@ async function tick() {
     wait.push(maybe_clock_tick());
   }
   if (want_footers()) {
-    wait.push(fetch_footers(abortSignal));
+    wait.push(fetch_footers(abortSignal))
   }
 
   Promise.any(wait).then((result) => {

@@ -14,7 +14,6 @@ import (
 
 	"github.com/ts4z/irata/action"
 	"github.com/ts4z/irata/assets"
-	"github.com/ts4z/irata/defaults"
 	"github.com/ts4z/irata/he"
 	"github.com/ts4z/irata/model"
 	"github.com/ts4z/irata/password"
@@ -229,11 +228,22 @@ func (app *irataApp) installHandlers() {
 	})
 
 	http.HandleFunc("/api/footerPlugs/{id}", func(w http.ResponseWriter, r *http.Request) {
-		_, err := idPathValue(w, r)
+		id, err := idPathValue(w, r)
 		if err != nil {
 			return
 		}
-		bytes, err := json.Marshal(defaults.FooterPlugs())
+
+		fp, err := app.storage.FetchPlugs(r.Context(), id)
+		if err != nil {
+			he.SendErrorToHTTPClient(w, "get plugs from db", err)
+			return
+		}
+
+		for i, s := range fp.TextPlugs {
+			fp.TextPlugs[i] = textutil.WrapLinesInNOBR(s)
+		}
+
+		bytes, err := json.Marshal(fp)
 		if err != nil {
 			he.SendErrorToHTTPClient(w, "marshalling plugs", he.New(500, err))
 			return
@@ -491,7 +501,9 @@ func (app *irataApp) loadTemplates() {
 }
 
 func (app *irataApp) serve() error {
-	return http.ListenAndServe(listenAddress, nil)
+	http.ListenAndServe(":8888", nil) // for pprof
+	server := &http.Server{Addr: listenAddress, Handler: nil}
+	return server.ListenAndServe()
 }
 
 func readSiteConfig(ctx context.Context, s state.SiteStorage) (*model.SiteConfig, error) {

@@ -395,7 +395,7 @@ func (t *Tournament) restartLevel(clock Clock) {
 }
 
 func (t *Tournament) StopClock(clock Clock) error {
-	log.Printf("STOP CLOCK")
+	log.Printf("stop clock request for tournament %d", t.EventID)
 	t.adjustStateForElapsedTime(clock)
 
 	if !t.State.IsClockRunning {
