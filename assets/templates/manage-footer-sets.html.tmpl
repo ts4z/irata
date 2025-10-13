@@ -64,7 +64,7 @@
                     <td>{{ .Version }}</td>
                     <td>
                         <a href="/manage/footer-set/{{ .FooterPlugsID }}/edit">Edit</a>
-                        <a href="/manage/footer-set/{{ .FooterPlugsID }}/delete" style="color:#f88;">Delete</a>
+                        <a href="#" style="color:#f88;" onclick="showDeleteModal({{-  .FooterPlugsID -}})">Delete</a>
                     </td>
                 </tr>
                 {{ else }}
@@ -72,9 +72,32 @@
                 {{ end }}
             </tbody>
         </table>
+
         <a href="/create/footer-set">Create New Footer Plug Set</a> <br>
         <a href="/">Back to Overview</a>
     </div>
+
+        <!-- Delete Confirmation Modal -->
+        <div id="deleteModal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.7); z-index:1000;">
+            <div style="background:#222; color:#fff; padding:2em; border-radius:8px; max-width:400px; margin:10vh auto; position:relative;">
+                <h2>Delete Footer Plug Set</h2>
+                <p id="deleteModalText"></p>
+                <form id="deleteForm" method="POST" action="">
+                    <button type="submit" style="background:#f88; color:#fff; border:none; padding:0.5em 1em; border-radius:4px;">Confirm Delete</button>
+                    <button type="button" onclick="hideDeleteModal()" style="margin-left:1em;">Cancel</button>
+                </form>
+            </div>
+        </div>
+        <script>
+            function showDeleteModal(id) {
+                document.getElementById('deleteModalText').textContent = `Are you sure you want to delete the set ${id}?`;
+                document.getElementById('deleteForm').action = `/manage/footer-set/${id}/delete`;
+                document.getElementById('deleteModal').style.display = 'block';
+            }
+            function hideDeleteModal() {
+                document.getElementById('deleteModal').style.display = 'none';
+            }
+        </script>
 </body>
 </html>
 {{ end }}

@@ -12,6 +12,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/ts4z/irata/action"
@@ -54,6 +55,11 @@ type irataApp struct {
 	subFS       fs.FS
 	bakery      *permission.Bakery
 	clock       nower
+
+	keypressHandlers map[string]func(*model.Tournament) error
+
+	mux     *http.ServeMux
+	handler http.Handler
 }
 
 func (app *irataApp) fetchTournament(ctx context.Context, id int64) (*model.Tournament, error) {
@@ -77,17 +83,6 @@ func (app *irataApp) fetchUserFromCookie(ctx context.Context, r *http.Request) (
 	return identity, nil
 }
 
-// TODO: Rename, if I can figure out a better naem.
-// cookieToContextWithUser, perhaps?
-func (app *irataApp) saveUserInRequestContext(r *http.Request) (context.Context, *model.UserIdentity) {
-	ctx := r.Context()
-	identity, err := app.fetchUserFromCookie(ctx, r)
-	if err != nil {
-		return ctx, nil
-	}
-	return permission.UserIdentityInContext(ctx, identity), identity
-}
-
 var RegexpLFLF = regexp.MustCompile(`\n\n+`)
 
 func parseFooterPlugsBox(plugsRaw string) []string {
@@ -102,14 +97,79 @@ func parseFooterPlugsBox(plugsRaw string) []string {
 	return plugs
 }
 
-func (app *irataApp) installHandlers() {
-	// Handler for /manage/structure
-	http.HandleFunc("/manage/structure", func(w http.ResponseWriter, r *http.Request) {
-		ctx, _ := app.saveUserInRequestContext(r)
+type CodeWatcher struct {
+	code *int
+	w    http.ResponseWriter
+}
+
+func (cw *CodeWatcher) Header() http.Header {
+	return cw.w.Header()
+}
+
+func (cw *CodeWatcher) Write(b []byte) (int, error) {
+	return cw.w.Write(b)
+}
+
+func (cw *CodeWatcher) WriteHeader(statusCode int) {
+	cw.code = &statusCode
+	cw.w.WriteHeader(statusCode)
+}
+
+func (cw *CodeWatcher) Code() int {
+	if cw.code != nil {
+		return *cw.code
+	} else {
+		return 200
+	}
+}
+
+var _ http.ResponseWriter = &CodeWatcher{}
+
+type RequestLogger struct {
+	next http.Handler
+}
+
+func (rl *RequestLogger) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	ww := &CodeWatcher{w: w}
+	rl.next.ServeHTTP(ww, r)
+	code := ww.Code()
+	log.Printf("[access] %d %v", code, r.URL.Path)
+}
+
+type CookieParser struct {
+	app  *irataApp
+	next http.Handler
+}
+
+func (cp *CookieParser) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	identity, err := cp.app.fetchUserFromCookie(ctx, r)
+	if err != nil {
+		log.Printf("can't fetch user data from cookie: %v", err)
+	} else {
+		ctx = permission.UserIdentityInContext(ctx, identity)
+		r = r.WithContext(ctx)
+	}
+
+	cp.next.ServeHTTP(w, r)
+}
+
+func (app *irataApp) requiringAdminHandleFunc(pattern string, handler func(http.ResponseWriter, *http.Request)) {
+	app.mux.HandleFunc(pattern, func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
 		if !permission.IsAdmin(ctx) {
 			he.SendErrorToHTTPClient(w, "authorize", he.HTTPCodedErrorf(http.StatusUnauthorized, "permission denied"))
 			return
 		}
+		handler(w, r)
+	})
+}
+
+func (app *irataApp) installHandlers() {
+	// Handler for /manage/structure
+	app.requiringAdminHandleFunc("/manage/structure", func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
 		// Fetch all structures
 		slugs, err := app.storage.FetchStructureSlugs(ctx, 0, 100)
 		if err != nil {
@@ -131,12 +191,8 @@ func (app *irataApp) installHandlers() {
 		}
 	})
 
-	http.HandleFunc("/create/t", func(w http.ResponseWriter, r *http.Request) {
-		ctx, _ := app.saveUserInRequestContext(r)
-		if !permission.IsAdmin(ctx) {
-			he.SendErrorToHTTPClient(w, "authorize", he.HTTPCodedErrorf(http.StatusUnauthorized, "permission denied"))
-			return
-		}
+	app.requiringAdminHandleFunc("/create/t", func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
 		var flash string
 		// Fetch available structures and footer plug sets
 		structures, err := app.storage.FetchStructureSlugs(ctx, 0, 100)
@@ -198,12 +254,8 @@ func (app *irataApp) installHandlers() {
 		}
 	})
 
-	http.HandleFunc("/manage/structure/{id}/edit", func(w http.ResponseWriter, r *http.Request) {
-		ctx, _ := app.saveUserInRequestContext(r)
-		if !permission.IsAdmin(ctx) {
-			he.SendErrorToHTTPClient(w, "authorize", he.HTTPCodedErrorf(http.StatusUnauthorized, "permission denied"))
-			return
-		}
+	app.requiringAdminHandleFunc("/manage/structure/{id}/edit", func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
 		id, err := idPathValue(w, r)
 		if err != nil {
 			return
@@ -271,12 +323,8 @@ func (app *irataApp) installHandlers() {
 		}
 	})
 
-	http.HandleFunc("/manage/footer-set/{id}/edit", func(w http.ResponseWriter, r *http.Request) {
-		ctx, _ := app.saveUserInRequestContext(r)
-		if !permission.IsAdmin(ctx) {
-			he.SendErrorToHTTPClient(w, "authorize", he.HTTPCodedErrorf(http.StatusUnauthorized, "permission denied"))
-			return
-		}
+	app.requiringAdminHandleFunc("/manage/footer-set/{id}/edit", func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
 
 		id, err := idPathValue(w, r)
 		if err != nil {
@@ -327,12 +375,9 @@ func (app *irataApp) installHandlers() {
 		}
 	})
 
-	http.HandleFunc("/create/footer-set", func(w http.ResponseWriter, r *http.Request) {
-		ctx, _ := app.saveUserInRequestContext(r)
-		if !permission.IsAdmin(ctx) {
-			he.SendErrorToHTTPClient(w, "authorize", he.HTTPCodedErrorf(http.StatusUnauthorized, "permission denied"))
-			return
-		}
+	app.requiringAdminHandleFunc("/create/footer-set", func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+
 		var flash string
 		if r.Method == http.MethodPost {
 			if err := r.ParseForm(); err != nil {
@@ -361,15 +406,11 @@ func (app *irataApp) installHandlers() {
 		}
 	})
 
-	http.HandleFunc("/manage/footer-set/{id}/delete", func(w http.ResponseWriter, r *http.Request) {
+	app.requiringAdminHandleFunc("/manage/footer-set/{id}/delete", func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+
 		id, err := idPathValue(w, r)
 		if err != nil {
-			return
-		}
-
-		ctx, _ := app.saveUserInRequestContext(r)
-		if !permission.IsAdmin(ctx) {
-			http.Error(w, "permission denied", http.StatusForbidden)
 			return
 		}
 
@@ -386,12 +427,8 @@ func (app *irataApp) installHandlers() {
 		http.Redirect(w, r, "/manage/footers", http.StatusSeeOther)
 	})
 
-	http.HandleFunc("/manage/footer-set/", func(w http.ResponseWriter, r *http.Request) {
-		ctx, _ := app.saveUserInRequestContext(r)
-		if !permission.IsAdmin(ctx) {
-			http.Error(w, "permission denied", http.StatusForbidden)
-			return
-		}
+	app.requiringAdminHandleFunc("/manage/footer-set/", func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
 
 		sets, err := app.storage.ListFooterPlugSets(ctx)
 		if err != nil {
@@ -406,48 +443,48 @@ func (app *irataApp) installHandlers() {
 			log.Printf("can't render manage-footer-sets template: %v", err)
 		}
 	})
-	http.HandleFunc("/",
-		func(w http.ResponseWriter, r *http.Request) {
-			ctx, _ := app.saveUserInRequestContext(r)
 
-			sc, err := app.siteStorage.FetchSiteConfig(ctx)
-			if err != nil {
-				he.SendErrorToHTTPClient(w, "fetch site config", err)
-				return
-			}
+	app.mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
 
-			// TODO: pagination
-			o, err := app.storage.FetchOverview(ctx, 0, 100)
-			if err != nil {
-				he.SendErrorToHTTPClient(w, "fetch overview", err)
-				return
-			}
-			type Inputs struct {
-				IsAdmin    bool
-				Overview   *model.Overview
-				SiteConfig *model.SiteConfig
-			}
-			inputs := &Inputs{IsAdmin: permission.IsAdmin(ctx), Overview: o, SiteConfig: sc}
-			if err := app.templates.ExecuteTemplate(w, "slash.html.tmpl", inputs); err != nil {
-				log.Printf("can't render template: %v", err)
-				return
-			}
-		})
+		sc, err := app.siteStorage.FetchSiteConfig(ctx)
+		if err != nil {
+			he.SendErrorToHTTPClient(w, "fetch site config", err)
+			return
+		}
 
-	http.HandleFunc("/favicon.ico", func(w http.ResponseWriter, r *http.Request) {
+		// TODO: pagination
+		o, err := app.storage.FetchOverview(ctx, 0, 100)
+		if err != nil {
+			he.SendErrorToHTTPClient(w, "fetch overview", err)
+			return
+		}
+		type Inputs struct {
+			IsAdmin    bool
+			Overview   *model.Overview
+			SiteConfig *model.SiteConfig
+		}
+		inputs := &Inputs{IsAdmin: permission.IsAdmin(ctx), Overview: o, SiteConfig: sc}
+		if err := app.templates.ExecuteTemplate(w, "slash.html.tmpl", inputs); err != nil {
+			log.Printf("can't render template: %v", err)
+			return
+		}
+	})
+
+	app.mux.HandleFunc("/favicon.ico", func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFileFS(w, r, app.subFS, "favicon.ico")
 	})
 
-	http.HandleFunc("/logout", func(w http.ResponseWriter, r *http.Request) {
+	app.mux.HandleFunc("/logout", func(w http.ResponseWriter, r *http.Request) {
 		app.bakery.ClearCookie(w)
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 	})
 
 	// anything in fs is a file trivially shared
-	http.Handle("/fs/", http.StripPrefix("/fs/", http.FileServer(http.FS(app.subFS))))
+	app.mux.Handle("/fs/", http.StripPrefix("/fs/", http.FileServer(http.FS(app.subFS))))
 
 	renderTournament := func(w http.ResponseWriter, r *http.Request) {
-		ctx, _ := app.saveUserInRequestContext(r)
+		ctx := r.Context()
 
 		id, err := idPathValue(w, r)
 		if err != nil {
@@ -471,10 +508,10 @@ func (app *irataApp) installHandlers() {
 			log.Printf("500: can't render template: %v", err)
 		}
 	}
-	http.HandleFunc("/t/{id}", renderTournament)
+	app.mux.HandleFunc("/t/{id}", renderTournament)
 
-	http.HandleFunc("/t/{id}/delete", func(w http.ResponseWriter, r *http.Request) {
-		ctx, _ := app.saveUserInRequestContext(r)
+	app.requiringAdminHandleFunc("/t/{id}/delete", func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
 
 		id64, err := idPathValue(w, r)
 		if err != nil {
@@ -488,8 +525,8 @@ func (app *irataApp) installHandlers() {
 		}
 	})
 
-	http.HandleFunc("/t/{id}/edit", func(w http.ResponseWriter, r *http.Request) {
-		ctx, _ := app.saveUserInRequestContext(r)
+	app.requiringAdminHandleFunc("/t/{id}/edit", func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
 
 		id64, err := idPathValue(w, r)
 		if err != nil {
@@ -527,7 +564,7 @@ func (app *irataApp) installHandlers() {
 		}
 	})
 
-	http.HandleFunc("/api/footerPlugs/{id}", func(w http.ResponseWriter, r *http.Request) {
+	app.mux.HandleFunc("/api/footerPlugs/{id}", func(w http.ResponseWriter, r *http.Request) {
 		id, err := idPathValue(w, r)
 		if err != nil {
 			return
@@ -556,7 +593,7 @@ func (app *irataApp) installHandlers() {
 		}
 	})
 
-	http.HandleFunc("/api/model/{id}", func(w http.ResponseWriter, r *http.Request) {
+	app.mux.HandleFunc("/api/model/{id}", func(w http.ResponseWriter, r *http.Request) {
 		id64, err := idPathValue(w, r)
 		if err != nil {
 			return
@@ -579,7 +616,7 @@ func (app *irataApp) installHandlers() {
 		}
 	})
 
-	http.HandleFunc("/login", func(w http.ResponseWriter, r *http.Request) {
+	app.mux.HandleFunc("/login", func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 		switch r.Method {
 		default:
@@ -638,7 +675,7 @@ func (app *irataApp) installHandlers() {
 	})
 
 	// Handler for /api/tournament-listen
-	http.HandleFunc("/api/tournament-listen", func(w http.ResponseWriter, r *http.Request) {
+	app.mux.HandleFunc("/api/tournament-listen", func(w http.ResponseWriter, r *http.Request) {
 		type reqBody struct {
 			TournamentID int64 `json:"tournament_id"`
 			Version      int64 `json:"version"`
@@ -676,12 +713,8 @@ func (app *irataApp) installHandlers() {
 	app.installKeyboardHandlers()
 
 	// Handler for /manage/site
-	http.HandleFunc("/manage/site", func(w http.ResponseWriter, r *http.Request) {
-		ctx, _ := app.saveUserInRequestContext(r)
-		if !permission.IsAdmin(ctx) {
-			http.Error(w, "permission denied", http.StatusForbidden)
-			return
-		}
+	app.requiringAdminHandleFunc("/manage/site", func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
 
 		var flash string
 		// Fetch config
@@ -725,21 +758,25 @@ func (app *irataApp) installHandlers() {
 	})
 }
 
-func (app *irataApp) handleKeypress(r *http.Request) error {
-	var keyboardModifyEventHandlers = map[string]func(*model.Tournament) error{
-		"PreviousLevel": func(t *model.Tournament) error { return t.PreviousLevel(app.clock) },
-		"SkipLevel":     func(t *model.Tournament) error { return t.AdvanceLevel(app.clock) },
-		"StopClock":     func(t *model.Tournament) error { return t.StopClock(app.clock) },
-		"StartClock":    func(t *model.Tournament) error { return t.StartClock(app.clock) },
-		"RemovePlayer":  func(t *model.Tournament) error { return t.RemovePlayer(app.clock) },
-		"AddPlayer":     func(t *model.Tournament) error { return t.AddPlayer(app.clock) },
-		"AddBuyIn":      func(t *model.Tournament) error { return t.AddBuyIn(app.clock) },
-		"RemoveBuyIn":   func(t *model.Tournament) error { return t.RemoveBuyIn(app.clock) },
-		"PlusMinute":    func(t *model.Tournament) error { return t.PlusMinute(app.clock) },
-		"MinusMinute":   func(t *model.Tournament) error { return t.MinusMinute(app.clock) },
+func makeKeyboardHandlers(clock ts.Clock) map[string]func(*model.Tournament) error {
+	// todo: it is bogus that these require a clock.  it would make more sense if these methods
+	// were moved outside the model, since they are not just data, but actual actions.
+	return map[string]func(*model.Tournament) error{
+		"PreviousLevel": func(t *model.Tournament) error { return t.PreviousLevel(clock) },
+		"SkipLevel":     func(t *model.Tournament) error { return t.AdvanceLevel(clock) },
+		"StopClock":     func(t *model.Tournament) error { return t.StopClock(clock) },
+		"StartClock":    func(t *model.Tournament) error { return t.StartClock(clock) },
+		"RemovePlayer":  func(t *model.Tournament) error { return t.RemovePlayer(clock) },
+		"AddPlayer":     func(t *model.Tournament) error { return t.AddPlayer(clock) },
+		"AddBuyIn":      func(t *model.Tournament) error { return t.AddBuyIn(clock) },
+		"RemoveBuyIn":   func(t *model.Tournament) error { return t.RemoveBuyIn(clock) },
+		"PlusMinute":    func(t *model.Tournament) error { return t.PlusMinute(clock) },
+		"MinusMinute":   func(t *model.Tournament) error { return t.MinusMinute(clock) },
 	}
+}
 
-	ctx, _ := app.saveUserInRequestContext(r)
+func (app *irataApp) handleKeypress(r *http.Request) error {
+	ctx := r.Context()
 
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -761,7 +798,7 @@ func (app *irataApp) handleKeypress(r *http.Request) error {
 		return he.HTTPCodedErrorf(http.StatusUnauthorized, "permission denied")
 	}
 
-	if h, ok := keyboardModifyEventHandlers[event.Event]; !ok {
+	if h, ok := app.keypressHandlers[event.Event]; !ok {
 		return he.HTTPCodedErrorf(404, "unknown keyboard event")
 	} else {
 		t, err := app.fetchTournament(r.Context(), event.TournamentID)
@@ -781,7 +818,7 @@ func (app *irataApp) handleKeypress(r *http.Request) error {
 }
 
 func (app *irataApp) installKeyboardHandlers() {
-	http.HandleFunc("/api/keyboard-control", func(w http.ResponseWriter, r *http.Request) {
+	app.requiringAdminHandleFunc("/api/keyboard-control", func(w http.ResponseWriter, r *http.Request) {
 		err := app.handleKeypress(r)
 		if err != nil {
 			he.SendErrorToHTTPClient(w, "handleKeypress", err)
@@ -801,7 +838,41 @@ func (app *irataApp) loadTemplates() {
 }
 
 func (app *irataApp) serve() error {
-	return http.ListenAndServe(listenAddress, nil)
+	wg := sync.WaitGroup{}
+
+	type result struct {
+		name string
+		err  error
+	}
+
+	ch := make(chan *result)
+
+	wg.Add(1)
+	go func() {
+		ch <- &result{"http", http.ListenAndServe(listenAddress, app.handler)}
+		wg.Done()
+	}()
+
+	// wg.Add(1)
+	// go func() {
+	// 	ch <- &result{"http", http.ListenAndServe(listenAddress, app.handler)}
+	// 	wg.Done()
+	// }()
+
+	go func() {
+		wg.Wait()
+		close(ch)
+	}()
+
+	errors := []error{}
+	for res := range ch {
+		if res.err != nil {
+			log.Printf("server %s exited: %v", res.name, res.err)
+			errors = append(errors, res.err)
+		}
+	}
+
+	return fmt.Errorf("servers exited: %v", errors)
 }
 
 func readSiteConfig(ctx context.Context, s state.SiteStorage) (*model.SiteConfig, error) {
@@ -839,6 +910,10 @@ func main() {
 
 	app := &irataApp{storage: storage, siteStorage: unprotectedStorage, userStorage: unprotectedStorage,
 		mutator: mutator, subFS: subFS, bakery: bakery, clock: clock}
+	app.mux = http.NewServeMux()
+	app.handler = &RequestLogger{next: &CookieParser{app: app, next: app.mux}}
+	app.keypressHandlers = makeKeyboardHandlers(clock)
+
 	app.loadTemplates()
 	app.installHandlers()
 	if err := app.serve(); err != nil {
