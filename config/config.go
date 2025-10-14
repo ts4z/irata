@@ -23,8 +23,10 @@ func Init() {
 	viper.AutomaticEnv()
 	viper.BindEnv("db_url", "IRATA_DB_URL")
 	viper.BindEnv("listen_address", "IRATA_LISTEN_ADDRESS")
+	viper.BindEnv("sql_connector", "IRATA_SQL_CONNECTOR")
 	viper.SetDefault("db_url", "")
 	viper.SetDefault("listen_address", ":8080")
+	viper.SetDefault("sql_connector", "cloudsqlconn")
 	err = viper.ReadInConfig() // ignore error if config file missing
 	if err != nil {
 		log.Printf("viper can't read config file: %v", err)
@@ -43,4 +45,8 @@ func ListenAddress() string {
 
 func SecureCookies() bool {
 	return viper.GetBool("secure_cookies")
+}
+
+func SQLConnector() string {
+	return viper.GetString("sql_connector")
 }
