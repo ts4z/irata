@@ -17,6 +17,7 @@ import (
 	"github.com/spf13/cobra"
 	"maze.io/x/duration"
 
+	"github.com/ts4z/irata/config"
 	"github.com/ts4z/irata/model"
 	"github.com/ts4z/irata/password"
 	"github.com/ts4z/irata/state"
@@ -30,7 +31,6 @@ const (
 )
 
 var (
-	dbURL        string
 	honorOffset  time.Duration
 	mintDuration time.Duration
 	startOffset  time.Duration
@@ -43,29 +43,22 @@ var (
 	expireTime time.Time
 )
 
-// func newAppStorage(ctx context.Context) state.AppStorage {
-// 	storage, err := state.NewDBStorage(ctx, dbURL, clock)
-// 	if err != nil {
-// 		log.Fatalf("can't connect to database: %v", err)
-// 	}
-// 	return storage
-// }
-
 func newUserStorage(ctx context.Context) state.UserStorage {
-	storage, err := state.NewDBStorage(ctx, dbURL, clock)
+	config.Init()
+	storage, err := state.NewDBStorage(ctx, config.DBURL(), clock)
 	if err != nil {
 		log.Fatalf("can't connect to database: %v", err)
 	}
 	return storage
 }
 
-// func newSiteStorage(ctx context.Context) state.SiteStorage {
-// 	storage, err := state.NewDBStorage(ctx, dbURL, clock)
-// 	if err != nil {
-// 		log.Fatalf("can't connect to database: %v", err)
-// 	}
-// 	return storage
-// }
+func newSiteStorage(ctx context.Context) state.SiteStorage {
+	storage, err := state.NewDBStorage(ctx, config.DBURL(), clock)
+	if err != nil {
+		log.Fatalf("can't connect to database: %v", err)
+	}
+	return storage
+}
 
 func generateKey(sz int) ([]byte, error) {
 	key := make([]byte, sz)
@@ -92,10 +85,7 @@ func getKeyStatus(now time.Time, v model.CookieKeyValidity) string {
 
 func listKeys(cmd *cobra.Command, args []string) error {
 	ctx := context.Background()
-	storage, err := state.NewDBStorage(ctx, dbURL, clock)
-	if err != nil {
-		return fmt.Errorf("connecting to database: %w", err)
-	}
+	storage := newSiteStorage(ctx)
 	defer storage.Close()
 
 	config, err := storage.FetchSiteConfig(ctx)
@@ -121,10 +111,7 @@ func listKeys(cmd *cobra.Command, args []string) error {
 
 func rotateKeys(cmd *cobra.Command, args []string) error {
 	ctx := context.Background()
-	storage, err := state.NewDBStorage(ctx, dbURL, clock)
-	if err != nil {
-		return fmt.Errorf("connecting to database: %w", err)
-	}
+	storage := newSiteStorage(ctx)
 	defer storage.Close()
 
 	config, err := storage.FetchSiteConfig(ctx)
@@ -365,11 +352,12 @@ func replacePassword(cmd *cobra.Command, args []string) error {
 // ...existing code...
 
 func main() {
+	config.Init()
+
 	rootCmd := &cobra.Command{
 		Short: "Irata administration tool",
 		Use:   "irataadmin",
 	}
-	rootCmd.PersistentFlags().StringVar(&dbURL, "db", "postgresql:///irata", "Database connection URL")
 
 	keyCmd := &cobra.Command{
 		Short: "Manage authentication keys",

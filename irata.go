@@ -15,9 +15,13 @@ import (
 	"sync"
 	"time"
 
+	"github.com/spf13/viper"
+
 	"github.com/ts4z/irata/action"
 	"github.com/ts4z/irata/assets"
+	"github.com/ts4z/irata/config"
 	"github.com/ts4z/irata/he"
+	"github.com/ts4z/irata/middleware"
 	"github.com/ts4z/irata/model"
 	"github.com/ts4z/irata/password"
 	"github.com/ts4z/irata/permission"
@@ -32,11 +36,6 @@ var templateFuncs template.FuncMap = template.FuncMap{
 	"joinNLNL":        textutil.JoinNLNL,
 }
 
-// TODO: make these configurable.
-
-const listenAddress = ":8888"
-const dbURL = "postgresql:///irata"
-
 func idPathValue(w http.ResponseWriter, r *http.Request) (int64, error) {
 	return urlpath.IDPathValue(w, r)
 }
@@ -47,6 +46,8 @@ type nower interface {
 
 // irataApp prevents the proliferation of global variables.
 type irataApp struct {
+	listenAddress string
+
 	templates   *template.Template
 	storage     state.AppStorage
 	siteStorage state.SiteStorage
@@ -95,45 +96,6 @@ func parseFooterPlugsBox(plugsRaw string) []string {
 		}
 	}
 	return plugs
-}
-
-type CodeWatcher struct {
-	code *int
-	w    http.ResponseWriter
-}
-
-func (cw *CodeWatcher) Header() http.Header {
-	return cw.w.Header()
-}
-
-func (cw *CodeWatcher) Write(b []byte) (int, error) {
-	return cw.w.Write(b)
-}
-
-func (cw *CodeWatcher) WriteHeader(statusCode int) {
-	cw.code = &statusCode
-	cw.w.WriteHeader(statusCode)
-}
-
-func (cw *CodeWatcher) Code() int {
-	if cw.code != nil {
-		return *cw.code
-	} else {
-		return 200
-	}
-}
-
-var _ http.ResponseWriter = &CodeWatcher{}
-
-type RequestLogger struct {
-	next http.Handler
-}
-
-func (rl *RequestLogger) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	ww := &CodeWatcher{w: w}
-	rl.next.ServeHTTP(ww, r)
-	code := ww.Code()
-	log.Printf("[access] %d %v", code, r.URL.Path)
 }
 
 type CookieParser struct {
@@ -414,11 +376,6 @@ func (app *irataApp) installHandlers() {
 			return
 		}
 
-		if r.Method != http.MethodPost {
-			// Render a simple confirmation page
-			fmt.Fprintf(w, "<html><body><h2>Delete Footer Plug Set %d?</h2><form method='POST'><button type='submit'>Delete</button> <a href='/manage/footer-sets'>Cancel</a></form></body></html>", id)
-			return
-		}
 		err = app.storage.DeleteFooterPlugSet(ctx, id)
 		if err != nil {
 			he.SendErrorToHTTPClient(w, "delete footer plug set", err)
@@ -849,15 +806,9 @@ func (app *irataApp) serve() error {
 
 	wg.Add(1)
 	go func() {
-		ch <- &result{"http", http.ListenAndServe(listenAddress, app.handler)}
+		ch <- &result{"http", http.ListenAndServe(viper.GetString("listen_address"), app.handler)}
 		wg.Done()
 	}()
-
-	// wg.Add(1)
-	// go func() {
-	// 	ch <- &result{"http", http.ListenAndServe(listenAddress, app.handler)}
-	// 	wg.Done()
-	// }()
 
 	go func() {
 		wg.Wait()
@@ -878,18 +829,22 @@ func (app *irataApp) serve() error {
 func readSiteConfig(ctx context.Context, s state.SiteStorage) (*model.SiteConfig, error) {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
+
 	return s.FetchSiteConfig(ctx)
 }
 
 func main() {
 	ctx := context.Background()
+
+	config.Init()
+
 	clock := ts.NewRealClock()
 	subFS, err := fs.Sub(assets.FS, "fs")
 	if err != nil {
 		log.Fatalf("fs.Sub: %v", err)
 	}
 
-	unprotectedStorage, err := state.NewDBStorage(context.Background(), dbURL, clock)
+	unprotectedStorage, err := state.NewDBStorage(context.Background(), viper.GetString("db_url"), clock)
 	if err != nil {
 		log.Fatalf("can't configure database: %v", err)
 	}
@@ -908,14 +863,19 @@ func main() {
 
 	mutator := action.New(storage)
 
+	csp := http.NewCrossOriginProtection()
+
 	app := &irataApp{storage: storage, siteStorage: unprotectedStorage, userStorage: unprotectedStorage,
 		mutator: mutator, subFS: subFS, bakery: bakery, clock: clock}
 	app.mux = http.NewServeMux()
-	app.handler = &RequestLogger{next: &CookieParser{app: app, next: app.mux}}
+	// Stack the handlers together.  This isn't pretty.
+	app.handler = middleware.NewRequestLogger(csp.Handler(&CookieParser{app: app, next: app.mux}), app.clock)
 	app.keypressHandlers = makeKeyboardHandlers(clock)
+	app.listenAddress = viper.GetString("listen_address")
 
 	app.loadTemplates()
 	app.installHandlers()
+
 	if err := app.serve(); err != nil {
 		log.Fatalf("can't serve: %v", err)
 	}

@@ -158,6 +158,10 @@ var _ SiteStorage = &DBStorage{}
 var _ UserStorage = &DBStorage{}
 
 func NewDBStorage(ctx context.Context, url string, clock Clock) (*DBStorage, error) {
+	log.Printf("Connecting to database at %s", url)
+	if url == "" {
+		return nil, errors.New("database URL is empty")
+	}
 	db, err := sql.Open("pgx", url)
 	if err != nil {
 		return nil, err

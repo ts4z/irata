@@ -167,7 +167,10 @@ function listen_for_changes_once(abortSignal) {
   return fetch("/api/tournament-listen", {
     signal: abortSignal,
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    mode: 'same-origin',
+    headers: { 
+      "Content-Type": "application/json",
+     },
     body: JSON.stringify({ tournament_id: tid, version: version })
   }).then(response => response.json())
     .then(model => import_new_model_from_server(model))

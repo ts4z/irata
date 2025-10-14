@@ -9,6 +9,7 @@ import (
 
 	"github.com/gorilla/securecookie"
 
+	"github.com/ts4z/irata/config"
 	"github.com/ts4z/irata/model"
 )
 
@@ -142,7 +143,7 @@ func (b *Bakery) BakeCookie(w http.ResponseWriter, lc *model.AuthCookieData) err
 		Name:     AuthCookieName,
 		Value:    encrypted,
 		Path:     "/",
-		Secure:   false, // TODO set to true when we have HTTPS
+		Secure:   config.SecureCookies(),
 		HttpOnly: true,
 		SameSite: http.SameSiteStrictMode,
 	})
