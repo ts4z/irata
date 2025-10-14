@@ -22,7 +22,8 @@ RUN CGO_ENABLED=0 \
     GOARCH=amd64 \
     go build .
 
-FROM scratch
+FROM alpine:latest
+RUN apk add --no-cache ca-certificates
 
 WORKDIR /app
 
