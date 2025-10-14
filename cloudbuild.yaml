@@ -1,2 +1,25 @@
 options:
   logging: CLOUD_LOGGING_ONLY
+
+substitutions:
+  _REGION: us-west1
+  _REPOSITORY: irata
+
+steps:
+  # Build the container image
+  - name: 'gcr.io/cloud-builders/docker'
+    args: [
+      'build',
+      '-t', '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/irata:${SHORT_SHA}',
+      '.'
+    ]
+
+  # Push the container image
+  - name: 'gcr.io/cloud-builders/docker'
+    args: [
+      'push',
+      '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/irata:${SHORT_SHA}'
+    ]
+
+images:
+  - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/irata:${SHORT_SHA}'
