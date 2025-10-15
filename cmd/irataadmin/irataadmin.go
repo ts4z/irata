@@ -347,10 +347,6 @@ func replacePassword(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-// ...existing code...
-
-// ...existing code...
-
 func main() {
 	config.Init()
 
@@ -361,7 +357,30 @@ func main() {
 
 	keyCmd := &cobra.Command{
 		Short: "Manage authentication keys",
-		Use:   "key",
+		Use:   "cookie-key",
+	}
+
+	clearCookieKeyCmd := &cobra.Command{
+		Short: "Clear all keys",
+		Use:   "clear",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := context.Background()
+			storage := newSiteStorage(ctx)
+			defer storage.Close()
+
+			config, err := storage.FetchSiteConfig(ctx)
+			if err != nil {
+				return fmt.Errorf("fetching site config: %w", err)
+			}
+
+			config.CookieKeys = nil
+
+			if err := storage.SaveSiteConfig(ctx, config); err != nil {
+				return fmt.Errorf("saving updated SiteConfig: %w", err)
+			}
+			return nil
+
+		},
 	}
 
 	listCmd := &cobra.Command{
@@ -379,7 +398,7 @@ func main() {
 	rotateCmd.Flags().DurationVar(&mintDuration, "mint-duration", 180*24*time.Hour, "How long the key should be valid for minting (default 180 days)")
 	rotateCmd.Flags().DurationVar(&honorOffset, "honor-offset", 180*24*time.Hour, "How long after minting ends to honor the key (default 180 days)")
 
-	keyCmd.AddCommand(listCmd, rotateCmd)
+	keyCmd.AddCommand(listCmd, rotateCmd, clearCookieKeyCmd)
 	rootCmd.AddCommand(keyCmd)
 
 	userCmd := &cobra.Command{
