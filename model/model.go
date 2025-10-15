@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math"
 	"regexp"
 	"strconv"
 	"strings"
@@ -163,7 +164,7 @@ type State struct {
 	CurrentPlayers     int
 	BuyIns             int
 	AddOns             int
-	TotalChips         int
+	TotalChipsOverride int    // if > 0, overrides computed total chips
 	PrizePool          string // right-hand side display
 
 	// EndsAt indicates when the level ends iff the clock is running.  This is in
@@ -178,6 +179,7 @@ type State struct {
 
 // Transients are computed from State and Structure, and are not serialized to the database.
 type Transients struct {
+	TotalChips   int
 	AverageChips int
 	// NextBreakAt is the time the next break starts, in Unix millis, or nil if there are no more breaks.
 	NextBreakAt *int64
@@ -284,16 +286,16 @@ type Clock interface {
 func (m *Tournament) FillTransients(clock Clock) {
 	m.Transients = &Transients{}
 
-	// TODO: move this to edit
-	minimumTotalChips := m.State.BuyIns*m.Structure.ChipsPerBuyIn + m.State.AddOns*m.Structure.ChipsPerAddOn
-	// if minimumTotalChips > m.State.TotalChips {
-	m.State.TotalChips = minimumTotalChips
-	// }
-
-	if m.State.CurrentPlayers > 0 {
-		m.Transients.AverageChips = m.State.TotalChips / m.State.CurrentPlayers
+	if m.State.TotalChipsOverride > 0 {
+		m.Transients.TotalChips = m.State.TotalChipsOverride
 	} else {
+		m.Transients.TotalChips = m.State.BuyIns*m.Structure.ChipsPerBuyIn + m.State.AddOns*m.Structure.ChipsPerAddOn
+	}
+
+	if m.State.CurrentPlayers == 0 {
 		m.Transients.AverageChips = 0
+	} else {
+		m.Transients.AverageChips = int(math.Round(float64(m.Transients.TotalChips) / float64(m.State.CurrentPlayers)))
 	}
 
 	m.adjustStateForElapsedTime(clock)

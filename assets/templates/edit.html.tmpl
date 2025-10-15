@@ -1,76 +1,107 @@
 <!-- edit tournament settings -->
 {{ with .Tournament }}
 <html>
-  <head>
-    <title>
-      Irata Poker Clock: Edit Event {{ .EventID }}
-    </title>
-  </head>
-  <body>
-    <style>
-      @font-face {
-          font-family: arcade;
-          src: url('/fs/PressStart2P-vaV7.ttf') format('truetype');
-      }
-      body {
-          font-family: arcade, monospace;
-          background-color: #000000;
-          color: #ffffff;
-      }
-      td {
-          vertical-align: top;
-          border-spacing : 100vi;
-      }
-      input {
-          font-family: arcade, monospace;
-      }
-      table {
-          border-spacing: 5px 1rem;
-      }
-    </style>
+
+<head>
+  <title>
+    Irata Poker Clock: Edit Event {{ .EventID }}
+  </title>
+</head>
+
+<body>
+  <style>
+    @font-face {
+      font-family: arcade;
+      src: url('/fs/PressStart2P-vaV7.ttf') format('truetype');
+    }
+
+    body {
+      font-family: arcade, monospace;
+      background-color: #000000;
+      color: #ffffff;
+    }
+
+    td {
+      vertical-align: top;
+      border-spacing: 100vi;
+    }
+
+    input {
+      font-family: arcade, monospace;
+    }
+
+    table {
+      border-spacing: 5px 1rem;
+    }
+  </style>
 
 
-    <h1> EDIT EVENT {{ $.Tournament.EventID }} ... </h1>
+  <h1> EDIT EVENT {{ $.Tournament.EventID }} ... </h1>
 
-    <p> VERSION {{ .Version }}</p>
+  <p> VERSION {{ .Version }}</p>
 
-    <form method="post">
-      <input type="hidden" name="Version" value="{{ .Version }}">
-      <table>
-        <tr> <td width="10%"> EVENT NAME
-          <td width="90%"> <input name="EventName" size="30" maxlength="30"
-                                         value="{{- .EventName -}}"> </tr>
-        <tr> <td width="10%"> HANDLE
-          <td width="90%"> <input name="EventName" size="30" maxlength="30"
-                                         value="{{- .Handle -}}"> </tr>
-        <tr> <td width="10%"> DESCRIPTION
-          <td width="90%"> <input name="Description" size="30" maxlength="50"
-                                         value="{{- .Description -}}"> </tr>
-        <tr> <td> PRIZE POOL <td> Free-form text. No HTML tags. <br>
-            <textarea name="PrizePool" type="textarea" cols="13" rows="10">{{- .State.PrizePool -}}</textarea>
-        </tr>
+  <form method="post">
+    <input type="hidden" name="Version" value="{{ .Version }}">
+    <table>
+      <tr>
+        <td width="10%"> EVENT NAME
+        <td width="90%"> <input name="EventName" size="30" maxlength="30" value="{{- .EventName -}}"> </td>
+      </tr>
+      <tr>
+        <td width="10%"> HANDLE
+        <td width="90%"> <input name="EventName" size="30" maxlength="30" value="{{- .Handle -}}"> </td>
+      </tr>
+      <tr>
+        <td width="10%"> DESCRIPTION
+        <td width="90%"> <input name="Description" size="30" maxlength="50" value="{{- .Description -}}"> </td>
+      </tr>
 
-        <tr>
-          <td colspan="2">
-            <table>
-              <tr>
-                {{ if $.IsAdmin }}
-                  <td> <input type="submit" value="   SAVE CHANGES   " style="font-family: arcade, monospace;"> </td>
-                  <td> <input type="reset" value=" RESET TO SAVED VALUES " style="font-family: arcade, monospace;"> </td>
-                {{ else }}
-                  <td> YOU CAN LOOK BUT YOU CAN'T TOUCH </td>
-                {{ end }}
-              </tr>
-              <tr> 
-                <td>
-                  [<a href="/">OVERVIEW</a>] [<a href="/t/{{ .EventID }}">VIEW EVENT</a>]
-                </td>
-              </tr>
-            </table>
-          </td>
-        </tr>
-      </table>
-    </form>
-  </body>
+      <tr>
+        <td> CHIPS PER BUY-IN </td>
+        <td> <input name="ChipsPerBuyIn" size="30" maxlength="30" pattern="[0-9,]+" required
+            value="{{- .Structure.ChipsPerBuyIn -}}">
+      </tr>
+
+      <tr>
+        <td> CHIPS PER ADD-ON </td>
+        <td> <input name="ChipsPerAddOn" size="30" maxlength="30" pattern="[0-9,]+" required
+            value="{{- .Structure.ChipsPerAddOn -}}">
+      </tr>
+
+      <tr>
+        <td> TOTAL CHIPS OVERRIDE </td>
+        <td> <input name="TotalChipsOverride" size="30" maxlength="30" pattern="[0-9,]+"
+            placeholder="0 to auto-compute" value="{{- .State.TotalChipsOverride -}}">
+      </tr>
+
+      <tr>
+        <td> PRIZE POOL
+        <td> Free-form text. No HTML tags. <br>
+          <textarea name="PrizePool" type="textarea" cols="13" rows="10">{{- .State.PrizePool -}}</textarea>
+      </tr>
+
+      <tr>
+        <td colspan="2">
+          <table>
+            <tr>
+              {{ if $.IsAdmin }}
+              <td> <input type="submit" value="   SAVE CHANGES   " style="font-family: arcade, monospace;"> </td>
+              <td> <input type="reset" value=" RESET TO SAVED VALUES " style="font-family: arcade, monospace;"> </td>
+              {{ else }}
+              <td> YOU CAN LOOK BUT YOU CAN'T TOUCH </td>
+              {{ end }}
+            </tr>
+            <tr>
+              <td>
+                [<a href="/">OVERVIEW</a>] [<a href="/t/{{ .EventID }}">VIEW EVENT</a>]
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </form>
+</body>
+
 </html>
 {{ end }}
