@@ -1,4 +1,6 @@
 // package labrea provides a middleware that provides a tarpit.
+//
+// This could probably generate better trash.
 package labrea
 
 import (
@@ -99,8 +101,14 @@ func (h *Handler) countIP(ip string) int {
 	return h.ipCount[ip]
 }
 
+func (h *Handler) flush(w http.ResponseWriter) {
+	if f, ok := w.(http.Flusher); ok {
+		f.Flush()
+	}
+}
+
 func (h *Handler) Mishandle(w http.ResponseWriter, r *http.Request) {
-	minimum := time.Duration(h.countIP(r.RemoteAddr)) * time.Millisecond
+	minimum := time.Duration(11*h.countIP(r.RemoteAddr)) * time.Millisecond
 	initialDelay := h.randomDelay(minimum, 3*time.Second)
 	time.Sleep(initialDelay)
 
@@ -119,24 +127,13 @@ func (h *Handler) Mishandle(w http.ResponseWriter, r *http.Request) {
 <body>
 `))
 
-	// Flush to ensure they receive the initial response
-	if f, ok := w.(http.Flusher); ok {
-		f.Flush()
-	}
+	h.flush(w)
 
 	// Send garbage data slowly, chunk by chunk
 	for range 20 + h.rand.Intn(50) {
-		// Random delay between chunks (100-500ms)
 		time.Sleep(h.randomDelay(100*time.Millisecond, 2*time.Second))
-
-		// Generate random garbage that looks like HTML comments or script data
-		garbage := h.generateGarbageHTML()
-		w.Write([]byte(garbage))
-
-		// Flush periodically to drip-feed the data
-		if f, ok := w.(http.Flusher); ok {
-			f.Flush()
-		}
+		w.Write([]byte(h.generateGarbageHTML()))
+		h.flush(w)
 	}
 
 	// Close the HTML properly to look legitimate
@@ -146,10 +143,13 @@ func (h *Handler) Mishandle(w http.ResponseWriter, r *http.Request) {
 `))
 }
 
-// randomDelay returns a random duration between min and max milliseconds
+// randomDelay returns a random duration between min and max milliseconds.
+// The arguments can actually appear in either order.
 func (h *Handler) randomDelay(min, max time.Duration) time.Duration {
-	diff := max - min
-	delay := h.rand.Intn(int(diff))
+	if min > max {
+		return max
+	}
+	delay := h.rand.Intn(int(max - min))
 	return min + time.Duration(delay)*time.Nanosecond
 }
 
@@ -161,16 +161,16 @@ func (h *Handler) generateGarbageHTML() string {
 	hexData := hex.EncodeToString(randomBytes)
 
 	// Return as HTML comments or hidden divs
-	templates := []string{
-		fmt.Sprintf("<!-- %s -->\n", hexData),
-		fmt.Sprintf("<div style='display:none'>%s</div>\n", hexData),
-		fmt.Sprintf("<script>/* %s */</script>\n", hexData),
-		fmt.Sprintf("    <p style='opacity:0'>%s</p>\n", hexData),
+	templates := []func() string{
+		func() string { return fmt.Sprintf("<!-- %s -->\n", hexData) },
+		func() string { return fmt.Sprintf("<div style='display:none'>%s</div>\n", hexData) },
+		func() string { return fmt.Sprintf("<script>/* %s */</script>\n", hexData) },
+		func() string { return fmt.Sprintf("    <p style='opacity:0'>%s</p>\n", hexData) },
 	}
 
 	// Pick a random template
 	n := h.rand.Intn(len(templates))
-	return templates[n]
+	return templates[n]()
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
