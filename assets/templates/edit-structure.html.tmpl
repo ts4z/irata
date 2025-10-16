@@ -12,6 +12,66 @@
     return match ? parseInt(match[1], 10) : null;
   }
 
+  function updateBannerNumber(banner, newNumber) {
+    // Match any text followed by a number at the end
+    const match = banner.match(/^(.*\D)?(\d+)$/);
+    if (match) {
+      const prefix = match[1] || '';
+      return prefix + newNumber;
+    }
+    return banner;
+  }
+
+  function renumberLevels() {
+    const levelsDiv = document.getElementById('levels');
+    const rows = levelsDiv.children;
+    let levelCounter = 1;
+   
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      const isBreakCheckbox = row.querySelector('input[type="checkbox"]');
+      const bannerInput = row.querySelector('input[name^="Level"][name$="Banner"]');
+      
+      if (!isBreakCheckbox || !bannerInput) {
+        console.log('Row', i, 'missing checkbox or banner input');
+        continue;
+      }
+      
+      const isBreak = isBreakCheckbox.checked;
+      console.log('Row', i, 'isBreak:', isBreak, 'banner:', bannerInput.value);
+      
+      if (isBreak) {
+        const currentBanner = bannerInput.value;
+        if (/^LEVEL\s+\d+$/i.test(currentBanner)) {
+          bannerInput.value = 'BREAK';
+        }
+      } else {
+        // Only renumber non-break levels
+        const currentBanner = bannerInput.value;
+        
+        if (/^BREAK$/i.test(currentBanner)) {
+          bannerInput.value = 'LEVEL ' + levelCounter;
+        } else {
+          const currentNumber = getLevelNumber(currentBanner);
+                   
+          // If banner has a number, update it to match the current level counter
+          if (currentNumber !== null) {
+            const newBanner = updateBannerNumber(currentBanner, levelCounter);
+            if (newBanner !== currentBanner) {
+              bannerInput.value = newBanner;
+            }
+          }
+        }
+        levelCounter++;
+      }
+    }
+  }
+
+  function onBreakToggle(checkbox) {
+    console.log('Break checkbox toggled, renumbering levels...');
+    renumberLevels();
+  }
+
   function tryDelete(button) {
     const levelsDiv = document.getElementById('levels');
     if (levelsDiv.children.length <= 2) {
@@ -48,7 +108,7 @@
       <input type="number" name="Level${idx}Duration" min="1" required placeholder="Minutes" value="${prevDuration}" style="max-width: 5em;">
       <input type="text" name="Level${idx}Banner" required placeholder="Banner Text" value="${nextBanner}">
       <input type="text" name="Level${idx}Description" required placeholder="Description">
-      <label><input type="checkbox" name="Level${idx}IsBreak"> Break</label>
+      <label><input type="checkbox" name="Level${idx}IsBreak" onchange="onBreakToggle(this)"> Break</label>
       <button type="button" class="delete-btn" onclick="tryDelete(this)">Delete</button>
     `;
     levelsDiv.appendChild(row);
@@ -65,7 +125,7 @@
         <input type="number" name="Level0Duration" min="1" required placeholder="Minutes" value="15" style="max-width: 5em;">
         <input type="text" name="Level0Banner" required placeholder="Banner Text" value="TOURNAMENT STARTING">
         <input type="text" name="Level0Description" required placeholder="Description" value="PLEASE TAKE YOUR SEATS">
-        <label><input type="checkbox" name="Level0IsBreak"> Break</label>
+        <label><input type="checkbox" name="Level0IsBreak" onchange="onBreakToggle(this)"> Break</label>
         <button type="button" class="delete-btn" onclick="tryDelete(this)">Delete</button>
       `;
       levelsDiv.appendChild(row1);
@@ -77,7 +137,7 @@
         <input type="number" name="Level1Duration" min="1" required placeholder="Minutes" value="20" style="max-width: 5em;">
         <input type="text" name="Level1Banner" required placeholder="Banner Text" value="LEVEL 1">
         <input type="text" name="Level1Description" required placeholder="Description" value="BLINDS 25-50 + 50">
-        <label><input type="checkbox" name="Level1IsBreak"> Break</label>
+        <label><input type="checkbox" name="Level1IsBreak" onchange="onBreakToggle(this)"> Break</label>
         <button type="button" class="delete-btn" onclick="tryDelete(this)">Delete</button>
       `;
       levelsDiv.appendChild(row2);
@@ -103,7 +163,7 @@
                     <input type="number" name="Level{{ $i }}Duration" min="1" required value="{{ $lvl.DurationMinutes }}" placeholder="Minutes" style="max-width: 5em;">
                     <input type="text" name="Level{{ $i }}Banner" required value="{{ $lvl.Banner }}" placeholder="Banner Text (above clock)">
                     <input type="text" name="Level{{ $i }}Description" required value="{{ $lvl.Description }}" placeholder="Description (below clock)">
-                    <label><input type="checkbox" name="Level{{ $i }}IsBreak" {{ if $lvl.IsBreak }}checked{{ end }}> Break</label>
+                    <label><input type="checkbox" name="Level{{ $i }}IsBreak" {{ if $lvl.IsBreak }}checked{{ end }} onchange="onBreakToggle(this)"> Break</label>
                     <button type="button" class="delete-btn" onclick="tryDelete(this)">Delete</button>
                 </div>
                 {{ end }}
