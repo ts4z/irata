@@ -22,6 +22,7 @@ import (
 	"github.com/ts4z/irata/config"
 	"github.com/ts4z/irata/he"
 	"github.com/ts4z/irata/middleware"
+	"github.com/ts4z/irata/middleware/labrea"
 	"github.com/ts4z/irata/model"
 	"github.com/ts4z/irata/password"
 	"github.com/ts4z/irata/permission"
@@ -232,15 +233,16 @@ func (app *irataApp) installHandlers() {
 				for i := 0; ; i++ {
 					durStr := r.FormValue(fmt.Sprintf("Level%dDuration", i))
 					desc := r.FormValue(fmt.Sprintf("Level%dDescription", i))
+					banner := r.FormValue(fmt.Sprintf("Level%dBanner", i))
 					isBreak := r.FormValue(fmt.Sprintf("Level%dIsBreak", i)) == "on"
-					if durStr == "" && desc == "" && !isBreak && i > 0 {
+					if durStr == "" && desc == "" && banner == "" && !isBreak && i > 0 {
 						break
 					}
-					if durStr == "" && desc == "" {
+					if durStr == "" && desc == "" && banner == "" {
 						continue
 					}
 					dur, err := strconv.Atoi(durStr)
-					if err != nil || dur <= 0 || desc == "" {
+					if err != nil || dur <= 0 || desc == "" || banner == "" {
 						flash = "All fields required for each level"
 						continue
 					}
@@ -248,7 +250,7 @@ func (app *irataApp) installHandlers() {
 						DurationMinutes: dur,
 						Description:     desc,
 						IsBreak:         isBreak,
-						Banner:          desc,
+						Banner:          banner,
 					})
 				}
 				if name == "" || len(levels) == 0 {
@@ -279,7 +281,8 @@ func (app *irataApp) installHandlers() {
 		data := struct {
 			Structure *model.Structure
 			Flash     string
-		}{Structure: st, Flash: flash}
+			IsNew     bool
+		}{Structure: st, Flash: flash, IsNew: false}
 		if err := app.templates.ExecuteTemplate(w, "edit-structure.html.tmpl", data); err != nil {
 			log.Printf("can't render edit-structure template: %v", err)
 		}
@@ -337,6 +340,120 @@ func (app *irataApp) installHandlers() {
 		}
 	})
 
+	app.requiringAdminHandleFunc("/create/structure", func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		var flash string
+
+		// For POST, handle the form submission
+		if r.Method == http.MethodPost {
+			if err := r.ParseForm(); err != nil {
+				flash = "Error parsing form"
+			} else {
+				name := r.FormValue("Name")
+				levels := []*model.Level{}
+				for i := 0; ; i++ {
+					durStr := r.FormValue(fmt.Sprintf("Level%dDuration", i))
+					desc := r.FormValue(fmt.Sprintf("Level%dDescription", i))
+					banner := r.FormValue(fmt.Sprintf("Level%dBanner", i))
+					isBreak := r.FormValue(fmt.Sprintf("Level%dIsBreak", i)) == "on"
+					if durStr == "" && desc == "" && banner == "" && !isBreak && i > 0 {
+						break
+					}
+					if durStr == "" && desc == "" && banner == "" {
+						continue
+					}
+					dur, err := strconv.Atoi(durStr)
+					if err != nil || dur <= 0 || desc == "" || banner == "" {
+						flash = "All fields required for each level"
+						continue
+					}
+					levels = append(levels, &model.Level{
+						DurationMinutes: dur,
+						Description:     desc,
+						IsBreak:         isBreak,
+						Banner:          banner,
+					})
+				}
+				if name == "" || len(levels) == 0 {
+					flash = "Structure name and at least one level required"
+				} else {
+					st := &model.Structure{
+						StructureData: model.StructureData{
+							Levels: levels,
+						},
+						Name: name,
+					}
+					_, err := app.storage.CreateStructure(ctx, st)
+					if err != nil {
+						flash = "Error saving structure"
+					} else {
+						http.Redirect(w, r, "/manage/structure", http.StatusSeeOther)
+						return
+					}
+				}
+			}
+		}
+
+		// Handle template ID from query param for pre-populating
+		templateID := r.URL.Query().Get("template")
+		var structure *model.Structure
+		if templateID != "" {
+			if id, err := strconv.ParseInt(templateID, 10, 64); err == nil {
+				if st, err := app.storage.FetchStructure(ctx, id); err == nil {
+					// Clone the structure but clear its ID
+					structure = &model.Structure{
+						StructureData: model.StructureData{
+							Levels:        st.Levels,
+							ChipsPerBuyIn: st.ChipsPerBuyIn,
+							ChipsPerAddOn: st.ChipsPerAddOn,
+						},
+						Name: st.Name + " (Copy)",
+					}
+				}
+			}
+		}
+
+		// If no template or error loading template, create empty structure
+		if structure == nil {
+			structure = &model.Structure{
+				StructureData: model.StructureData{
+					Levels: []*model.Level{},
+				},
+				Name: "",
+			}
+		}
+
+		data := struct {
+			Structure *model.Structure
+			Flash     string
+			IsNew     bool
+		}{
+			Structure: structure,
+			Flash:     flash,
+			IsNew:     true,
+		}
+
+		if err := app.templates.ExecuteTemplate(w, "edit-structure.html.tmpl", data); err != nil {
+			log.Printf("can't render edit-structure template: %v", err)
+		}
+	})
+
+	app.requiringAdminHandleFunc("/manage/structure/{id}/delete", func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+
+		id, err := idPathValue(w, r)
+		if err != nil {
+			return
+		}
+
+		err = app.storage.DeleteStructure(ctx, id)
+		if err != nil {
+			he.SendErrorToHTTPClient(w, "delete structure", err)
+			return
+		}
+		http.Redirect(w, r, "/manage/structure", http.StatusSeeOther)
+	})
+
 	app.requiringAdminHandleFunc("/create/footer-set", func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 
@@ -381,7 +498,7 @@ func (app *irataApp) installHandlers() {
 			he.SendErrorToHTTPClient(w, "delete footer plug set", err)
 			return
 		}
-		http.Redirect(w, r, "/manage/footers", http.StatusSeeOther)
+		http.Redirect(w, r, "/manage/footer-set", http.StatusSeeOther)
 	})
 
 	app.requiringAdminHandleFunc("/manage/footer-set/", func(w http.ResponseWriter, r *http.Request) {
@@ -461,8 +578,8 @@ func (app *irataApp) installHandlers() {
 			InstallKeyboardHandlers: permission.CheckWriteAccessToTournamentID(ctx, id) == nil,
 		}
 		log.Printf("render with args: %+v", args)
-		if err := app.templates.ExecuteTemplate(w, "view.html.tmpl", args); err != nil {
-			log.Printf("500: can't render template: %v", err)
+		if err := app.templates.ExecuteTemplate(w, "view-tournament.html.tmpl", args); err != nil {
+			log.Printf("can't render template: %v", err)
 		}
 	}
 	app.mux.HandleFunc("/t/{id}", renderTournament)
@@ -515,7 +632,7 @@ func (app *irataApp) installHandlers() {
 			IsAdmin:    permission.IsAdmin(ctx),
 		}
 
-		if err := app.templates.ExecuteTemplate(w, "edit.html.tmpl", args); err != nil {
+		if err := app.templates.ExecuteTemplate(w, "edit-tournament.html.tmpl", args); err != nil {
 			// don't use a.can't here, it would be a duplicate write to w
 			log.Printf("500: can't render template: %v", err)
 		}
@@ -789,7 +906,6 @@ func (app *irataApp) loadTemplates() {
 		log.Fatalf("error loading embedded templates: %v", err)
 	}
 	for _, tmpl := range app.templates.Templates() {
-		// tmpl.Funcs(templateFuncs)
 		log.Printf("loaded template %q", tmpl.Name())
 	}
 }
@@ -869,7 +985,8 @@ func main() {
 		mutator: mutator, subFS: subFS, bakery: bakery, clock: clock}
 	app.mux = http.NewServeMux()
 	// Stack the handlers together.  This isn't pretty.
-	app.handler = middleware.NewRequestLogger(csp.Handler(&CookieParser{app: app, next: app.mux}), app.clock)
+	tarpit := labrea.New(middleware.NewRequestLogger(csp.Handler(&CookieParser{app: app, next: app.mux}), app.clock))
+	app.handler = tarpit
 	app.keypressHandlers = makeKeyboardHandlers(clock)
 	app.listenAddress = viper.GetString("listen_address")
 
