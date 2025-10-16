@@ -1,72 +1,113 @@
-<!-- edit tournament settings -->
+<!DOCTYPE html>
 <html>
-  <head>
-    <title>
-      {{ .SiteConfig.Name }}
-    </title>
-  </head>
-  <body>
-    <style>
-      @font-face {
-        font-family: arcade;
-        src: url('/fs/PressStart2P-vaV7.ttf') format('truetype');
-      }
-      body {
-        font-family: arcade, monospace;
-        background-color: #000000;
-        color: #ffffff;
-      }
-      td {
-        vertical-align: top;
-        border-spacing : 100vi;
-      }
-      input {
-        font-family: arcade, monospace;
-      }
-      table {
-        border-spacing: 5px 1rem;
-      }
-    </style>
+<head>
+    <title>{{ .SiteConfig.Name }}</title>
+    <link rel="stylesheet" href="/fs/irata-style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>{{ .SiteConfig.Name }}</h1>
 
-    <h1> {{ .SiteConfig.Name }} </h1>
-
-    {{ if .IsAdmin }}
-    <table width="100%">
-    <th> &#9830; Admin &#9830; </th>
-    <td> Create: [<a href="/create/t">Tournament</a>] </td>
-    <td> Manage: [<a href="/manage/site">Site</a>] [<a href="/manage/footer-set">Footer Plugs</a>] [<a href="/manage/structure">Structures</a>] </td>
-    <td> &#9830 [<a href="/logout">LOGOUT</a>] &#9830; </td>
-    </tr>
-    </table>
-    <hr>
-    {{ end }}
-
-    <table>
-        {{ $n := 0 }}
-        {{range $i, $t := .Overview.Slugs}}
-        {{ with $t }}
-        <tr>
-            <td> * </td> 
-            {{ if $.IsAdmin }}
-            <td> [<a href="/t/{{.TournamentID}}/edit">edit</a>]
-                [<a href="#" onclick="document.getElementById('really-{{$i}}').style.display='inline'; return false;">delete</a><span style="display: none;" id="really-{{$i}}"> ...really? <a href="/t/{{.TournamentID}}/delete">yes</a>
-                   <a href="#" onclick="document.getElementById('really-{{$i}}').style.display='none'; return false;">no</a></span>]
-            </td>
-            {{ end }}
-            <td> 
-              <a href="/t/{{.TournamentID}}"><em>{{ .TournamentName }}</em></a> {{ .Description }}</td>
-        </tr>
+        {{ if .IsAdmin }}
+        <div class="admin-bar">
+            <strong>Admin Controls</strong>
+            <div style="margin-top: 0.5em;">
+                <span style="opacity: 0.7;">Create:</span> <a href="/create/t">Tournament</a>
+            </div>
+            <div style="margin-top: 0.3em;">
+                <span style="opacity: 0.7;">Manage:</span> <a href="/manage/site">Site</a> 
+                <a href="/manage/footer-set">Footer Plugs</a> 
+                <a href="/manage/structure">Structures</a>
+            </div>
+            <div style="margin-top: 0.5em; border-top: 1px solid #333; padding-top: 0.5em;">
+                <a href="/logout">Logout</a>
+            </div>
+        </div>
         {{ end }}
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Tournament</th>
+                    {{ if .IsAdmin }}
+                    <th>Actions</th>
+                    {{ end }}
+                </tr>
+            </thead>
+            <tbody>
+                {{ range .Overview.Slugs }}
+                {{ with . }}
+                <tr>
+                    <td>
+                        <a href="/t/{{.TournamentID}}"><em>{{ .TournamentName }}</em></a>
+                        {{ if .Description }}
+                        <br>
+                        <span style="opacity: 0.8; font-size: 0.8em;">{{ .Description }}</span>
+                        {{ end }}
+                    </td>
+                    {{ if $.IsAdmin }}
+                    <td>
+                        <a href="/t/{{.TournamentID}}/edit">Edit</a>
+                        <a href="#" class="delete-btn" onclick="confirmDeleteTournament('{{.TournamentID}}', '{{.TournamentName}}'); return false;">Delete</a>
+                    </td>
+                    {{ end }}
+                </tr>
+                {{ end }}
+                {{ else }}
+                <tr><td colspan="{{ if $.IsAdmin }}2{{ else }}1{{ end }}">No tournaments found.</td></tr>
+                {{ end }}
+            </tbody>
+        </table>
+
+        {{ if not .IsAdmin }}
+        <p>
+            <a href="/login">LOGIN</a> to manage tournaments and other data.
+        </p>
         {{ end }}
-    </table>
+    </div>
 
-    <hr>
+    <!-- Delete Confirmation Modal -->
+    <div id="confirmDialog" class="modal">
+        <div class="modal-content">
+            <h2>Delete Tournament?</h2>
+            <p>Are you sure you want to delete tournament "<span id="tournamentToDelete"></span>"?</p>
+            <p>This action cannot be undone.</p>
+            <div class="modal-buttons">
+                <button type="button" id="confirmBtn" style="background:#f88; color:#fff;">Delete Tournament</button>
+                <button type="button" id="cancelBtn">Cancel</button>
+            </div>
+        </div>
+    </div>
 
-    {{ if not .IsAdmin }}
-    <p>
-    [<a href="/login">LOGIN</a>] to manage tournaments and other data.
-    </p>
-    {{ end }}
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const modal = document.getElementById('confirmDialog');
+            const cancelBtn = document.getElementById('cancelBtn');
+            const confirmBtn = document.getElementById('confirmBtn');
+            let currentTournamentId = null;
 
-  </body>
+            window.confirmDeleteTournament = function(tournamentId, name) {
+                currentTournamentId = tournamentId;
+                document.getElementById('tournamentToDelete').textContent = name;
+                modal.style.display = 'block';
+            };
+
+            cancelBtn.onclick = function() {
+                modal.style.display = 'none';
+            };
+
+            confirmBtn.onclick = function() {
+                if (currentTournamentId) {
+                    window.location.href = '/t/' + currentTournamentId + '/delete';
+                }
+            };
+
+            window.onclick = function(event) {
+                if (event.target === modal) {
+                    modal.style.display = 'none';
+                }
+            };
+        });
+    </script>
+</body>
 </html>

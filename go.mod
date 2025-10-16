@@ -6,6 +6,7 @@ toolchain go1.24.4
 
 require (
 	cloud.google.com/go/cloudsqlconn v1.18.1
+	github.com/derektata/lorem v0.0.2
 	github.com/gorilla/securecookie v1.1.2
 	github.com/jackc/pgx/v5 v5.7.6
 	github.com/jonboulle/clockwork v0.5.0

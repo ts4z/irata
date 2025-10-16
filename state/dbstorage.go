@@ -567,7 +567,7 @@ func (s *DBStorage) SaveStructure(
 
 func (s *DBStorage) DeleteStructure(ctx context.Context, id int64) error {
 	result, err := s.db.ExecContext(ctx,
-		"DELETE from structures WHERE id=$1", id)
+		"DELETE from structures WHERE structure_id=$1", id)
 
 	if err != nil {
 		return err
@@ -596,6 +596,7 @@ func (s *DBStorage) CreateStructure(
 	if err := s.db.QueryRowContext(ctx,
 		`INSERT INTO structures (name, model_data) VALUES ($1, $2) RETURNING structure_id;`,
 		st.Name, bytes).Scan(&st.ID); err != nil {
+		log.Printf("insert structure failed: %v", err)
 		return 0, err
 	}
 

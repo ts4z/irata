@@ -1,49 +1,124 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{ if .IsNew }}Create{{ else }}Edit{{ end }} Structure</title>
+    <link rel="stylesheet" href="/fs/irata-style.css">
+</head>
+<body>
 
 <script>
+  function getLevelNumber(banner) {
+    const match = banner.match(/(\d+)$/);
+    return match ? parseInt(match[1], 10) : null;
+  }
+
+  function tryDelete(button) {
+    const levelsDiv = document.getElementById('levels');
+    if (levelsDiv.children.length <= 2) {
+      alert('A structure must have at least two levels');
+      return;
+    }
+    button.parentNode.remove();
+  }
+
   function addLevel() {
     const levelsDiv = document.getElementById('levels');
     const idx = levelsDiv.children.length;
     let prevDuration = "";
+    let nextBanner = "";
+    
     if (idx > 0) {
       const prevRow = levelsDiv.children[idx - 1];
       const prevInput = prevRow.querySelector('input[type="number"]');
+      const prevBanner = prevRow.querySelector('input[name^="Level"][name$="Banner"]').value;
+      
       if (prevInput) {
         prevDuration = prevInput.value;
       }
+
+      const prevLevelNum = getLevelNumber(prevBanner);
+      if (prevLevelNum !== null) {
+        nextBanner = prevBanner.replace(prevLevelNum.toString(), (prevLevelNum + 1).toString());
+      }
     }
+    
     const row = document.createElement('div');
     row.className = 'level-row';
     row.innerHTML = `
-  <input type="number" name="Level${idx}Duration" min="1" required placeholder="Minutes" value="${prevDuration}" style="max-width: 5em;">
+      <input type="number" name="Level${idx}Duration" min="1" required placeholder="Minutes" value="${prevDuration}" style="max-width: 5em;">
+      <input type="text" name="Level${idx}Banner" required placeholder="Banner Text" value="${nextBanner}">
       <input type="text" name="Level${idx}Description" required placeholder="Description">
       <label><input type="checkbox" name="Level${idx}IsBreak"> Break</label>
-      <button type="button" onclick="this.parentNode.remove()">Delete</button>
+      <button type="button" class="delete-btn" onclick="tryDelete(this)">Delete</button>
     `;
     levelsDiv.appendChild(row);
   }
+
+  // Initialize default levels for new structure
+  window.addEventListener('DOMContentLoaded', function() {
+    const levelsDiv = document.getElementById('levels');
+    if (levelsDiv.children.length === 0 && document.querySelector('h1').textContent.includes('Create')) {
+      // Add initial level
+      const row1 = document.createElement('div');
+      row1.className = 'level-row';
+      row1.innerHTML = `
+        <input type="number" name="Level0Duration" min="1" required placeholder="Minutes" value="15" style="max-width: 5em;">
+        <input type="text" name="Level0Banner" required placeholder="Banner Text" value="TOURNAMENT STARTING">
+        <input type="text" name="Level0Description" required placeholder="Description" value="PLEASE TAKE YOUR SEATS">
+        <label><input type="checkbox" name="Level0IsBreak"> Break</label>
+        <button type="button" class="delete-btn" onclick="tryDelete(this)">Delete</button>
+      `;
+      levelsDiv.appendChild(row1);
+
+      // Add first real level
+      const row2 = document.createElement('div');
+      row2.className = 'level-row';
+      row2.innerHTML = `
+        <input type="number" name="Level1Duration" min="1" required placeholder="Minutes" value="20" style="max-width: 5em;">
+        <input type="text" name="Level1Banner" required placeholder="Banner Text" value="LEVEL 1">
+        <input type="text" name="Level1Description" required placeholder="Description" value="BLINDS 25-50 + 50">
+        <label><input type="checkbox" name="Level1IsBreak"> Break</label>
+        <button type="button" class="delete-btn" onclick="tryDelete(this)">Delete</button>
+      `;
+      levelsDiv.appendChild(row2);
+    }
+  });
 </script>
 
-<div class="container">
-    <h1>Edit Structure</h1>
-    <form method="POST">
-        <label for="Name">Structure Name</label>
-        <input type="text" id="Name" name="Name" value="{{ .Structure.Name }}" required>
-        <div id="levels">
-            {{ range $i, $lvl := .Structure.Levels }}
-            <div class="level-row">
-                <input type="number" name="Level{{ $i }}Duration" min="1" required value="{{ $lvl.DurationMinutes }}" placeholder="Minutes" style="max-width: 5em;">
-                <input type="text" name="Level{{ $i }}Description" required value="{{ $lvl.Description }}" placeholder="Description">
-                <label><input type="checkbox" name="Level{{ $i }}IsBreak" {{ if $lvl.IsBreak }}checked{{ end }}> Break</label>
-                <button type="button" onclick="this.parentNode.remove()">Delete</button>
+    <div class="container">
+        <div class="admin-bar">
+            <a href="/manage/structure">&lt; Back to Structures</a>
+        </div>
+
+        <h1>{{ if .IsNew }}Create{{ else }}Edit{{ end }} Structure</h1>
+        <form method="POST">
+            <div class="form-group">
+                <label for="Name">Structure Name</label>
+                <input type="text" id="Name" name="Name" value="{{ .Structure.Name }}" required>
             </div>
-            {{ end }}
-        </div>
-        <button type="button" id="add-level-btn" onclick="addLevel()">Add Level</button>
-        <div class="actions">
-            <button type="submit">Save</button>
-            <a href="/">Cancel</a>
-        </div>
-        {{ if .Flash }}<div style="color: #f88; margin-top: 1em;">{{ .Flash }}</div>{{ end }}
-    </form>
-</div>
+            
+            <div id="levels">
+                {{ range $i, $lvl := .Structure.Levels }}
+                <div class="level-row">
+                    <input type="number" name="Level{{ $i }}Duration" min="1" required value="{{ $lvl.DurationMinutes }}" placeholder="Minutes" style="max-width: 5em;">
+                    <input type="text" name="Level{{ $i }}Banner" required value="{{ $lvl.Banner }}" placeholder="Banner Text (above clock)">
+                    <input type="text" name="Level{{ $i }}Description" required value="{{ $lvl.Description }}" placeholder="Description (below clock)">
+                    <label><input type="checkbox" name="Level{{ $i }}IsBreak" {{ if $lvl.IsBreak }}checked{{ end }}> Break</label>
+                    <button type="button" class="delete-btn" onclick="tryDelete(this)">Delete</button>
+                </div>
+                {{ end }}
+            </div>
+            
+            <button type="button" id="add-level-btn" onclick="addLevel()">Add Level</button>
+            
+            <div class="actions">
+                <button type="submit">Save</button>
+                <a href="/manage/structure">Cancel</a>
+            </div>
+            
+            {{ if .Flash }}<div class="flash">{{ .Flash }}</div>{{ end }}
+        </form>
+    </div>
+</body>
+</html>
 

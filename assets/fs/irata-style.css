@@ -1,0 +1,166 @@
+@font-face {
+    font-family: arcade;
+    src: url('/fs/PressStart2P-vaV7.ttf') format('truetype');
+}
+
+body {
+    font-family: arcade, monospace;
+    background-color: #000000;
+    color: #ffffff;
+    line-height: 1.7;
+}
+
+.container {
+    max-width: 50vw;
+    margin: 2em auto;
+    background: #111;
+    padding: 2em;
+    border-radius: 8px;
+}
+
+h1 {
+    margin-bottom: 1em;
+}
+
+h2 {
+    margin-bottom: 0.8em;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 2em;
+}
+
+th, td {
+    padding: 0.5em;
+    border-bottom: 1px solid #333;
+    text-align: left;
+}
+
+th {
+    background: #222;
+}
+
+tr:hover {
+    background: #222;
+}
+
+a {
+    color: #fff;
+    text-decoration: underline;
+}
+
+input, select, textarea {
+    font-family: arcade, monospace;
+    font-size: 1em;
+    background: #222;
+    color: #fff;
+    border: 1px solid #444;
+    padding: 0.5em;
+    margin: 0.2em 0;
+    border-radius: 4px;
+}
+
+input[type="submit"], button {
+    font-family: arcade, monospace;
+    background: #333;
+    color: #fff;
+    border: none;
+    padding: 0.5em 1em;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+input[type="submit"]:hover, button:hover {
+    background: #444;
+}
+
+.flash {
+    background: #8b1a1a;
+    color: #fff;
+    padding: 0.5em;
+    margin-bottom: 1em;
+    border-radius: 5px;
+    text-align: center;
+    font-size: 1.1em;
+}
+
+.actions {
+    margin-top: 1em;
+    padding-top: 1em;
+    border-top: 1px solid #333;
+}
+
+.level-row {
+    margin-bottom: 1em;
+    padding: 0.5em;
+    border: 1px solid #333;
+    border-radius: 4px;
+}
+
+.admin-bar {
+    background: #222;
+    padding: 1em;
+    margin-bottom: 2em;
+    border-radius: 4px;
+}
+
+.admin-bar a {
+    margin: 0 0.5em;
+}
+
+/* Plug editor specific styles */
+.plug-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5em;
+    margin-bottom: 1em;
+}
+
+.plug-row textarea {
+    flex: 1;
+}
+
+.delete-btn {
+    color: #f88 !important;
+}
+
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.8);
+}
+
+.modal-content {
+    position: relative;
+    background-color: #111;
+    margin: 15% auto;
+    padding: 2em;
+    border: 1px solid #444;
+    width: 80%;
+    max-width: 500px;
+    border-radius: 8px;
+}
+
+.modal-buttons {
+    display: flex;
+    gap: 1em;
+    justify-content: flex-end;
+    margin-top: 2em;
+}
+
+#add-plug-btn {
+    margin-top: 1em;
+    padding: 0.7em 2em;
+    background: #333;
+}
+
+#add-plug-btn:hover {
+    background: #444;
+}
