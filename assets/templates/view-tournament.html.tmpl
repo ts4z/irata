@@ -1,5 +1,8 @@
+<!DOCTYPE html>
 <html>
   <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>
       Irata Poker Clock: {{ .Tournament.EventName }}
     </title>
@@ -10,6 +13,12 @@
       @font-face {
           font-family: arcade;
           src: url('/fs/PressStart2P-vaV7.ttf') format('truetype');
+      }
+      html, body {
+          height: 100%;
+          margin: 0;
+          padding: 0;
+          overflow: hidden;
       }
       body {
           font-family: arcade, monospace;
@@ -35,6 +44,16 @@
       .clock {
           font-size: 15vi;
           color: #22ff22;
+          width: 80%;
+      }
+      .clock #clock {
+          display: inline-block;
+          white-space: nowrap;
+          font-size: 15vi;
+      }
+      /* Shrink clock when it has 7 characters (includes hours) */
+      #clock.has-hours {
+          font-size: 11vi !important;
       }
       .clock-break {
           font-size: 15vi;
@@ -165,19 +184,23 @@
               </td>
             </tr>
             <tr>
-              <td width="80%" class="blinds" id="blinds"> LOADING...
+              <td width="80%" class="blinds" id="blinds"> LOADING...</td>
             </tr>
             <tr>
               <td>
                 <table width="100%">
                   <tr>
-                    <td width="5%" class="footer">&nbsp;<br>&nbsp;<br>&nbsp;<br>&nbsp;</td>
+                    <td width="5%" class="footer">
+                      &nbsp;<br>&nbsp;<br>&nbsp;<br>&nbsp;
+                    </td>
                     <td width="95%" class="footer" id="footer">
                       IRATA POKER CLOCK<br>
                       TIM SHOWALTER, 2025<br>
                       ALL RIGHTS REVERSED
                     </td>
-                    <td width="5%" class="footer">&nbsp;<br>&nbsp;<br>&nbsp;<br>&nbsp;</td>
+                    <td width="5%" class="footer">
+                        &nbsp;<br>&nbsp;<br>&nbsp;<br>&nbsp;
+                    </td>
                   </tr>
                 </table>
               </td>

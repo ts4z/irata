@@ -11,6 +11,12 @@ type StoragePermissionFacade struct {
 	Storage state.AppStorage
 }
 
+var _ state.AppStorage = &StoragePermissionFacade{}
+
+func (s *StoragePermissionFacade) Close() {
+	s.Storage.Close()
+}
+
 func (s *StoragePermissionFacade) CreateFooterPlugSet(ctx context.Context, name string, plugs []string) (int64, error) {
 	if err := CheckAdminAccess(ctx); err != nil {
 		return -1, err
@@ -40,12 +46,6 @@ func (s *StoragePermissionFacade) UpdateFooterPlugSet(ctx context.Context, id in
 		return err
 	}
 	return s.Storage.UpdateFooterPlugSet(ctx, id, name, plugs)
-}
-
-var _ state.AppStorage = &StoragePermissionFacade{}
-
-func (s *StoragePermissionFacade) Close() {
-	s.Storage.Close()
 }
 
 func (s *StoragePermissionFacade) CreateTournament(ctx context.Context, t *model.Tournament) (int64, error) {

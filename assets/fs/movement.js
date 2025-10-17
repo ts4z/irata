@@ -157,33 +157,29 @@ function stop_rotating_footers() {
   }
 }
 
-function listen_for_changes_once(abortSignal) {
+async function listen_and_consume_model_changes(abortSignal) {
   const tid = tournament_id();
   if (!tid) {
     console.log("no tournament id");
     return Promise.reject("no tournament id");
   }
   const version = last_model?.Version ?? 0;
-  return fetch("/api/tournament-listen", {
-    signal: abortSignal,
-    method: "POST",
-    mode: 'same-origin',
-    headers: { 
-      "Content-Type": "application/json",
-     },
-    body: JSON.stringify({ tournament_id: tid, version: version })
-  }).then(response => response.json())
-    .then(model => import_new_model_from_server(model))
-    .then(() => "fetched new model")
-    .catch(e => {
-      if (e.name === 'AbortError') {
-        console.log(`fetch aborted ${e.stack}`);
-        return Promise.reject("fetch aborted");
-      } else {
-        console.log(`fetch threw up: ${e}`);
-        return Promise.reject(`fetch threw up: ${e}`);
-      }
+  try {
+    const response = await fetch("/api/tournament-listen", {
+      signal: abortSignal,
+      method: "POST",
+      mode: 'same-origin',
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ tournament_id: tid, version: version })
     });
+    const model = await response.json();
+    import_new_model_from_server(model);
+    return "fetched new model";
+  } catch (_) {
+    return "fetch definitively failed";
+  }
 }
 
 function update_next_level_and_break_fields() {
@@ -344,22 +340,30 @@ function advance_clock_from_wall_clock() {
 }
 
 function update_time_fields() {
-  console.log("update_time_fields");
   update_break_clock(last_model);
   update_big_clock();
   update_next_level_and_break_fields();
 }
 
 function update_big_clock() {
-  console.log("update_big_clock");
   if (typeof next_level_complete_at === 'undefined') {
       console.log("NLCA undefined");
     // this doesn't happen -- why?
     document.getElementById("clock").innerHTML = "??:??";
   }
-  console.log("NLCA defined, onna render");
+  console.log("NLCA defined, gonna render");
   var render = to_hmmss(millis_remaining_in_level());
-  document.getElementById("clock").innerHTML = render
+  var clockElement = document.getElementById("clock");
+  clockElement.innerHTML = render;
+  
+  // Add/remove has-hours class for responsive sizing
+  // Count colons to detect format: 1 colon = MM:SS (5 chars), 2 colons = H:MM:SS (7+ chars)
+  var colonCount = (render.match(/:/g) || []).length;
+  if (colonCount >= 2) {
+    clockElement.classList.add("has-hours");
+  } else {
+    clockElement.classList.remove("has-hours");
+  }
 }
 
 
@@ -502,26 +506,59 @@ function install_keyboard_handlers() {
 // This will cancel and make a new version if the version has
 // changed since the previous call.  This way we use the same
 // object across clock ticks.
-const cached_change_listener = function () {
-  let version = undefined, controller = new AbortController(), cached_promise;
+const cached_change_listener = (() => {
+  let version = undefined, controller, cached_promise;
+  let last_failure_time = 0;
+  const MIN_RETRY_DELAY_MS = 3000; // Wait at least 3 seconds after a failure
+
+  const reset_cached_promise = () => {
+
+    if (controller) {
+      controller.abort("resetting cached promise");
+    }
+
+    controller = new AbortController();
+    cached_promise = listen_and_consume_model_changes(controller.signal)
+      .then(how => { 
+        cached_promise = undefined; 
+        last_failure_time = 0; // Reset failure time on success
+        return how; 
+      })
+      .catch(err => { 
+        cached_promise = undefined; 
+        last_failure_time = Date.now(); // Record failure time
+        console.log(`listen failed at ${new Date(last_failure_time).toISOString()}`);
+        return "listen failed";
+      })
+  }
+
+  reset_cached_promise();
+
   return async function () {
-    if (version != last_model.Version) {
+    // Check if we need to wait due to a recent failure
+    const time_since_failure = Date.now() - last_failure_time;
+    if (last_failure_time > 0 && time_since_failure < MIN_RETRY_DELAY_MS) {
+      const wait_time = MIN_RETRY_DELAY_MS - time_since_failure;
+      console.log(`Rate limiting: waiting ${wait_time}ms before retry`);
+      return sleep(wait_time).then(() => "rate limited");
+    }
+
+    if (cached_promise === undefined) {
+      reset_cached_promise();
+    } else if (version != last_model.Version) {
       controller.abort("new version found");
       controller = new AbortController();
       version = last_model.Version;
-      cached_promise = listen_for_changes_once(controller.signal)
-      .then(_ => { cached_promise = undefined; return _; })
-      .catch(e => { cached_promise = undefined; return Promise.reject(e); });
+      reset_cached_promise();
     }
     return cached_promise;
   }
-}();
+})();
 
 async function tick() {
-  console.log("Tick!");
   const controller = new AbortController();
   const abortSignal = controller.signal;
-  let wait = [cached_change_listener(), sleep(30*3600)];
+  let wait = [cached_change_listener()];
   if (last_model.State.IsClockRunning) {
     wait.push(maybe_clock_tick());
   }
@@ -530,7 +567,7 @@ async function tick() {
   }
 
   Promise.any(wait).then((result) => {
-    console.log(`awaited! result=${result}`);
+    console.log(`awaited! waiters=${wait} result=${result}`);
   }).catch((e) => {
     console.log(`tick threw up: ${e}`);
   }).finally(() => {

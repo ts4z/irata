@@ -114,10 +114,31 @@ input[type="submit"]:hover, button:hover {
 }
 
 .level-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5em;
     margin-bottom: 1em;
     padding: 0.5em;
     border: 1px solid #333;
     border-radius: 4px;
+}
+
+.level-row input[type="number"] {
+    flex: 0 0 auto;
+}
+
+.level-row input[type="text"] {
+    flex: 1;
+    min-width: 0;
+}
+
+.level-row label {
+    flex: 0 0 auto;
+    margin-top: 0;
+}
+
+.level-row button {
+    flex: 0 0 auto;
 }
 
 .admin-bar {

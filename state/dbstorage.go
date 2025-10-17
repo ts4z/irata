@@ -475,6 +475,14 @@ func (s *DBStorage) CreateTournament(
 	return id, nil
 }
 
+func (s *DBStorage) resetTournamentListeners(id int64) []chan<- *model.Tournament {
+	s.tournamentListenersMu.Lock()
+	defer s.tournamentListenersMu.Unlock()
+	listeners := s.tournamentListeners[id]
+	delete(s.tournamentListeners, id)
+	return listeners
+}
+
 func (s *DBStorage) SaveTournament(
 	ctx context.Context,
 	tm *model.Tournament) error {
@@ -508,11 +516,7 @@ func (s *DBStorage) SaveTournament(
 	cpy.FillTransients(s.clock)
 
 	// Notify listeners for this tournament id
-	var listeners []chan<- *model.Tournament
-	s.tournamentListenersMu.Lock()
-	listeners = s.tournamentListeners[tm.EventID]
-	delete(s.tournamentListeners, tm.EventID)
-	s.tournamentListenersMu.Unlock()
+	listeners := s.resetTournamentListeners(tm.EventID)
 
 	for _, ch := range listeners {
 		// Pass the updated tournament directly
