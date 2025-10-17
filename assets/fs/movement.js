@@ -164,22 +164,19 @@ async function listen_and_consume_model_changes(abortSignal) {
     return Promise.reject("no tournament id");
   }
   const version = last_model?.Version ?? 0;
-  try {
-    const response = await fetch("/api/tournament-listen", {
-      signal: abortSignal,
-      method: "POST",
-      mode: 'same-origin',
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ tournament_id: tid, version: version })
-    });
-    const model = await response.json();
-    import_new_model_from_server(model);
-    return "fetched new model";
-  } catch (_) {
-    return "fetch definitively failed";
-  }
+
+  const response = await fetch("/api/tournament-listen", {
+    signal: abortSignal,
+    method: "POST",
+    mode: 'same-origin',
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ tournament_id: tid, version: version })
+  });
+  const model = await response.json();
+  import_new_model_from_server(model);
+  return "fetched new model";
 }
 
 function update_next_level_and_break_fields() {
@@ -508,8 +505,6 @@ function install_keyboard_handlers() {
 // object across clock ticks.
 const cached_change_listener = (() => {
   let version = undefined, controller, cached_promise;
-  let last_failure_time = 0;
-  const MIN_RETRY_DELAY_MS = 3000; // Wait at least 3 seconds after a failure
 
   const reset_cached_promise = () => {
 
@@ -518,31 +513,15 @@ const cached_change_listener = (() => {
     }
 
     controller = new AbortController();
-    cached_promise = listen_and_consume_model_changes(controller.signal)
-      .then(how => { 
-        cached_promise = undefined; 
-        last_failure_time = 0; // Reset failure time on success
-        return how; 
-      })
-      .catch(err => { 
-        cached_promise = undefined; 
-        last_failure_time = Date.now(); // Record failure time
-        console.log(`listen failed at ${new Date(last_failure_time).toISOString()}`);
-        return "listen failed";
-      })
+    cached_promise = Promise.any([
+      listen_and_consume_model_changes(controller.signal),
+      sleep(10*1000),
+    ]).then(how => { cached_promise = undefined; return how; })
   }
 
   reset_cached_promise();
 
   return async function () {
-    // Check if we need to wait due to a recent failure
-    const time_since_failure = Date.now() - last_failure_time;
-    if (last_failure_time > 0 && time_since_failure < MIN_RETRY_DELAY_MS) {
-      const wait_time = MIN_RETRY_DELAY_MS - time_since_failure;
-      console.log(`Rate limiting: waiting ${wait_time}ms before retry`);
-      return sleep(wait_time).then(() => "rate limited");
-    }
-
     if (cached_promise === undefined) {
       reset_cached_promise();
     } else if (version != last_model.Version) {
