@@ -502,6 +502,8 @@ func (s *DBStorage) SaveTournament(
 		}
 	}
 
+	tm.Version = newVersion
+
 	cpy.Version = newVersion
 	cpy.FillTransients(s.clock)
 
@@ -759,6 +761,10 @@ func (s *DBStorage) ListenTournamentVersion(ctx context.Context, id int64, clien
 		errCh <- err
 		return
 	}
+
+	s.tournamentListenersMu.Lock()
+	defer s.tournamentListenersMu.Unlock()
+
 	if dbVersion != clientVersion {
 		tm, fetchErr := s.FetchTournament(ctx, id)
 		if fetchErr != nil {
@@ -769,10 +775,7 @@ func (s *DBStorage) ListenTournamentVersion(ctx context.Context, id int64, clien
 		return
 	}
 
-	s.tournamentListenersMu.Lock()
 	s.tournamentListeners[id] = append(s.tournamentListeners[id], tournamentCh)
-	// log.Printf("%d listeners for tournament id %d", len(s.tournamentListeners[id]), id)
-	s.tournamentListenersMu.Unlock()
 }
 
 // AddPassword adds a new password hash for a user.
