@@ -4,83 +4,78 @@
 package labrea
 
 import (
-	"encoding/hex"
-	"fmt"
 	"log"
 	"math/rand"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 )
 
+type Clock interface {
+	Now() time.Time
+}
+
 type Handler struct {
-	paths map[string]struct{}
+	clock Clock
 	rand  *rand.Rand
+	next  http.Handler
+
+	paths map[string]struct{}
 
 	mu      sync.Mutex
 	ipCount map[string]int
-
-	next http.Handler
 }
 
 var _ http.Handler = &Handler{}
 
 var defaultPaths = []string{
-	"/.env",
-	"/.git/",
-	"/web/wp-includes/wlwmanifest.xml",
-	"/web/wp-admin/",
-	"/feed/",
-	"/xmlrpc.php",
-	"/wp-login.php",
-	"/wp-admin/",
-	"/admin/",
-	"/login/",
-	"/user/login/",
-	"/cms/",
-	"/phpmyadmin/",
-	"/pma/",
-	"/myadmin/",
-	"/mysql/",
-	"/dbadmin/",
-	"/sqladmin/",
-	"/db/",
-	"/database/",
-	"/.git",
-	"/.htaccess",
-	"/.htpasswd",
-	"/config.php",
-	"/config.inc.php",
-	"/install.php",
-	"/setup.php",
-	"/readme.html",
-	"/license.txt",
-	"/server-status",
-	"/web/wp-login.php",
-	"/web/wp-admin/",
-	"/web/wp-includes/",
-	"/wordpress/wp-login.php",
-	"/wordpress/wp-admin/",
-	"/blog/wp-login.php",
-	"/blog/wp-admin/",
-	"/2021/wp-includes/wlmanifest.xml",
-	"/2020/wp-includes/wlmanifest.xml",
-	"/2019/wp-includes/wlmanifest.xml",
-	"/2018/wp-includes/wlmanifest.xml",
-	"/2017/wp-includes/wlmanifest.xml",
-	"/2016/wp-includes/wlmanifest.xml",
-	"/shop/wp-includes/wlmanifest.xml",
-	"/wp/wp-includes/wlmanifest.xml",
-	"/wp1/wp-includes/wlmanifest.xml",
-	"/new/wp-includes/wlmanifest.xml",
+	".env",
+	".git",
+	".htaccess",
+	".htpasswd",
+	"admin",
+	"blog/wp-admin",
+	"blog/wp-login.php",
+	"cms",
+	"config.inc.php",
+	"config.php",
+	"database",
+	"db",
+	"dbadmin",
+	"feed",
+	"install.php",
+	"license.txt",
+	"login",
+	"myadmin",
+	"mysql",
+	"phpmyadmin",
+	"pma",
+	"readme.html",
+	"server-status",
+	"setup.php",
+	"sqladmin",
+	"user/login",
+	"web/wp-admin",
+	"web/wp-includes",
+	"web/wp-login.php",
+	"wordpress/wp-admin",
+	"wordpress/wp-login.php",
+	"wp-admin",
+	"wp-admin/setup-config.php",
+	"wp-includes/wlmanifest.xml",
+	"wp-includes/wlwmanifest.xml",
+	"wp-login.php",
+	"xmlrpc.php",
 }
 
-func New(next http.Handler) *Handler {
+func New(clock Clock, next http.Handler) *Handler {
 	pathMap := make(map[string]struct{}, len(defaultPaths))
 	for _, p := range defaultPaths {
 		pathMap[p] = struct{}{}
 	}
 	return &Handler{
+		clock:   clock,
 		mu:      sync.Mutex{},
 		ipCount: map[string]int{},
 		next:    next,
@@ -114,33 +109,29 @@ func (h *Handler) Mishandle(w http.ResponseWriter, r *http.Request) {
 
 	// Set headers to make it look legitimate
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.Header().Set("Server", "Apache/2.4.41 (Ubuntu)")
-	w.WriteHeader(http.StatusOK)
+	w.Header().Set("Server", "Apache")
+	w.WriteHeader(http.StatusNotFound)
 
-	// Send a plausible-looking but garbage HTML response
-	w.Write([]byte(`<!DOCTYPE html>
-<html>
-<head>
-    <title>Loading...</title>
-    <meta charset="UTF-8">
-</head>
-<body>
-`))
+	payload := []byte(`
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<html><head>
+<title>404 Not Found</title>
+</head><body>
+<h1>Not Found</h1>
+<p>The requested URL was not found on this server.</p>
+<p>Additionally, a 404 Not Found
+error was encountered while trying to use an ErrorDocument to handle the request.</p>
+</body></html>
+`)
 
-	h.flush(w)
-
-	// Send garbage data slowly, chunk by chunk
-	for range 20 + h.rand.Intn(50) {
-		time.Sleep(h.randomDelay(100*time.Millisecond, 2*time.Second))
-		w.Write([]byte(h.generateGarbageHTML()))
+	for pos := 0; pos < len(payload); {
+		remainder := len(payload) - pos
+		amt := min(10+rand.Intn(10), remainder)
+		w.Write(payload[pos : pos+amt])
+		pos += amt
+		h.randomDelay(100*time.Millisecond, 300*time.Millisecond)
 		h.flush(w)
 	}
-
-	// Close the HTML properly to look legitimate
-	w.Write([]byte(`
-</body>
-</html>
-`))
 }
 
 // randomDelay returns a random duration between min and max milliseconds.
@@ -153,30 +144,30 @@ func (h *Handler) randomDelay(min, max time.Duration) time.Duration {
 	return min + time.Duration(delay)*time.Nanosecond
 }
 
-// generateGarbageHTML creates plausible-looking but useless HTML content
-func (h *Handler) generateGarbageHTML() string {
-	// Generate random hex strings to pad the response
-	randomBytes := make([]byte, 128)
-	h.rand.Read(randomBytes)
-	hexData := hex.EncodeToString(randomBytes)
-
-	// Return as HTML comments or hidden divs
-	templates := []func() string{
-		func() string { return fmt.Sprintf("<!-- %s -->\n", hexData) },
-		func() string { return fmt.Sprintf("<div style='display:none'>%s</div>\n", hexData) },
-		func() string { return fmt.Sprintf("<script>/* %s */</script>\n", hexData) },
-		func() string { return fmt.Sprintf("    <p style='opacity:0'>%s</p>\n", hexData) },
+func last2(path string) string {
+	parts := strings.Split(path, "/")
+	for len(parts) > 1 && parts[0] == "" {
+		parts = parts[1:]
 	}
-
-	// Pick a random template
-	n := h.rand.Intn(len(templates))
-	return templates[n]()
+	for len(parts) >= 1 && parts[len(parts)-1] == "" {
+		parts = parts[:len(parts)-1]
+	}
+	if len(parts) == 0 {
+		return path
+	}
+	first := max(0, len(parts)-2)
+	last := len(parts)
+	s := strings.Join(parts[first:last], "/")
+	return s
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if _, ok := h.paths[r.URL.Path]; ok {
-		log.Printf("tarpitting request for %s from %s", r.URL.Path, r.RemoteAddr)
+	start := h.clock.Now()
+	path := last2(r.URL.Path)
+	if _, ok := h.paths[path]; ok {
 		h.Mishandle(w, r)
+		duration := h.clock.Now().Sub(start)
+		log.Printf("[tarpit] 404 %v %v (%v)", r.RemoteAddr, r.URL.Path, duration)
 		return
 	}
 

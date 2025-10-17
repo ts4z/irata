@@ -15,6 +15,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jonboulle/clockwork"
 	"github.com/spf13/viper"
 
 	"github.com/ts4z/irata/action"
@@ -997,7 +998,7 @@ func main() {
 		mutator: mutator, subFS: subFS, bakery: bakery, clock: clock}
 	app.mux = http.NewServeMux()
 	// Stack the handlers together.  This isn't pretty.
-	tarpit := labrea.New(middleware.NewRequestLogger(csp.Handler(&CookieParser{app: app, next: app.mux}), app.clock))
+	tarpit := labrea.New(clockwork.NewRealClock(), middleware.NewRequestLogger(csp.Handler(&CookieParser{app: app, next: app.mux}), app.clock))
 	app.handler = tarpit
 	app.keypressHandlers = makeKeyboardHandlers(clock)
 	app.listenAddress = viper.GetString("listen_address")
