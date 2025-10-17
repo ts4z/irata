@@ -162,12 +162,12 @@ func last2(path string) string {
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	start := h.clock.Now()
+	// start := h.clock.Now()
 	path := last2(r.URL.Path)
 	if _, ok := h.paths[path]; ok {
 		h.Mishandle(w, r)
-		duration := h.clock.Now().Sub(start)
-		log.Printf("[tarpit] 404 %v %v (%v)", r.RemoteAddr, r.URL.Path, duration)
+		// duration := h.clock.Now().Sub(start)
+		// log.Printf("[tarpit] 404 %v %v (%v)", r.RemoteAddr, r.URL.Path, duration)
 		return
 	}
 
