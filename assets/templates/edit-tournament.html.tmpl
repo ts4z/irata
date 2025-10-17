@@ -1,105 +1,120 @@
-<!-- edit tournament settings -->
-{{ with .Tournament }}
+<!DOCTYPE html>
 <html>
-
 <head>
-  <title>
-    Irata Poker Clock: Edit Event {{ .EventID }}
-  </title>
+    <title>{{ if .IsNew }}Create{{ else }}Edit{{ end }} Tournament</title>
+    <link rel="stylesheet" href="/fs/irata-style.css">
 </head>
-
 <body>
-  <style>
-    @font-face {
-      font-family: arcade;
-      src: url('/fs/PressStart2P-vaV7.ttf') format('truetype');
-    }
+    <div class="container">
+        <div class="admin-bar">
+            <a href="/">&lt; Back to Home</a>
+            {{ if not .IsNew }}
+            <a href="/t/{{ .Tournament.EventID }}">View Tournament</a>
+            {{ end }}
+        </div>
 
-    body {
-      font-family: arcade, monospace;
-      background-color: #000000;
-      color: #ffffff;
-    }
+        <h1>{{ if .IsNew }}CREATE TOURNAMENT{{ else }}EDIT EVENT {{ .Tournament.EventID }}{{ end }}</h1>
 
-    td {
-      vertical-align: top;
-      border-spacing: 100vi;
-    }
+        {{ if .IsNew }}
+        <form method="POST">
+            <div class="form-group">
+                <label for="EventName">Event Name</label>
+                <input type="text" id="EventName" name="EventName" maxlength="30" required>
+            </div>
 
-    input {
-      font-family: arcade, monospace;
-    }
+            <div class="form-group">
+                <label for="Handle">Handle</label>
+                <input type="text" id="Handle" name="Handle" maxlength="30" required>
+            </div>
 
-    table {
-      border-spacing: 5px 1rem;
-    }
-  </style>
+            <div class="form-group">
+                <label for="Description">Description</label>
+                <input type="text" id="Description" name="Description" maxlength="50">
+            </div>
 
+            <div class="form-group">
+                <label for="PrizePool">Prize Pool</label>
+                <small>Free-form text. No HTML tags.</small>
+                <textarea id="PrizePool" name="PrizePool" rows="10" cols="50"></textarea>
+            </div>
 
-  <h1> EDIT EVENT {{ $.Tournament.EventID }} </p>
+            <div class="form-group">
+                <label for="StructureID">Structure</label>
+                <select id="StructureID" name="StructureID" required>
+                    {{ range .Structures }}
+                    <option value="{{ .ID }}">{{ .Name }}</option>
+                    {{ end }}
+                </select>
+            </div>
 
-  <form method="post">
-    <input type="hidden" name="Version" value="{{ .Version }}">
-    <table>
-      <tr>
-        <td width="10%"> EVENT NAME
-        <td width="90%"> <input name="EventName" size="30" maxlength="30" value="{{- .EventName -}}"> </td>
-      </tr>
-      <tr>
-        <td width="10%"> HANDLE
-        <td width="90%"> <input name="EventName" size="30" maxlength="30" value="{{- .Handle -}}"> </td>
-      </tr>
-      <tr>
-        <td width="10%"> DESCRIPTION
-        <td width="90%"> <input name="Description" size="30" maxlength="50" value="{{- .Description -}}"> </td>
-      </tr>
+            <div class="form-group">
+                <label for="FooterPlugsID">Footer Plugs</label>
+                <select id="FooterPlugsID" name="FooterPlugsID" required>
+                    {{ range .FooterSets }}
+                    <option value="{{ .FooterPlugsID }}">{{ .Name }}</option>
+                    {{ end }}
+                </select>
+            </div>
 
-      <tr>
-        <td> CHIPS PER BUY-IN </td>
-        <td> <input name="ChipsPerBuyIn" size="30" maxlength="30" pattern="[0-9,]+" required
-            value="{{- .Structure.ChipsPerBuyIn -}}">
-      </tr>
+            <div class="actions">
+                <button type="submit">Create Tournament</button>
+                <button type="reset">Reset</button>
+            </div>
+        </form>
+        {{ else }}
+        {{ with .Tournament }}
+        <form method="POST">
+            <input type="hidden" name="Version" value="{{ .Version }}">
 
-      <tr>
-        <td> CHIPS PER ADD-ON </td>
-        <td> <input name="ChipsPerAddOn" size="30" maxlength="30" pattern="[0-9,]+" required
-            value="{{- .Structure.ChipsPerAddOn -}}">
-      </tr>
+            <div class="form-group">
+                <label for="EventName">Event Name</label>
+                <input type="text" id="EventName" name="EventName" maxlength="30" value="{{ .EventName }}">
+            </div>
 
-      <tr>
-        <td> TOTAL CHIPS OVERRIDE </td>
-        <td> <input name="TotalChipsOverride" size="30" maxlength="30" pattern="[0-9,]+"
-            placeholder="0 to auto-compute" value="{{- .State.TotalChipsOverride -}}">
-      </tr>
+            <div class="form-group">
+                <label for="Handle">Handle</label>
+                <input type="text" id="Handle" name="Handle" maxlength="30" value="{{ .Handle }}">
+            </div>
 
-      <tr>
-        <td> PRIZE POOL
-        <td> Free-form text. No HTML tags. <br>
-          <textarea name="PrizePool" type="textarea" cols="13" rows="10">{{- .State.PrizePool -}}</textarea>
-      </tr>
+            <div class="form-group">
+                <label for="Description">Description</label>
+                <input type="text" id="Description" name="Description" maxlength="50" value="{{ .Description }}">
+            </div>
 
-      <tr>
-        <td colspan="2">
-          <table>
-            <tr>
-              {{ if $.IsAdmin }}
-              <td> <input type="submit" value="   SAVE CHANGES   " style="font-family: arcade, monospace;"> </td>
-              <td> <input type="reset" value=" RESET TO SAVED VALUES " style="font-family: arcade, monospace;"> </td>
-              {{ else }}
-              <td> YOU CAN LOOK BUT YOU CAN'T TOUCH </td>
-              {{ end }}
-            </tr>
-            <tr>
-              <td>
-                [<a href="/">OVERVIEW</a>] [<a href="/t/{{ .EventID }}">VIEW EVENT</a>]
-              </td>
-            </tr>
-          </table>
-        </td>
-      </tr>
-    </table>
-  </form>
+            <div class="form-group">
+                <label for="ChipsPerBuyIn">Chips Per Buy-In</label>
+                <input type="text" id="ChipsPerBuyIn" name="ChipsPerBuyIn" maxlength="30" pattern="[0-9,]+" required value="{{ .Structure.ChipsPerBuyIn }}">
+            </div>
+
+            <div class="form-group">
+                <label for="ChipsPerAddOn">Chips Per Add-On</label>
+                <input type="text" id="ChipsPerAddOn" name="ChipsPerAddOn" maxlength="30" pattern="[0-9,]+" required value="{{ .Structure.ChipsPerAddOn }}">
+            </div>
+
+            <div class="form-group">
+                <label for="TotalChipsOverride">Total Chips Override</label>
+                <input type="text" id="TotalChipsOverride" name="TotalChipsOverride" maxlength="30" pattern="[0-9,]+" placeholder="0 to auto-compute" value="{{ .State.TotalChipsOverride }}">
+            </div>
+
+            <div class="form-group">
+                <label for="PrizePool">Prize Pool</label>
+                <small>Free-form text. No HTML tags.</small>
+                <textarea id="PrizePool" name="PrizePool" rows="10" cols="50">{{ .State.PrizePool }}</textarea>
+            </div>
+
+            <div class="actions">
+                {{ if $.IsAdmin }}
+                <button type="submit">Save Changes</button>
+                <button type="reset">Reset to Saved Values</button>
+                {{ else }}
+                <p>You can look but you can't touch</p>
+                {{ end }}
+            </div>
+        </form>
+        {{ end }}
+        {{ end }}
+
+        {{ if .Flash }}<div class="flash">{{ .Flash }}</div>{{ end }}
+    </div>
 </body>
-
 </html>
-{{ end }}

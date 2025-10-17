@@ -1,10 +1,10 @@
 // package labrea provides a middleware that provides a tarpit.
 //
-// This could probably generate better trash.
+// This could do a lot of things that it doesn't, but it doesn't mess up
+// the logs.
 package labrea
 
 import (
-	"log"
 	"math/rand"
 	"net/http"
 	"strings"
@@ -46,7 +46,6 @@ var defaultPaths = []string{
 	"feed",
 	"install.php",
 	"license.txt",
-	"login",
 	"myadmin",
 	"mysql",
 	"phpmyadmin",

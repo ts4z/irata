@@ -13,8 +13,7 @@
   }
 
   function updateBannerNumber(banner, newNumber) {
-    // Match any text followed by a number at the end
-    const match = banner.match(/^(.*\D)?(\d+)$/);
+    const match = banner.match(/^(\D*[Ll][Ee][Vv][Ee][Ll].*\D)?(\d+)$/);
     if (match) {
       const prefix = match[1] || '';
       return prefix + newNumber;
@@ -68,7 +67,6 @@
   }
 
   function onBreakToggle(checkbox) {
-    console.log('Break checkbox toggled, renumbering levels...');
     renumberLevels();
   }
 

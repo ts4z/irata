@@ -107,5 +107,12 @@ To Do
   actually not that big of a problem, but if you load a whole bunch of browser
   tabs up at the same clock, eventually the browser will starve for
   connections.  This looks like a server bug but isn't.
-* SSL isn't supported.
-* Pagination isn't supported.
+* SSL isn't supported.  Since I am running this in a Cloud Run instance,
+  this is not currently a problem.
+* Pagination isn't supported.  Since we have only a trivial number of users,
+  this isn't a problem.
+* irata.go is way too long.
+* Changing anything in site config means restarting the server, but this
+  could be detected automatically.
+* Database doesn't notify for changes, so we can really only have a single
+  server instance if we want things to work reliably.

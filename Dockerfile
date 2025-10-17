@@ -20,7 +20,7 @@ COPY . .
 RUN CGO_ENABLED=0 \
     GOOS=linux \
     GOARCH=amd64 \
-    go build .
+    go build cmd/irata/irata.go
 
 FROM alpine:latest
 RUN apk add --no-cache ca-certificates

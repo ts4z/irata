@@ -1,58 +1,31 @@
+<!DOCTYPE html>
 <html>
-  <head>
+<head>
     <title>Irata Poker Clock: Login</title>
-    <style>
-      @font-face {
-        font-family: arcade;
-        src: url('/fs/PressStart2P-vaV7.ttf') format('truetype');
-      }
-      body {
-        font-family: arcade, monospace;
-        background-color: #000000;
-        color: #ffffff;
-      }
-      input {
-        font-family: arcade, monospace;
-        font-size: 1.2em;
-      }
-      .login-box {
-        margin: 10% auto;
-        width: 400px;
-        padding: 2em;
-        background: #222;
-        border-radius: 10px;
-        box-shadow: 0 0 10px #444;
-      }
-      label {
-        font-size: 1.2em;
-      }
-      .flash {
-        background: #8b1a1a;
-        color: #fff;
-        padding: 0.5em;
-        margin-bottom: 1em;
-        border-radius: 5px;
-        text-align: center;
-        font-size: 1.1em;
-      }
-    </style>
-  </head>
-  <body>
+    <link rel="stylesheet" href="/fs/irata-style.css">
+</head>
+<body>
     <div class="login-box">
-      <h2>Login</h2>
-      {{ if .Flash }}
+        <h2>Login</h2>
+        {{ if .Flash }}
         <div class="flash">{{ .Flash }}</div>
-      {{ end }}
-      <form method="post">
-        <label for="username">Username:</label><br>
-        <input type="text" id="username" name="username" maxlength="30" required><br><br>
-        <label for="password">Password:</label><br>
-        <input type="password" id="password" name="password" maxlength="50" required><br><br>
-        <input type="submit" value="Login">
-      </form>
-      <p>
-        <a href="/">Back to overview</a>
-      </p>
+        {{ end }}
+        <form method="POST">
+            <div class="form-group">
+                <label for="username">Username:</label>
+                <input type="text" id="username" name="username" maxlength="30" required>
+            </div>
+            <div class="form-group">
+                <label for="password">Password:</label>
+                <input type="password" id="password" name="password" maxlength="50" required>
+            </div>
+            <div class="actions">
+                <button type="submit">Login</button>
+            </div>
+        </form>
+        <p>
+            <a href="/">Back to overview</a>
+        </p>
     </div>
-  </body>
+</body>
 </html>

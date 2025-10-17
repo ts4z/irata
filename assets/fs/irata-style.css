@@ -51,6 +51,27 @@ a {
     text-decoration: underline;
 }
 
+ul {
+    list-style-type: none;;
+}
+
+label {
+    display: block;
+    margin-top: 1em;
+    font-weight: bold;
+}
+
+.form-group {
+    margin-bottom: 1.5em;
+}
+
+.form-group small {
+    display: block;
+    opacity: 0.7;
+    font-size: 0.8em;
+    margin-bottom: 0.3em;
+}
+
 input, select, textarea {
     font-family: arcade, monospace;
     font-size: 1em;
@@ -163,4 +184,47 @@ input[type="submit"]:hover, button:hover {
 
 #add-plug-btn:hover {
     background: #444;
+}
+
+/* Login page specific styles */
+.login-box {
+    margin: 10% auto;
+    width: 400px;
+    max-width: 90%;
+    padding: 2em;
+    background: #222;
+    border-radius: 10px;
+    box-shadow: 0 0 10px #444;
+}
+
+.login-box h2 {
+    margin-top: 0;
+    text-align: center;
+}
+
+.login-box label {
+    font-size: 1.2em;
+}
+
+.login-box input[type="text"],
+.login-box input[type="password"] {
+    font-size: 1.2em;
+    width: 100%;
+}
+
+.login-box .actions {
+    margin-top: 1.5em;
+    padding-top: 0;
+    border-top: none;
+}
+
+.login-box button {
+    width: 100%;
+    padding: 0.7em;
+    font-size: 1.1em;
+}
+
+.login-box p {
+    text-align: center;
+    margin-top: 1.5em;
 }
