@@ -20,13 +20,13 @@ COPY . .
 RUN CGO_ENABLED=0 \
     GOOS=linux \
     GOARCH=amd64 \
-    go build cmd/irata/irata.go
+    go build cmd/iratad/iratad.go
 
 FROM alpine:latest
 RUN apk add --no-cache ca-certificates
 
 WORKDIR /app
 
-COPY --from=builder /app/irata /irata
+COPY --from=builder /app/iratad /iratad
 
-CMD ["/irata"]
+CMD ["/iratad"]
