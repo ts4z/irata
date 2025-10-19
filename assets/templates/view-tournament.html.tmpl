@@ -38,13 +38,13 @@
           height: 100%;
       }
       .level {
-          font-size: 4vi;
-          color: #aaaaff;
+          font-size: 3vi;
+          color: yellow;
       }
       .clock {
           font-size: 15vi;
           color: #22ff22;
-          width: 80%;
+          width: 75%;
       }
       .clock #clock {
           display: inline-block;
@@ -61,7 +61,7 @@
           background-color:#8b1a1a;
       }
       .blinds {
-          font-size: 3vi;
+          font-size: 4vi;
           color: #cc0099;
       }
       .footer {
@@ -148,7 +148,7 @@
         top: 50%;
         transform: translate(-50%, -50%) rotate(-33deg);
         font-size: 8vi;
-        color: #dddd00;
+        color: #ffffff;
         text-shadow:
           -0.7vi -0.7vi 0 #000,
           0.7vi -0.7vi 0 #000,
@@ -166,7 +166,7 @@
 
     <table class="fullsize">
       <tr>
-        <td width="80%" class="fullsize">
+        <td width="75%" class="fullsize">
           <!-- left main -->
           <table class="fullsize">
             <tr>
@@ -175,16 +175,16 @@
               </td>
             </tr>
             <tr>
-              <td class="level" width="80%" id="level"> LOADING... </td>
+              <td class="level" width="75%" id="level"> LOADING... </td>
             </tr>
             <tr>
-              <td width="80%" class="clock" id="clock-td" style="position:relative;">
+              <td width="75%" class="clock" id="clock-td" style="position:relative;">
               <span id="clock">&#9824;&#9829;:&#9830;&#9827;</span>
                 <div id="paused-overlay" class="paused-overlay">PAUSED</div>
               </td>
             </tr>
             <tr>
-              <td width="80%" class="blinds" id="blinds"> LOADING...</td>
+              <td width="75%" class="blinds" id="blinds"> LOADING...</td>
             </tr>
             <tr>
               <td>
@@ -208,30 +208,34 @@
           </table>
           
         </td>
-        <td width="20%" class="fullsize">
+        <td width="25%" class="fullsize">
           <!-- right rail -->
           <table width="100%" class="fullsize">
             <tr> <td class="rr-label"> PLAYERS </tr>
             <tr> <td class="current-players" id="current-players">{{ .Tournament.State.CurrentPlayers }}</td></tr>
             <tr> <td class="buyins"><span id="buyins">{{- .Tournament.State.BuyIns -}}</span> BUYINS </td></tr>
             <tr>
-              <td style="font-size: 3vi;" align="center">
-                &#9830;
-              </td>
+              <!-- <td style="font-size: 3vi;" align="center"> -->
+              <!--   &#9830; -->
+              <!-- </td> -->
             </tr>
             <tr><td>
                 <table align="center" width="100%">
                   <!-- <tr> <td class="rr-label"> PRIZE POOL </td> </tr> -->
                   <tr>
-                    <td class="prize-pool" id="prize-pool">
+                    <td class="prize-pool">
+                      <hr>
+                      <span id="prize-pool">
                       {{ .Tournament.State.PrizePool }}
+                      </span>
+                      <hr>
                     </td>
                 </table>
             </td></tr>
             <tr>
-              <td style="font-size: 3vi;" align="center">
-                &#9830;
-              </td>
+              <!-- <td style="font-size: 3vi;" align="center"> -->
+              <!--   &#9830; -->
+              <!-- </td> -->
             </tr>
             <tr><td>
                 <table width="100%">
