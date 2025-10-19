@@ -62,13 +62,17 @@ func (a *Actor) EditEvent(ctx context.Context, id int64, form url.Values) error 
 
 	maybeCopyInt64(form, &t.Version, "Version")
 
-	maybeCopyInt(form, &t.Structure.ChipsPerBuyIn, "ChipsPerBuyin")
+	maybeCopyInt(form, &t.Structure.ChipsPerBuyIn, "ChipsPerBuyIn")
 	maybeCopyInt(form, &t.Structure.ChipsPerAddOn, "ChipsPerAddOn")
 	maybeCopyInt(form, &t.State.TotalChipsOverride, "TotalChipsOverride")
 
 	maybeCopyString(form, &t.EventName, "EventName")
 	maybeCopyString(form, &t.State.PrizePool, "PrizePool")
 	maybeCopyString(form, &t.Description, "Description")
+
+	maybeCopyInt(form, &t.State.CurrentPlayers, "CurrentPlayers")
+	maybeCopyInt(form, &t.State.BuyIns, "BuyIns")
+	maybeCopyInt(form, &t.State.AddOns, "AddOns")
 
 	return a.storage.SaveTournament(ctx, t)
 }

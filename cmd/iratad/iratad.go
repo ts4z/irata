@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"html"
 	"html/template"
 	"io"
 	"io/fs"
@@ -19,6 +20,7 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/ts4z/irata/action"
+	"github.com/ts4z/irata/app/handlers"
 	"github.com/ts4z/irata/assets"
 	"github.com/ts4z/irata/config"
 	"github.com/ts4z/irata/he"
@@ -123,33 +125,80 @@ func (cp *CookieParser) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	cp.next.ServeHTTP(w, r)
 }
 
-func (app *irataApp) requiringAdminHandleFunc(pattern string, handler func(http.ResponseWriter, *http.Request)) {
+func (app *irataApp) handleFunc(pattern string, handler func(context.Context, http.ResponseWriter, *http.Request)) {
+	app.mux.HandleFunc(pattern, func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		handler(ctx, w, r)
+	})
+}
+
+func (app *irataApp) handleFuncTakingID(pattern string, handler func(context.Context, int64, http.ResponseWriter, *http.Request)) {
+	app.mux.HandleFunc(pattern, func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		id, err := idPathValue(w, r)
+		if err != nil {
+			he.SendErrorToHTTPClient(w, "parse url", err)
+		}
+		handler(ctx, id, w, r)
+	})
+}
+
+func (app *irataApp) requiringAdminHandleFunc(pattern string, handler func(context.Context, http.ResponseWriter, *http.Request)) {
 	app.mux.HandleFunc(pattern, func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 		if !permission.IsAdmin(ctx) {
 			he.SendErrorToHTTPClient(w, "authorize", he.HTTPCodedErrorf(http.StatusUnauthorized, "permission denied"))
 			return
 		}
-		handler(w, r)
+		handler(ctx, w, r)
 	})
+}
+
+func (app *irataApp) requiringAdminTakingIDHandleFunc(pattern string, handler func(context.Context, int64, http.ResponseWriter, *http.Request)) {
+	app.mux.HandleFunc(pattern, func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		if !permission.IsAdmin(ctx) {
+			he.SendErrorToHTTPClient(w, "authorize", he.HTTPCodedErrorf(http.StatusUnauthorized, "permission denied"))
+			return
+		}
+		id, err := idPathValue(w, r)
+		if err != nil {
+			he.SendErrorToHTTPClient(w, "parse url", err)
+		}
+		handler(ctx, id, w, r)
+	})
+}
+
+func (app *irataApp) renderTournament(ctx context.Context, id int64, w http.ResponseWriter, r *http.Request) {
+
+	id, err := idPathValue(w, r)
+	if err != nil {
+		return
+	}
+
+	t, err := app.fetchTournament(ctx, id)
+	if err != nil {
+		he.SendErrorToHTTPClient(w, "get tournament from database", err)
+		return
+	}
+	args := struct {
+		Tournament              *model.Tournament
+		InstallKeyboardHandlers bool
+	}{
+		Tournament:              t,
+		InstallKeyboardHandlers: permission.CheckWriteAccessToTournamentID(ctx, id) == nil,
+	}
+	log.Printf("render with args: %+v", args)
+	if err := app.templates.ExecuteTemplate(w, "view-tournament.html.tmpl", args); err != nil {
+		log.Printf("can't render template: %v", err)
+	}
 }
 
 func (app *irataApp) installHandlers() {
 
-	app.mux.HandleFunc("/robots.txt", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/plain")
-		data := []string{
-			"User-agent: *",
-			"Allow: /",
-			"Disallow: /*",
-		}
-		for _, line := range data {
-			io.WriteString(w, line+"\r\n")
-		}
-	})
+	app.mux.HandleFunc("/robots.txt", handlers.HandleRobotsTXT)
 
-	app.requiringAdminHandleFunc("/manage/structure", func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
+	app.requiringAdminHandleFunc("/manage/structure", func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		// Fetch all structures
 		slugs, err := app.storage.FetchStructureSlugs(ctx, 0, 100)
 		if err != nil {
@@ -171,8 +220,7 @@ func (app *irataApp) installHandlers() {
 		}
 	})
 
-	app.requiringAdminHandleFunc("/create/tournament", func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
+	app.requiringAdminHandleFunc("/create/tournament", func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		var flash string
 		// Fetch available structures and footer plug sets
 		structures, err := app.storage.FetchStructureSlugs(ctx, 0, 100)
@@ -235,12 +283,7 @@ func (app *irataApp) installHandlers() {
 		}
 	})
 
-	app.requiringAdminHandleFunc("/manage/structure/{id}/edit", func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
-		id, err := idPathValue(w, r)
-		if err != nil {
-			return
-		}
+	app.requiringAdminTakingIDHandleFunc("/manage/structure/{id}/edit", func(ctx context.Context, id int64, w http.ResponseWriter, r *http.Request) {
 		var flash string
 		if r.Method == http.MethodPost {
 			if err := r.ParseForm(); err != nil {
@@ -306,14 +349,7 @@ func (app *irataApp) installHandlers() {
 		}
 	})
 
-	app.requiringAdminHandleFunc("/manage/footer-set/{id}/edit", func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
-
-		id, err := idPathValue(w, r)
-		if err != nil {
-			return
-		}
-
+	app.requiringAdminTakingIDHandleFunc("/manage/footer-set/{id}/edit", func(ctx context.Context, id int64, w http.ResponseWriter, r *http.Request) {
 		var flash string
 		if r.Method == http.MethodPost {
 			if err := r.ParseForm(); err != nil {
@@ -358,8 +394,7 @@ func (app *irataApp) installHandlers() {
 		}
 	})
 
-	app.requiringAdminHandleFunc("/create/structure", func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
+	app.requiringAdminHandleFunc("/create/structure", func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		var flash string
 
 		// For POST, handle the form submission
@@ -456,15 +491,8 @@ func (app *irataApp) installHandlers() {
 		}
 	})
 
-	app.requiringAdminHandleFunc("/manage/structure/{id}/delete", func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
-
-		id, err := idPathValue(w, r)
-		if err != nil {
-			return
-		}
-
-		err = app.storage.DeleteStructure(ctx, id)
+	app.requiringAdminTakingIDHandleFunc("/manage/structure/{id}/delete", func(ctx context.Context, id int64, w http.ResponseWriter, r *http.Request) {
+		err := app.storage.DeleteStructure(ctx, id)
 		if err != nil {
 			he.SendErrorToHTTPClient(w, "delete structure", err)
 			return
@@ -472,9 +500,7 @@ func (app *irataApp) installHandlers() {
 		http.Redirect(w, r, "/manage/structure", http.StatusSeeOther)
 	})
 
-	app.requiringAdminHandleFunc("/create/footer-set", func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
-
+	app.requiringAdminHandleFunc("/create/footer-set", func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		var flash string
 		if r.Method == http.MethodPost {
 			if err := r.ParseForm(); err != nil {
@@ -503,9 +529,7 @@ func (app *irataApp) installHandlers() {
 		}
 	})
 
-	app.requiringAdminHandleFunc("/manage/footer-set/{id}/delete", func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
-
+	app.requiringAdminTakingIDHandleFunc("/manage/footer-set/{id}/delete", func(ctx context.Context, id int64, w http.ResponseWriter, r *http.Request) {
 		id, err := idPathValue(w, r)
 		if err != nil {
 			return
@@ -519,9 +543,7 @@ func (app *irataApp) installHandlers() {
 		http.Redirect(w, r, "/manage/footer-set", http.StatusSeeOther)
 	})
 
-	app.requiringAdminHandleFunc("/manage/footer-set/", func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
-
+	app.requiringAdminHandleFunc("/manage/footer-set/", func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		sets, err := app.storage.ListFooterPlugSets(ctx)
 		if err != nil {
 			he.SendErrorToHTTPClient(w, "fetch footer plug sets", err)
@@ -575,41 +597,11 @@ func (app *irataApp) installHandlers() {
 	// anything in fs is a file trivially shared
 	app.mux.Handle("/fs/", http.StripPrefix("/fs/", http.FileServer(http.FS(app.subFS))))
 
-	renderTournament := func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
+	app.handleFuncTakingID("/t/{id}", func(ctx context.Context, id64 int64, w http.ResponseWriter, r *http.Request) {
+		app.renderTournament(ctx, id64, w, r)
+	})
 
-		id, err := idPathValue(w, r)
-		if err != nil {
-			return
-		}
-
-		t, err := app.fetchTournament(ctx, id)
-		if err != nil {
-			he.SendErrorToHTTPClient(w, "get tournament from database", err)
-			return
-		}
-		args := struct {
-			Tournament              *model.Tournament
-			InstallKeyboardHandlers bool
-		}{
-			Tournament:              t,
-			InstallKeyboardHandlers: permission.CheckWriteAccessToTournamentID(ctx, id) == nil,
-		}
-		log.Printf("render with args: %+v", args)
-		if err := app.templates.ExecuteTemplate(w, "view-tournament.html.tmpl", args); err != nil {
-			log.Printf("can't render template: %v", err)
-		}
-	}
-	app.mux.HandleFunc("/t/{id}", renderTournament)
-
-	app.requiringAdminHandleFunc("/t/{id}/delete", func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
-
-		id64, err := idPathValue(w, r)
-		if err != nil {
-			return
-		}
-
+	app.requiringAdminTakingIDHandleFunc("/t/{id}/delete", func(ctx context.Context, id64 int64, w http.ResponseWriter, r *http.Request) {
 		if err := app.storage.DeleteTournament(ctx, id64); err != nil {
 			he.SendErrorToHTTPClient(w, "delete tournament", err)
 		} else {
@@ -617,17 +609,10 @@ func (app *irataApp) installHandlers() {
 		}
 	})
 
-	app.requiringAdminHandleFunc("/t/{id}/edit", func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
-
-		id64, err := idPathValue(w, r)
-		if err != nil {
-			return
-		}
-
+	app.requiringAdminTakingIDHandleFunc("/t/{id}/edit", func(ctx context.Context, id64 int64, w http.ResponseWriter, r *http.Request) {
 		r.ParseForm()
 		if len(r.Form) != 0 {
-			err = app.mutator.EditEvent(ctx, id64, r.Form)
+			err := app.mutator.EditEvent(ctx, id64, r.Form)
 			if err != nil {
 				he.SendErrorToHTTPClient(w, "parsing form", err)
 				return
@@ -671,7 +656,7 @@ func (app *irataApp) installHandlers() {
 		}
 
 		for i, s := range fp.TextPlugs {
-			fp.TextPlugs[i] = textutil.WrapLinesInNOBR(s)
+			fp.TextPlugs[i] = textutil.WrapLinesInNOBR(html.EscapeString(s))
 		}
 
 		bytes, err := json.Marshal(fp)
@@ -806,10 +791,7 @@ func (app *irataApp) installHandlers() {
 
 	app.installKeyboardHandlers()
 
-	// Handler for /manage/site
-	app.requiringAdminHandleFunc("/manage/site", func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
-
+	app.requiringAdminHandleFunc("/manage/site", func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		var flash string
 		// Fetch config
 		config, err := readSiteConfig(ctx, app.siteStorage)
@@ -875,8 +857,8 @@ func makeKeyboardHandlers(clock ts.Clock) map[string]func(*model.Tournament, *mo
 		"SkipLevel":     func(t *model.Tournament, bb *modifiers) error { return t.AdvanceLevel(clock) },
 		"StopClock":     func(t *model.Tournament, bb *modifiers) error { return t.StopClock(clock) },
 		"StartClock":    func(t *model.Tournament, bb *modifiers) error { return t.StartClock(clock) },
-		"RemovePlayer":  func(t *model.Tournament, bb *modifiers) error { return t.ChangeBuyIns(clock, -if10(bb.Shift)) },
-		"AddPlayer":     func(t *model.Tournament, bb *modifiers) error { return t.ChangeBuyIns(clock, if10(bb.Shift)) },
+		"RemovePlayer":  func(t *model.Tournament, bb *modifiers) error { return t.ChangePlayers(clock, -if10(bb.Shift)) },
+		"AddPlayer":     func(t *model.Tournament, bb *modifiers) error { return t.ChangePlayers(clock, if10(bb.Shift)) },
 		"AddBuyIn":      func(t *model.Tournament, bb *modifiers) error { return t.ChangeBuyIns(clock, if10(bb.Shift)) },
 		"RemoveBuyIn":   func(t *model.Tournament, bb *modifiers) error { return t.ChangeBuyIns(clock, -if10(bb.Shift)) },
 		"PlusMinute":    func(t *model.Tournament, bb *modifiers) error { return t.PlusTime(clock, if10min(bb.Shift)) },
@@ -884,9 +866,7 @@ func makeKeyboardHandlers(clock ts.Clock) map[string]func(*model.Tournament, *mo
 	}
 }
 
-func (app *irataApp) handleKeypress(r *http.Request) error {
-	ctx := r.Context()
-
+func (app *irataApp) handleKeypress(ctx context.Context, r *http.Request) error {
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		log.Printf("can't read response body: %v", err)
@@ -928,8 +908,8 @@ func (app *irataApp) handleKeypress(r *http.Request) error {
 }
 
 func (app *irataApp) installKeyboardHandlers() {
-	app.requiringAdminHandleFunc("/api/keyboard-control", func(w http.ResponseWriter, r *http.Request) {
-		err := app.handleKeypress(r)
+	app.requiringAdminHandleFunc("/api/keyboard-control", func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+		err := app.handleKeypress(ctx, r)
 		if err != nil {
 			he.SendErrorToHTTPClient(w, "handleKeypress", err)
 		}

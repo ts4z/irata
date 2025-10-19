@@ -2,6 +2,8 @@
 
 "use strict";
 
+const next_level_sound = new Audio('/fs/ascending.mp3');
+
 async function sleep(ms) {
   await new Promise(resolve => setTimeout(resolve, ms));
 }
@@ -82,7 +84,7 @@ var last_model = {
       },
     ]
   },
-  // Transients are things that are computed from State and
+  // Transients are things that are computed from State and Structure.
   "Transients": {
     "NextBreakAt": undefined,
     "NextLevel": undefined,
@@ -107,10 +109,9 @@ function want_footers() {
     return false;
   }
   if (fetched_footer_plugs_id && want_id === fetched_footer_plugs_id) {
-    console.log("already have wanted footers");
     return false;
   }
-  console.log("WANT FOOTERS");
+  console.log("footer download required");
   return true;
 }
 
@@ -146,7 +147,6 @@ let cached_fetch_footers_promise = function () {
       return cached_promise;
     }
 
-    console.log("making new promise");
     cached_promise_fetches_id = want_footer_plugs_id;
     cached_promise = fetch_footers(want_footer_plugs_id).finally(() => {
       cached_promise_fetches_id = -1;
@@ -169,7 +169,6 @@ const next_footer = (function () {
       next_footer_offset = 0;
       shuffle_array(footers);
     }
-    console.log("next_footer: I tried");
     set_html("footer", footers[next_footer_offset % footers.length]);
   }
 })()
@@ -218,15 +217,15 @@ function update_next_level_and_break_fields() {
   var level = last_model.Structure.Levels[cln]
 
   if (level.IsBreak) {
-    set_html("blinds", level.Description);
+    set_text("blinds", level.Description);
     set_class("clock-td", "clock-break");
   } else {
-    set_html("blinds", level.Description);
+    set_text("blinds", level.Description);
     set_class("clock-td", "clock");
   }
 
   let level_banner = level.Banner;
-  set_html("level", level_banner);
+  set_text("level", level_banner);
 
   next_level_complete_at = new Date(last_model.State.CurrentLevelEndsAt)
 
@@ -248,14 +247,14 @@ function import_new_model_from_server(model) {
 
   update_time_fields();
 
-  set_html("prize-pool", model.State.PrizePool)
-  set_html("current-players", model.State.CurrentPlayers)
-  set_html("buyins", model.State.BuyIns)
+  set_html("prize-pool", protect_html(model.State.PrizePool))
+  set_text("current-players", model.State.CurrentPlayers)
+  set_text("buyins", model.State.BuyIns)
   // set rebuys
   // set addons
-  set_html("avg-chips", model.Transients.AverageChips)
+  set_text("avg-chips", model.Transients.AverageChips)
   if (model.Transients.NextLevel !== null) {
-    set_html("next-level", model.Transients.NextLevel.Description)
+    set_text("next-level", model.Transients.NextLevel.Description)
   }
 }
 
@@ -266,7 +265,25 @@ function show_paused_overlay(show) {
   }
 }
 
-// Helper.
+function protect_html(s) {
+    return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;")
+    .replace(/\r?\n/g, "<br>");
+}
+
+function set_text(id, value) {
+  let el = document.getElementById(id)
+  if (el !== null) {
+    el.textContent = value
+  } else {
+    console.log("can't find element with id " + id)
+  }
+}
+
 function set_html(id, value) {
   let el = document.getElementById(id)
   if (el !== null) {
@@ -340,7 +357,7 @@ async function maybe_clock_tick() {
   }
 
   let time_until_next_tick = 5 + (millis_remaining_in_level() % 1000);
-  console.log(`ramaining until next tick: ${time_until_next_tick}`);
+  // console.log(`ramaining until next tick: ${time_until_next_tick}`);
   return new Promise(resolve => setTimeout(resolve, time_until_next_tick)).then(() => {
     advance_clock_from_wall_clock();
     update_time_fields();
@@ -370,6 +387,8 @@ function advance_clock_from_wall_clock() {
       let nextDurationMinutes = last_model.Structure.Levels[last_model.State.CurrentLevelNumber].DurationMinutes;
       let oldMinutes = oldEndsAt.getMinutes();
       last_model.State.CurrentLevelEndsAt = new Date(oldEndsAt.setMinutes(oldMinutes + nextDurationMinutes)); // gross
+
+      next_level_sound.play();
     }
 
     update_time_fields();
@@ -384,7 +403,6 @@ function update_time_fields() {
 
 function update_big_clock() {
   if (typeof next_level_complete_at === 'undefined') {
-    console.log("NLCA undefined");
     // this doesn't happen -- why?
     document.getElementById("clock").innerHTML = "??:??";
   }
@@ -410,7 +428,7 @@ function install_keyboard_handlers() {
     clock_controls_locked = !clock_controls_locked;
     if (clock_controls_locked) {
       console.log("clock controls locked");
-      set_html("footer", "level/clock controls re-locked");
+      set_text("footer", "level/clock controls re-locked");
       start_rotating_footers();
     } else {
       console.log("clock unlocked");

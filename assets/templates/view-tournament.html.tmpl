@@ -96,7 +96,7 @@
       }
       .prize-pool {
           font-size: 1.5vi;
-          text-align: center;
+          text-align: left;
       }
       .right-rail {
           border: 1px solid white;
@@ -206,21 +206,28 @@
               </td>
             </tr>
           </table>
-          
         </td>
         <td width="25%" class="fullsize">
           <!-- right rail -->
           <table width="100%" class="fullsize">
-            <tr> <td class="rr-label"> PLAYERS </tr>
-            <tr> <td class="current-players" id="current-players">{{ .Tournament.State.CurrentPlayers }}</td></tr>
-            <tr> <td class="buyins"><span id="buyins">{{- .Tournament.State.BuyIns -}}</span> BUYINS </td></tr>
+            <tr><td>
+                <table align="center" width="100%"><tbody>
+                    <tr> <td class="current-players" id="current-players">{{ .Tournament.State.CurrentPlayers }}</td></tr>
+                    <tr> <td class="rr-label"> PLAYERS </td></tr>
+                    <tr> <td class="buyins"><span id="buyins">{{- .Tournament.State.BuyIns -}}</span> BUYINS </td></tr>
+                    {{ if ne 0 .Tournament.Structure.ChipsPerAddOn }}
+                    <tr> <td class="addons"><span id="addons">{{- .Tournament.State.AddOns -}}</span> ADD-ONS </td></tr>
+                    {{ end }}
+                </tbody></table>
+              </td>
+            </tr>
             <tr>
               <!-- <td style="font-size: 3vi;" align="center"> -->
               <!--   &#9830; -->
               <!-- </td> -->
             </tr>
             <tr><td>
-                <table align="center" width="100%">
+                <table align="center">
                   <!-- <tr> <td class="rr-label"> PRIZE POOL </td> </tr> -->
                   <tr>
                     <td class="prize-pool">
@@ -265,19 +272,19 @@
             </tr>
             <tr>
               <td class="help-dialog-table-key"><b>PgUp</b></td>
-              <td class="help-dialog-table-desc">Add Player</td>
+              <td class="help-dialog-table-desc">Add Player †</td>
             </tr>
             <tr>
               <td class="help-dialog-table-key"><b>PgDn</b></td>
-              <td class="help-dialog-table-desc">Remove Player</td>
+              <td class="help-dialog-table-desc">†Remove Player †</td>
             </tr>
             <tr>
               <td class="help-dialog-table-key"><b>Home</b></td>
-              <td class="help-dialog-table-desc">Add Buy-In (or [=] or [.])</td>
+              <td class="help-dialog-table-desc">Add Buy-In (or [=] or [.]) †</td>
             </tr>
             <tr>
               <td class="help-dialog-table-key"><b>End</b></td>
-              <td class="help-dialog-table-desc">Remove Buy-In (or [-] or [,])</td>
+              <td class="help-dialog-table-desc">Remove Buy-In (or [-] or [,]) †</td>
             </tr>
             <tr> <td colspan="2"> <hr> </td> </tr>
             <tr>
@@ -294,11 +301,11 @@
             </tr>
             <tr>
               <td class="help-dialog-table-key"><b>↑</b></td>
-              <td class="help-dialog-table-desc">*Add 1 Minute</td>
+              <td class="help-dialog-table-desc">*Add 1 Minute †</td>
             </tr>
             <tr>
               <td class="help-dialog-table-key"><b>↓</b></td>
-              <td class="help-dialog-table-desc">*Subtract 1 Minute</td>
+              <td class="help-dialog-table-desc">*Subtract 1 Minute †</td>
             </tr>
             <tr> <td colspan="2"> <hr> </td> </tr>
             <tr>
@@ -312,6 +319,7 @@
           </tbody>
         </table>
         <div class="help-dialog-close">
+          † If holding shift, these step by 10. </br>
           * These are disabled unless clock is paused and unlocked. <br>
           <b>F1</b>, <b>?</b>, or <b>/</b> will show this message. <br>
           <b>Esc</b> to close this help.

@@ -102,6 +102,21 @@
                 <textarea id="PrizePool" name="PrizePool" rows="10" cols="50">{{ .State.PrizePool }}</textarea>
             </div>
 
+            <div class="form-group">
+                <label for="TotalPlayers">Current Players</label>
+                <input type="text" id="CurrentPlayers" name="CurrentPlayers" maxlength="6" pattern="[0-9,]+" value="{{ .State.CurrentPlayers }}">
+            </div>
+
+            <div class="form-group">
+                <label for="BuyIns">Buy-Ins</label>
+                <input type="text" id="BuyIns" name="BuyIns" maxlength="6" pattern="[0-9,]+" value="{{ .State.BuyIns }}">
+            </div>
+
+            <div class="form-group">
+                <label for="AddOns">Add-Ons</label>
+                <input type="text" id="AddOns" name="AddOns" maxlength="6" pattern="[0-9,]+" value="{{ .State.AddOns }}">
+            </div>
+            
             <div class="actions">
                 {{ if $.IsAdmin }}
                 <button type="submit">Save Changes</button>
@@ -110,6 +125,7 @@
                 <p>You can look but you can't touch</p>
                 {{ end }}
             </div>
+           
         </form>
         {{ end }}
         {{ end }}
