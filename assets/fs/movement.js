@@ -87,6 +87,7 @@ var last_model = {
     "NextBreakAt": undefined,
     "NextLevel": undefined,
     "EndsAt": undefined,
+    "ServerVersion": undefined,
   }
 }
 var footers = [
@@ -129,7 +130,7 @@ async function fetch_footers(want_footer_plugs_id) {
 }
 
 let cached_fetch_footers_promise = function () {
-  let cached_promise_fetches_id = -1;  
+  let cached_promise_fetches_id = -1;
   let cached_promise = undefined;
 
   // Return a promie that succeeds or takes a full minute (to prevent spamming).
@@ -234,7 +235,15 @@ function update_next_level_and_break_fields() {
 
 // Server sent a whole new model.  Update all the fields.
 function import_new_model_from_server(model) {
-  console.log("import new model from server, version " + model.Version);
+  console.log(`import new model from server ${model.Transients.ServerVersion}, version ${model.Version}`)
+
+  if (last_model.Transients.ServerVersion &&
+      model.Transients.ServerVersion != last_model.Transients.ServerVersion) {
+    // new model changed the ServerVersion
+    // this is tagged as an incompatible change
+    window.location.reload();
+  }
+
   last_model = model;
 
   update_time_fields();

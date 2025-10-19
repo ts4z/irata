@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	millisPerMinute = 60 * 1000
+	ServerVersion = 4
 )
 
 var (
@@ -65,47 +65,6 @@ type Level struct {
 	Description     string
 	DurationMinutes int // TODO: convert this to a string?
 	IsBreak         bool
-}
-
-func parseLevelBreak(s string) bool {
-	if strings.EqualFold(s, "BREAK") {
-		return true
-	} else {
-		return false
-	}
-}
-
-// ParseLevels is for parsing levels from an old text input;
-// it is not clear to me if it needs to exist now.
-//
-// level 0 is *always* a break.
-func ParseLevels(input string) ([]*Level, error) {
-	levels := []*Level{}
-	lines := strings.Split(input, "\n")
-	for _, line := range lines {
-
-		parts := dashDashRE.Split(line, 3)
-		if len(parts) != 3 {
-			return nil, fmt.Errorf("line unparsable: %q", line)
-		}
-		durationMins, err := strconv.Atoi(parts[0])
-		if err != nil {
-			return nil, fmt.Errorf("can't parse duration in line %q: %w", line, err)
-		}
-		isBreak := parseLevelBreak(parts[1])
-		description := parts[2]
-		levels = append(levels, &Level{
-			Banner:          description,
-			DurationMinutes: durationMins,
-			IsBreak:         isBreak,
-			Description:     description,
-		})
-	}
-	if len(levels) < 2 {
-		return nil, fmt.Errorf("need at least two levels, got %d", len(levels))
-	}
-	levels[0].IsBreak = true
-	return levels, nil
 }
 
 // FooterPlugs is possible values for decorating the footer.
@@ -209,8 +168,9 @@ func (s *State) Clone() *State {
 
 // Transients are computed from State and Structure, and are not serialized to the database.
 type Transients struct {
-	TotalChips   int
-	AverageChips int
+	ServerVersion int
+	TotalChips    int
+	AverageChips  int
 	// NextBreakAt is the time the next break starts, in Unix millis, or nil if there are no more breaks.
 	NextBreakAt *int64
 	// NextLevel is the next non-break level, or nil if there are no more levels.
@@ -314,7 +274,9 @@ type Clock interface {
 // the database as they're redundant, but they are very convenient for access
 // from templates and maybe JS.)
 func (m *Tournament) FillTransients(clock Clock) {
-	m.Transients = &Transients{}
+	m.Transients = &Transients{
+		ServerVersion: ServerVersion,
+	}
 
 	if m.State.TotalChipsOverride > 0 {
 		m.Transients.TotalChips = m.State.TotalChipsOverride
