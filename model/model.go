@@ -2,12 +2,9 @@ package model
 
 import (
 	"errors"
-	"fmt"
 	"log"
 	"math"
 	"regexp"
-	"strconv"
-	"strings"
 	"time"
 )
 
