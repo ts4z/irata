@@ -10,7 +10,7 @@
             "type": "go",
             "request": "launch",
             "mode": "debug",
-            "program": "cmd/irata/irata.go"
+            "program": "cmd/iratad/iratad.go"
         }
     ]
 }

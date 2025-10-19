@@ -46,6 +46,10 @@ type nower interface {
 	Now() time.Time
 }
 
+type modifiers struct {
+	Shift bool
+}
+
 // irataApp prevents the proliferation of global variables.
 type irataApp struct {
 	listenAddress string
@@ -59,7 +63,7 @@ type irataApp struct {
 	bakery      *permission.Bakery
 	clock       nower
 
-	keypressHandlers map[string]func(*model.Tournament) error
+	keypressHandlers map[string]func(*model.Tournament, *modifiers) error
 
 	mux     *http.ServeMux
 	handler http.Handler
@@ -848,20 +852,35 @@ func (app *irataApp) installHandlers() {
 	})
 }
 
-func makeKeyboardHandlers(clock ts.Clock) map[string]func(*model.Tournament) error {
+func ifb[T any](cond bool, t T, f T) T {
+	if cond {
+		return t
+	}
+	return f
+}
+
+func if10(b bool) int {
+	return ifb(b, 10, 1)
+}
+
+func if10min(b bool) time.Duration {
+	return ifb(b, 10*time.Minute, 1*time.Minute)
+}
+
+func makeKeyboardHandlers(clock ts.Clock) map[string]func(*model.Tournament, *modifiers) error {
 	// todo: it is bogus that these require a clock.  it would make more sense if these methods
 	// were moved outside the model, since they are not just data, but actual actions.
-	return map[string]func(*model.Tournament) error{
-		"PreviousLevel": func(t *model.Tournament) error { return t.PreviousLevel(clock) },
-		"SkipLevel":     func(t *model.Tournament) error { return t.AdvanceLevel(clock) },
-		"StopClock":     func(t *model.Tournament) error { return t.StopClock(clock) },
-		"StartClock":    func(t *model.Tournament) error { return t.StartClock(clock) },
-		"RemovePlayer":  func(t *model.Tournament) error { return t.RemovePlayer(clock) },
-		"AddPlayer":     func(t *model.Tournament) error { return t.AddPlayer(clock) },
-		"AddBuyIn":      func(t *model.Tournament) error { return t.AddBuyIn(clock) },
-		"RemoveBuyIn":   func(t *model.Tournament) error { return t.RemoveBuyIn(clock) },
-		"PlusMinute":    func(t *model.Tournament) error { return t.PlusMinute(clock) },
-		"MinusMinute":   func(t *model.Tournament) error { return t.MinusMinute(clock) },
+	return map[string]func(t *model.Tournament, bb *modifiers) error{
+		"PreviousLevel": func(t *model.Tournament, bb *modifiers) error { return t.PreviousLevel(clock) },
+		"SkipLevel":     func(t *model.Tournament, bb *modifiers) error { return t.AdvanceLevel(clock) },
+		"StopClock":     func(t *model.Tournament, bb *modifiers) error { return t.StopClock(clock) },
+		"StartClock":    func(t *model.Tournament, bb *modifiers) error { return t.StartClock(clock) },
+		"RemovePlayer":  func(t *model.Tournament, bb *modifiers) error { return t.ChangeBuyIns(clock, -if10(bb.Shift)) },
+		"AddPlayer":     func(t *model.Tournament, bb *modifiers) error { return t.ChangeBuyIns(clock, if10(bb.Shift)) },
+		"AddBuyIn":      func(t *model.Tournament, bb *modifiers) error { return t.ChangeBuyIns(clock, if10(bb.Shift)) },
+		"RemoveBuyIn":   func(t *model.Tournament, bb *modifiers) error { return t.ChangeBuyIns(clock, -if10(bb.Shift)) },
+		"PlusMinute":    func(t *model.Tournament, bb *modifiers) error { return t.PlusTime(clock, if10min(bb.Shift)) },
+		"MinusMinute":   func(t *model.Tournament, bb *modifiers) error { return t.MinusTime(clock, if10min(bb.Shift)) },
 	}
 }
 
@@ -876,6 +895,7 @@ func (app *irataApp) handleKeypress(r *http.Request) error {
 	type KeyboardModifyEvent struct {
 		TournamentID int64
 		Event        string
+		Shift        bool
 	}
 
 	var event KeyboardModifyEvent
@@ -891,12 +911,12 @@ func (app *irataApp) handleKeypress(r *http.Request) error {
 	if h, ok := app.keypressHandlers[event.Event]; !ok {
 		return he.HTTPCodedErrorf(404, "unknown keyboard event")
 	} else {
-		t, err := app.fetchTournament(r.Context(), event.TournamentID)
+		t, err := app.fetchTournament(ctx, event.TournamentID)
 		if err != nil {
 			return he.HTTPCodedErrorf(404, "tournament not found: %w", err)
 		}
 
-		if err := h(t); err != nil {
+		if err := h(t, &modifiers{Shift: event.Shift}); err != nil {
 			return he.HTTPCodedErrorf(500, "while applying keyboard event: %w", err)
 		}
 

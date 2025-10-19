@@ -67,7 +67,7 @@ var last_model = {
   "State": {
     "CurrentLevelNumber": 0,
     "IsClockRunning": false,
-    "TimeRemainingMillis": 59*60*1000,
+    "TimeRemainingMillis": 59 * 60 * 1000,
     "CurrentLevelEndsAt": undefined,
   },
   "Structure": {
@@ -102,29 +102,58 @@ var fetched_footer_plugs_id = undefined;
 function want_footers() {
   var want_id = last_model.FooterPlugsID
   if (!want_id) {
+    console.log("no id, no footers wanted");
     return false;
   }
   if (fetched_footer_plugs_id && want_id === fetched_footer_plugs_id) {
+    console.log("already have wanted footers");
     return false;
   }
+  console.log("WANT FOOTERS");
   return true;
 }
 
-async function fetch_footers(abortSignal) {
-  var want_footer_plugs_id = last_model.FooterPlugsID;
-  const response = await fetch("/api/footerPlugs/" + want_footer_plugs_id, { signal: abortSignal });
-  console.log("response " + response);
-  try {
-      const footer_model = await response.json();
-      fetched_footer_plugs_id = want_footer_plugs_id;
-      footers = footer_model.TextPlugs;
-      shuffle_array(footers);
-      next_footer();
-      return "footers fetched";
-  } catch (e) {
-    console.log(`couldn't fetch footers: ${e}`);
+async function fetch_footers(want_footer_plugs_id) {
+  const response = await fetch("/api/footerPlugs/" + want_footer_plugs_id, {});
+  const footer_model = await response.json();
+
+  if (want_footer_plugs_id != footer_model.FooterPlugsID) {
+    console.log("footer plug id changed while fetching, bailing");
+    return;
   }
+
+  fetched_footer_plugs_id = want_footer_plugs_id;
+  footers = footer_model.TextPlugs;
+  shuffle_array(footers);
+  next_footer();
 }
+
+let cached_fetch_footers_promise = function () {
+  let cached_promise_fetches_id = -1;  
+  let cached_promise = undefined;
+
+  // Return a promie that succeeds or takes a full minute (to prevent spamming).
+  // On success, the underlying request should make the footers start.
+  // On failure, we should put everything back into a state where we 
+  // can restart this (notably, not updating the globals and resetting
+  // the caching paramaters back to values likely to recreate the request).
+  return function () {
+    console.log("cached_fetch_footers_promise called...");
+    let want_footer_plugs_id = last_model.FooterPlugsID;
+    if (want_footer_plugs_id == cached_promise_fetches_id) {
+      console.log("returning cached promise for id ", want_footer_plugs_id);
+      return cached_promise;
+    }
+
+    console.log("making new promise");
+    cached_promise_fetches_id = want_footer_plugs_id;
+    cached_promise = fetch_footers(want_footer_plugs_id).finally(() => {
+      cached_promise_fetches_id = -1;
+      cached_promise = undefined;
+    })
+    return Promise.any([cached_promise, sleep(60 * 1000)]);
+  }
+}();
 
 const next_footer = (function () {
   var next_footer_offset = 99999;
@@ -139,6 +168,7 @@ const next_footer = (function () {
       next_footer_offset = 0;
       shuffle_array(footers);
     }
+    console.log("next_footer: I tried");
     set_html("footer", footers[next_footer_offset % footers.length]);
   }
 })()
@@ -344,15 +374,14 @@ function update_time_fields() {
 
 function update_big_clock() {
   if (typeof next_level_complete_at === 'undefined') {
-      console.log("NLCA undefined");
+    console.log("NLCA undefined");
     // this doesn't happen -- why?
     document.getElementById("clock").innerHTML = "??:??";
   }
-  console.log("NLCA defined, gonna render");
   var render = to_hmmss(millis_remaining_in_level());
   var clockElement = document.getElementById("clock");
   clockElement.innerHTML = render;
-  
+
   // Add/remove has-hours class for responsive sizing
   // Count colons to detect format: 1 colon = MM:SS (5 chars), 2 colons = H:MM:SS (7+ chars)
   var colonCount = (render.match(/:/g) || []).length;
@@ -367,7 +396,7 @@ function update_big_clock() {
 function install_keyboard_handlers() {
   console.log("installing keyboard handlers");
 
-  function toggle_clock_controls_lock() {
+  function toggle_clock_controls_lock(_) {
     clock_controls_locked = !clock_controls_locked;
     if (clock_controls_locked) {
       console.log("clock controls locked");
@@ -380,13 +409,13 @@ function install_keyboard_handlers() {
     }
   }
 
-  function next_footer_key() {
+  function next_footer_key(_) {
     next_footer();
     clearInterval(footer_interval_id);
     footer_interval_id = setInterval(next_footer, next_footer_interval_ms);
   }
 
-  function send_modify(event) {
+  function send_modify(event, shift) {
     fetch('/api/keyboard-control', {
       method: 'POST',
       mode: 'same-origin',
@@ -396,26 +425,27 @@ function install_keyboard_handlers() {
       body: JSON.stringify({
         "Event": event,
         "TournamentID": tournament_id(),
+        "Shift": shift,
       })
     }).catch(error => console.log(`error in request for modify event ${event}: ${error}`));
   }
 
   function smwa(arg) {
-    return function () { send_modify(arg); }
+    return function (shift) { send_modify(arg, shift); }
   }
 
   // if paused && clock unlocked, send modify with arg
   function ipcusmwa(arg) {
-    return function () {
+    return function (shift) {
       if (!clock_controls_locked && !last_model.State.IsClockRunning) {
-        send_modify(arg);
+        send_modify(arg, shift);
       } else {
         console.log(`clock_controls_locked=${clock_controls_locked} and running=$(last_model.State.IsClockRunning}`)
       }
     }
   }
 
-  function toggle_pause() {
+  function toggle_pause(_) {
     if (last_model === undefined) {
       console.log("last_model undefined")
     } else if (last_model.State.IsClockRunning) {
@@ -427,7 +457,7 @@ function install_keyboard_handlers() {
 
   var showing_help = false;
 
-  function show_help_dialog() {
+  function show_help_dialog(_) {
     const helpDialog = document.getElementById("help-dialog");
     if (helpDialog) {
       helpDialog.style.display = "block";
@@ -435,7 +465,7 @@ function install_keyboard_handlers() {
     }
   }
 
-  function hide_help_dialog() {
+  function hide_help_dialog(_) {
     const helpDialog = document.getElementById("help-dialog");
     if (helpDialog) {
       helpDialog.style.display = "none";
@@ -443,7 +473,7 @@ function install_keyboard_handlers() {
     }
   }
 
-  function handle_escape() {
+  function handle_escape(_) {
     if (showing_help) {
       hide_help_dialog();
     } else {
@@ -451,7 +481,7 @@ function install_keyboard_handlers() {
     }
   }
 
-  function redirect_to_edit() {
+  function redirect_to_edit(_) {
     redirect(window.location.pathname + "/edit");
   }
 
@@ -485,14 +515,14 @@ function install_keyboard_handlers() {
   }, false);
 
   document.addEventListener('keyup', (event) => {
-    var code = event.code;
+    let code = event.code, shift = event.shiftKey;
     if (event.key === 'F1') {
       event.preventDefault();
     }
     var handler = keycode_to_handler[code];
     if (typeof handler !== 'undefined') {
       // console.log(`Key pressed ${event} ${code} => ${handler}`);
-      handler();
+      handler(event.shiftKey);
     } else {
       console.log(`drop key ${code}`)
     }
@@ -515,7 +545,7 @@ const cached_change_listener = (() => {
     controller = new AbortController();
     cached_promise = Promise.any([
       listen_and_consume_model_changes(controller.signal),
-      sleep(10*1000),
+      sleep(10 * 1000),
     ]).then(how => { cached_promise = undefined; return how; })
   }
 
@@ -535,24 +565,21 @@ const cached_change_listener = (() => {
 })();
 
 async function tick() {
-  const controller = new AbortController();
-  const abortSignal = controller.signal;
   let wait = [cached_change_listener()];
   if (last_model.State.IsClockRunning) {
     wait.push(maybe_clock_tick());
   }
   if (want_footers()) {
-    wait.push(fetch_footers(abortSignal))
+    console.log("main event: want footers");
+    wait.push(cached_fetch_footers_promise())
   }
 
-  Promise.any(wait).then((result) => {
-    console.log(`awaited! waiters=${wait} result=${result}`);
-  }).catch((e) => {
+  Promise.any(wait).catch((e) => {
     console.log(`tick threw up: ${e}`);
   }).finally(() => {
-    controller.abort("promise (probably tick) done");
     setTimeout(tick, 50);
   });
 }
 
+start_rotating_footers();
 tick();
