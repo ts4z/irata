@@ -239,6 +239,7 @@ function import_new_model_from_server(model) {
 
   update_time_fields();
 
+  set_html("prize-pool", model.State.PrizePool)
   set_html("current-players", model.State.CurrentPlayers)
   set_html("buyins", model.State.BuyIns)
   // set rebuys
