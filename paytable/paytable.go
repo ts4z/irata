@@ -30,18 +30,18 @@ type PaytableSlug struct {
 }
 
 // Payout calculates prize distribution for this specific payout table.
-func (pt *Paytable) Payout(totalPrizePool int64, numPlayers int) ([]int64, error) {
+func (pt *Paytable) Payout(totalPrizePool int, numPlayers int) ([]int, error) {
 	// Get the payout percentages for the given number of players
 	percentages := pt.findRow(numPlayers)
 	if len(percentages) == 0 {
 		return nil, fmt.Errorf("no payout row found for %d players", numPlayers)
 	}
 
-	prizes := make([]int64, len(percentages))
-	totalAllocated := int64(0)
+	prizes := make([]int, len(percentages))
+	totalAllocated := int(0)
 
 	for i := 0; i < len(percentages); i++ {
-		prizes[i] = (totalPrizePool * int64(percentages[i])) / 10000
+		prizes[i] = (totalPrizePool * int(percentages[i])) / 10000
 		totalAllocated += prizes[i]
 	}
 

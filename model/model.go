@@ -2,9 +2,13 @@ package model
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"math"
+	"strings"
 	"time"
+
+	"github.com/ts4z/irata/paytable"
 )
 
 const (
@@ -83,6 +87,7 @@ type Tournament struct {
 	PrizePoolPerBuyIn int // amount to prize pool per buy-in
 	PrizePoolPerAddOn int // amount to prize pool per add-on
 
+	PaytableID      int64 // ID of the paytable to use for prize pool calculation
 	FromStructureID int64 // ID of the structure this was denormalized from
 	Structure       *StructureData
 
@@ -152,7 +157,8 @@ type State struct {
 	TotalChipsOverride     int // if > 0, overrides computed total chips
 	TotalPrizePoolOverride int // if > 0, overrides computed prize pool
 
-	PrizePool string // right-hand side display, usually (but not always) the prize pool
+	AutoComputePrizePool bool
+	PrizePool            string // right-hand side display, usually (but not always) the prize pool
 
 	// EndsAt indicates when the level ends iff the clock is running.  This is in
 	// Unix millis.  This value is not useful if the current level is paused, because
@@ -570,4 +576,84 @@ type TournamentSlug struct {
 // Overview describes the available events for the event list.
 type Overview struct {
 	Slugs []TournamentSlug
+}
+
+func (m *Tournament) TotalPrizePool() int {
+	if m.State.TotalPrizePoolOverride > 0 {
+		return int(m.State.TotalPrizePoolOverride)
+	} else {
+		buyIns := m.PrizePoolPerBuyIn * m.State.BuyIns
+		addOns := m.PrizePoolPerAddOn * m.State.AddOns
+		return buyIns + addOns
+	}
+}
+
+// ComputePrizePoolText calculates the prize pool distribution and returns
+// a formatted text block suitable for display in the PrizePool textarea.
+// Returns an error if the paytable is nil or if the calculation fails.
+func (m *Tournament) ComputePrizePoolText(pt *paytable.Paytable) (string, error) {
+	if pt == nil {
+		return "", errors.New("paytable is nil")
+	}
+
+	// Calculate total prize pool
+	totalPrizePool := m.TotalPrizePool()
+
+	// Calculate total prize pool less saves
+	savesAmount := m.State.AmountPerSave * m.State.Saves
+	totalPrizePoolLessSaves := totalPrizePool - savesAmount
+
+	if totalPrizePoolLessSaves <= 0 {
+		return "", errors.New("total prize pool less saves must be positive")
+	}
+
+	// Use number of buy-ins (not current players) for payout calculation
+	numBuyIns := m.State.BuyIns
+	if numBuyIns <= 0 {
+		return "", errors.New("number of buy-ins must be positive")
+	}
+
+	// Get the prize distribution from the paytable
+	prizes, err := pt.Payout(totalPrizePoolLessSaves, numBuyIns)
+	if err != nil {
+		return "", fmt.Errorf("failed to calculate payout: %w", err)
+	}
+
+	// Format the output
+	var lines []string
+
+	// Add main prizes
+	for i, prize := range prizes {
+		place := i + 1
+		placeStr := formatPlace(place)
+		lines = append(lines, fmt.Sprintf("%s: $%d", placeStr, prize))
+	}
+
+	// Add saves if any
+	if m.State.Saves > 0 {
+		for i := 0; i < m.State.Saves; i++ {
+			savePlace := len(prizes) + i + 1
+			savePlaceStr := formatPlace(savePlace)
+			lines = append(lines, fmt.Sprintf("%s: $%d*", savePlaceStr, m.State.AmountPerSave))
+		}
+		lines = append(lines, "* save")
+	}
+
+	return strings.Join(lines, "\n"), nil
+}
+
+// formatPlace converts a numeric place (1, 2, 3, ...) to a string ("1st", "2nd", "3rd", ...).
+func formatPlace(place int) string {
+	suffix := "th"
+	if place%100 < 11 || place%100 > 13 {
+		switch place % 10 {
+		case 1:
+			suffix = "st"
+		case 2:
+			suffix = "nd"
+		case 3:
+			suffix = "rd"
+		}
+	}
+	return fmt.Sprintf("%d%s", place, suffix)
 }

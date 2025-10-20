@@ -106,6 +106,20 @@ func (a *Actor) EditEvent(ctx context.Context, id int64, form url.Values) error 
 	maybeCopyInt(form, &t.State.CurrentPlayers, "CurrentPlayers")
 	maybeCopyInt(form, &t.State.BuyIns, "BuyIns")
 	maybeCopyInt(form, &t.State.AddOns, "AddOns")
+	maybeCopyInt(form, &t.State.Saves, "NumberOfSaves")
+	maybeCopyInt(form, &t.State.AmountPerSave, "AmountPerSave")
+	maybeCopyInt(form, &t.State.TotalPrizePoolOverride, "TotalPrizePoolOverride")
+	maybeCopyInt(form, &t.PrizePoolPerBuyIn, "PrizePoolPerBuyIn")
+	maybeCopyInt(form, &t.PrizePoolPerAddOn, "PrizePoolPerAddOn")
+
+	// Handle prize pool mode
+	prizePoolMode := form.Get("PrizePoolMode")
+	if prizePoolMode == "calculated" {
+		t.State.AutoComputePrizePool = true
+		maybeCopyInt64(form, &t.PaytableID, "PaytableID")
+	} else {
+		t.State.AutoComputePrizePool = false
+	}
 
 	return a.storage.SaveTournament(ctx, t)
 }

@@ -28,6 +28,7 @@ import (
 	"github.com/ts4z/irata/middleware/labrea"
 	"github.com/ts4z/irata/model"
 	"github.com/ts4z/irata/password"
+	"github.com/ts4z/irata/paytable"
 	"github.com/ts4z/irata/permission"
 	"github.com/ts4z/irata/state"
 	"github.com/ts4z/irata/textutil"
@@ -56,14 +57,15 @@ type modifiers struct {
 type irataApp struct {
 	listenAddress string
 
-	templates   *template.Template
-	storage     state.AppStorage
-	siteStorage state.SiteStorage
-	userStorage state.UserStorage
-	mutator     *action.Actor
-	subFS       fs.FS
-	bakery      *permission.Bakery
-	clock       nower
+	templates       *template.Template
+	appStorage      state.AppStorage
+	siteStorage     state.SiteStorage
+	userStorage     state.UserStorage
+	paytableStorage state.PaytableStorage
+	mutator         *action.Actor
+	subFS           fs.FS
+	bakery          *permission.Bakery
+	clock           nower
 
 	keypressHandlers map[string]func(*model.Tournament, *modifiers) error
 
@@ -72,7 +74,7 @@ type irataApp struct {
 }
 
 func (app *irataApp) fetchTournament(ctx context.Context, id int64) (*model.Tournament, error) {
-	t, err := app.storage.FetchTournament(ctx, id)
+	t, err := app.appStorage.FetchTournament(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -200,14 +202,14 @@ func (app *irataApp) installHandlers() {
 
 	app.requiringAdminHandleFunc("/manage/structure", func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		// Fetch all structures
-		slugs, err := app.storage.FetchStructureSlugs(ctx, 0, 100)
+		slugs, err := app.appStorage.FetchStructureSlugs(ctx, 0, 100)
 		if err != nil {
 			he.SendErrorToHTTPClient(w, "fetch structure slugs", err)
 			return
 		}
 		structures := []*model.Structure{}
 		for _, slug := range slugs {
-			st, err := app.storage.FetchStructure(ctx, slug.ID)
+			st, err := app.appStorage.FetchStructure(ctx, slug.ID)
 			if err == nil {
 				structures = append(structures, st)
 			}
@@ -223,12 +225,12 @@ func (app *irataApp) installHandlers() {
 	app.requiringAdminHandleFunc("/create/tournament", func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		var flash string
 		// Fetch available structures and footer plug sets
-		structures, err := app.storage.FetchStructureSlugs(ctx, 0, 100)
+		structures, err := app.appStorage.FetchStructureSlugs(ctx, 0, 100)
 		if err != nil {
 			he.SendErrorToHTTPClient(w, "fetch structure slugs", err)
 			return
 		}
-		footers, err := app.storage.ListFooterPlugSets(ctx)
+		footers, err := app.appStorage.ListFooterPlugSets(ctx)
 		if err != nil {
 			he.SendErrorToHTTPClient(w, "fetch footer plug sets", err)
 			return
@@ -247,7 +249,7 @@ func (app *irataApp) installHandlers() {
 					flash = "All required fields must be filled"
 				} else {
 					// Fetch structure and denormalize into tournament
-					structure, err := app.storage.FetchStructure(ctx, structureID)
+					structure, err := app.appStorage.FetchStructure(ctx, structureID)
 					if err != nil {
 						log.Printf("error fetching structure %d: %v", structureID, err)
 						flash = "Error fetching structure"
@@ -261,7 +263,7 @@ func (app *irataApp) installHandlers() {
 							Structure:       &structure.StructureData,
 							State:           &model.State{PrizePool: prizePool},
 						}
-						id, err := app.storage.CreateTournament(ctx, t)
+						id, err := app.appStorage.CreateTournament(ctx, t)
 						if err != nil {
 							log.Printf("error creating tournament: %v", err)
 							flash = "Error creating tournament (is the handle not unique?)"
@@ -318,13 +320,13 @@ func (app *irataApp) installHandlers() {
 				if name == "" || len(levels) == 0 {
 					flash = "Structure name and at least one level required"
 				} else {
-					st, err := app.storage.FetchStructure(ctx, id)
+					st, err := app.appStorage.FetchStructure(ctx, id)
 					if err != nil {
 						flash = "Error fetching structure"
 					} else {
 						st.Name = name
 						st.Levels = levels
-						err := app.storage.SaveStructure(ctx, st)
+						err := app.appStorage.SaveStructure(ctx, st)
 						if err != nil {
 							flash = "Error saving structure"
 						} else {
@@ -335,7 +337,7 @@ func (app *irataApp) installHandlers() {
 				}
 			}
 		}
-		st, err := app.storage.FetchStructure(ctx, id)
+		st, err := app.appStorage.FetchStructure(ctx, id)
 		if err != nil {
 			he.SendErrorToHTTPClient(w, "fetch structure", err)
 			return
@@ -371,7 +373,7 @@ func (app *irataApp) installHandlers() {
 				if name == "" {
 					flash = "Set name required"
 				} else {
-					err := app.storage.UpdateFooterPlugSet(ctx, id, name, plugs)
+					err := app.appStorage.UpdateFooterPlugSet(ctx, id, name, plugs)
 					if err != nil {
 						flash = "Error saving footer plug set"
 					} else {
@@ -381,7 +383,7 @@ func (app *irataApp) installHandlers() {
 				}
 			}
 		}
-		fp, err := app.storage.FetchPlugs(ctx, id)
+		fp, err := app.appStorage.FetchPlugs(ctx, id)
 		if err != nil {
 			he.SendErrorToHTTPClient(w, "fetch footer plug set", err)
 			return
@@ -437,7 +439,7 @@ func (app *irataApp) installHandlers() {
 						},
 						Name: name,
 					}
-					_, err := app.storage.CreateStructure(ctx, st)
+					_, err := app.appStorage.CreateStructure(ctx, st)
 					if err != nil {
 						flash = "Error saving structure"
 					} else {
@@ -453,7 +455,7 @@ func (app *irataApp) installHandlers() {
 		var structure *model.Structure
 		if templateID != "" {
 			if id, err := strconv.ParseInt(templateID, 10, 64); err == nil {
-				if st, err := app.storage.FetchStructure(ctx, id); err == nil {
+				if st, err := app.appStorage.FetchStructure(ctx, id); err == nil {
 					// Clone the structure but clear its ID
 					structure = &model.Structure{
 						StructureData: model.StructureData{
@@ -493,7 +495,7 @@ func (app *irataApp) installHandlers() {
 	})
 
 	app.requiringAdminTakingIDHandleFunc("/manage/structure/{id}/delete", func(ctx context.Context, id int64, w http.ResponseWriter, r *http.Request) {
-		err := app.storage.DeleteStructure(ctx, id)
+		err := app.appStorage.DeleteStructure(ctx, id)
 		if err != nil {
 			he.SendErrorToHTTPClient(w, "delete structure", err)
 			return
@@ -513,7 +515,7 @@ func (app *irataApp) installHandlers() {
 					flash = "All fields required"
 				} else {
 					plugs := parseFooterPlugsBox(plugsRaw)
-					id, err := app.storage.CreateFooterPlugSet(ctx, name, plugs)
+					id, err := app.appStorage.CreateFooterPlugSet(ctx, name, plugs)
 					if err != nil {
 						log.Printf("error creating footer plug set: %v", err)
 						flash = "Error saving footer plug set"
@@ -536,7 +538,7 @@ func (app *irataApp) installHandlers() {
 			return
 		}
 
-		err = app.storage.DeleteFooterPlugSet(ctx, id)
+		err = app.appStorage.DeleteFooterPlugSet(ctx, id)
 		if err != nil {
 			he.SendErrorToHTTPClient(w, "delete footer plug set", err)
 			return
@@ -545,7 +547,7 @@ func (app *irataApp) installHandlers() {
 	})
 
 	app.requiringAdminHandleFunc("/manage/footer-set/", func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-		sets, err := app.storage.ListFooterPlugSets(ctx)
+		sets, err := app.appStorage.ListFooterPlugSets(ctx)
 		if err != nil {
 			he.SendErrorToHTTPClient(w, "fetch footer plug sets", err)
 			return
@@ -569,7 +571,7 @@ func (app *irataApp) installHandlers() {
 		}
 
 		// TODO: pagination
-		o, err := app.storage.FetchOverview(ctx, 0, 100)
+		o, err := app.appStorage.FetchOverview(ctx, 0, 100)
 		if err != nil {
 			he.SendErrorToHTTPClient(w, "fetch overview", err)
 			return
@@ -603,7 +605,7 @@ func (app *irataApp) installHandlers() {
 	})
 
 	app.requiringAdminTakingIDHandleFunc("/t/{id}/delete", func(ctx context.Context, id64 int64, w http.ResponseWriter, r *http.Request) {
-		if err := app.storage.DeleteTournament(ctx, id64); err != nil {
+		if err := app.appStorage.DeleteTournament(ctx, id64); err != nil {
 			he.SendErrorToHTTPClient(w, "delete tournament", err)
 		} else {
 			http.Redirect(w, r, "/", http.StatusPermanentRedirect)
@@ -629,14 +631,19 @@ func (app *irataApp) installHandlers() {
 		}
 
 		// Fetch structures and footer sets for the edit form
-		structures, err := app.storage.FetchStructureSlugs(ctx, 0, 100)
+		structures, err := app.appStorage.FetchStructureSlugs(ctx, 0, 100)
 		if err != nil {
 			he.SendErrorToHTTPClient(w, "fetch structure slugs", err)
 			return
 		}
-		footers, err := app.storage.ListFooterPlugSets(ctx)
+		footers, err := app.appStorage.ListFooterPlugSets(ctx)
 		if err != nil {
 			he.SendErrorToHTTPClient(w, "fetch footer plug sets", err)
+			return
+		}
+		paytables, err := app.paytableStorage.FetchPayoutTableSlugs(ctx)
+		if err != nil {
+			he.SendErrorToHTTPClient(w, "fetch paytable slugs", err)
 			return
 		}
 
@@ -644,12 +651,14 @@ func (app *irataApp) installHandlers() {
 			Tournament *model.Tournament
 			Structures []*model.StructureSlug
 			FooterSets []*model.FooterPlugs
+			Paytables  []*paytable.PaytableSlug
 			IsAdmin    bool
 			IsNew      bool
 		}{
 			Tournament: t,
 			Structures: structures,
 			FooterSets: footers,
+			Paytables:  paytables,
 			IsAdmin:    permission.IsAdmin(ctx),
 			IsNew:      false,
 		}
@@ -666,7 +675,7 @@ func (app *irataApp) installHandlers() {
 			return
 		}
 
-		fp, err := app.storage.FetchPlugs(r.Context(), id)
+		fp, err := app.appStorage.FetchPlugs(r.Context(), id)
 		if err != nil {
 			he.SendErrorToHTTPClient(w, "get plugs from db", err)
 			return
@@ -785,7 +794,7 @@ func (app *irataApp) installHandlers() {
 		errCh := make(chan error, 1)
 		tournamentCh := make(chan *model.Tournament, 1)
 		timeoutCh := time.After(time.Hour)
-		go app.storage.ListenTournamentVersion(r.Context(), req.TournamentID, req.Version, errCh, tournamentCh)
+		go app.appStorage.ListenTournamentVersion(r.Context(), req.TournamentID, req.Version, errCh, tournamentCh)
 		select {
 		case err := <-errCh:
 			he.SendErrorToHTTPClient(w, "listening for tournament version change", err)
@@ -917,7 +926,7 @@ func (app *irataApp) handleKeypress(ctx context.Context, r *http.Request) error 
 			return he.HTTPCodedErrorf(500, "while applying keyboard event: %w", err)
 		}
 
-		if err := app.storage.SaveTournament(ctx, t); err != nil {
+		if err := app.appStorage.SaveTournament(ctx, t); err != nil {
 			return he.HTTPCodedErrorf(500, "save tournament after keypress: %w", err)
 		}
 	}
@@ -929,6 +938,69 @@ func (app *irataApp) installKeyboardHandlers() {
 		err := app.handleKeypress(ctx, r)
 		if err != nil {
 			he.SendErrorToHTTPClient(w, "handleKeypress", err)
+		}
+	})
+
+	app.requiringAdminHandleFunc("/api/prizePoolCalculator", func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			he.SendErrorToHTTPClient(w, "method not allowed", he.HTTPCodedErrorf(http.StatusMethodNotAllowed, "only POST allowed"))
+			return
+		}
+
+		// Parse JSON request body
+		var req struct {
+			PaytableID             int64 `json:"paytableId"`
+			BuyIns                 int   `json:"buyIns"`
+			AddOns                 int   `json:"addOns"`
+			Saves                  int   `json:"saves"`
+			AmountPerSave          int   `json:"amountPerSave"`
+			PrizePoolPerBuyIn      int   `json:"prizePoolPerBuyIn"`
+			PrizePoolPerAddOn      int   `json:"prizePoolPerAddOn"`
+			TotalPrizePoolOverride int   `json:"totalPrizePoolOverride"`
+		}
+
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			he.SendErrorToHTTPClient(w, "decode request", he.HTTPCodedErrorf(http.StatusBadRequest, "invalid JSON: %w", err))
+			return
+		}
+
+		// Fetch the paytable
+		pt, err := app.paytableStorage.FetchPayoutTableByID(ctx, req.PaytableID)
+		if err != nil {
+			he.SendErrorToHTTPClient(w, "fetch paytable", err)
+			return
+		}
+
+		// Create a temporary tournament with the parameters
+		tempTournament := &model.Tournament{
+			PrizePoolPerBuyIn: req.PrizePoolPerBuyIn,
+			PrizePoolPerAddOn: req.PrizePoolPerAddOn,
+			State: &model.State{
+				BuyIns:                 req.BuyIns,
+				AddOns:                 req.AddOns,
+				Saves:                  req.Saves,
+				AmountPerSave:          req.AmountPerSave,
+				TotalPrizePoolOverride: req.TotalPrizePoolOverride,
+			},
+		}
+
+		// Compute the prize pool text
+		prizePoolText, err := tempTournament.ComputePrizePoolText(pt)
+		if err != nil {
+			he.SendErrorToHTTPClient(w, "compute prize pool", err)
+			return
+		}
+
+		// Return the formatted text
+		response := struct {
+			PrizePoolText string `json:"prizePoolText"`
+		}{
+			PrizePoolText: prizePoolText,
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(response); err != nil {
+			log.Printf("error encoding response: %v", err)
 		}
 	})
 }
@@ -1014,8 +1086,16 @@ func main() {
 
 	csp := http.NewCrossOriginProtection()
 
-	app := &irataApp{storage: storage, siteStorage: unprotectedStorage, userStorage: unprotectedStorage,
-		mutator: mutator, subFS: subFS, bakery: bakery, clock: clock}
+	app := &irataApp{
+		appStorage:      storage,
+		siteStorage:     unprotectedStorage,
+		paytableStorage: state.NewDefaultPaytableStorage(),
+		userStorage:     unprotectedStorage,
+		mutator:         mutator,
+		subFS:           subFS,
+		bakery:          bakery,
+		clock:           clock,
+	}
 	app.mux = http.NewServeMux()
 	// Stack the handlers together.  This isn't pretty.
 	tarpit := labrea.New(clockwork.NewRealClock(), middleware.NewRequestLogger(csp.Handler(&CookieParser{app: app, next: app.mux}), app.clock))

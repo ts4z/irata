@@ -51,11 +51,6 @@
             </div>
 
             <div class="form-group">
-                <label for="TotalPrizePoolOverride">Total Chips Override</label>
-                <input type="text" id="TotalPrizePoolOverride" name="TotalPrizePoolOverride" maxlength="30" pattern="[0-9,]+" placeholder="0 to auto-compute" value="{{ .State.TotalPrizePoolOverride }}">
-            </div>
-
-            <div class="form-group">
                 <label for="PrizePool">Prize Pool Message</label>
                 <small>Free-form text. No HTML tags.</small>
                 <textarea id="PrizePool" name="PrizePool" rows="10" cols="50"></textarea>
@@ -88,12 +83,17 @@
 
             <div class="form-group">
                 <label for="ChipsPerBuyIn">Prize Pool Per Buy-In</label>
-                <input type="text" id="PrizePoolPerBuyIn" name="PrizePoolPerBuyIn" maxlength="30" pattern="[0-9,]+" required value="{{ .Structure.PrizePoolPerBuyIn }}">
+                <input type="text" id="PrizePoolPerBuyIn" name="PrizePoolPerBuyIn" maxlength="30" pattern="[0-9,]+" required value="{{ .PrizePoolPerBuyIn }}">
             </div>
 
             <div class="form-group">
                 <label for="ChipsPerBuyIn">Prize Pool Per Add On</label>
-                <input type="text" id="PrizePoolPerAddOn" name="PrizePoolPerAddOn" maxlength="30" pattern="[0-9,]+" required value="{{ .Structure.PrizePoolPerAddOn }}">
+                <input type="text" id="PrizePoolPerAddOn" name="PrizePoolPerAddOn" maxlength="30" pattern="[0-9,]+" required value="{{ .PrizePoolPerAddOn }}">
+            </div>
+
+            <div class="form-group">
+                <label for="TotalPrizePoolOverride">Total Chips Override</label>
+                <input type="text" id="TotalPrizePoolOverride" name="TotalPrizePoolOverride" maxlength="30" pattern="[0-9,]+" placeholder="0 to auto-compute" value="{{ .State.TotalPrizePoolOverride }}">
             </div>
 
             <div class="form-group">
@@ -103,7 +103,7 @@
             </div>
 
             <div class="form-group">
-                <label for="Saves">Amount per Save</label>
+                <label for="AmountPerSave">Amount per Save</label>
                 <input type="text" id="AmountPerSave" name="AmountPerSave" maxlength="30" pattern="[0-9,]+" 
                  value="{{ .State.AmountPerSave }}">
             </div>
@@ -124,9 +124,28 @@
             </div>
 
             <div class="form-group">
+                <label for="PrizePoolMode">Prize Pool Mode</label>
+                <select id="PrizePoolMode" name="PrizePoolMode" onchange="togglePrizePoolMode()">
+                    <option value="manual" {{ if not .State.AutoComputePrizePool }}selected{{ end }}>Manual Message</option>
+                    <option value="calculated" {{ if .State.AutoComputePrizePool }}selected{{ end }}>Calculated Prize Pool</option>
+                </select>
+            </div>
+
+            <div class="form-group" id="PaytableGroup" style="{{ if not .State.AutoComputePrizePool }}display: none;{{ end }}">
+                <label for="PaytableID">Paytable</label>
+                <select id="PaytableID" name="PaytableID" onchange="recalculatePrizePool()">
+                    {{ range $.Paytables }}
+                    <option value="{{ .ID }}" {{ if eq .ID $.Tournament.PaytableID }}selected{{ end }}>{{ .Name }}</option>
+                    {{ end }}
+                </select>
+            </div>
+
+            <div class="form-group">
+                
+
                 <label for="PrizePool">Prize Pool</label>
-                <small>Free-form text. No HTML tags.</small>
-                <textarea id="PrizePool" name="PrizePool" rows="10" cols="50">{{ .State.PrizePool }}</textarea>
+                <small id="PrizePoolHelp">{{ if .State.AutoComputePrizePool }}Automatically calculated based on buy-ins, add-ons, and selected paytable{{ else }}Free-form text. No HTML tags.{{ end }}</small>
+                <textarea id="PrizePool" name="PrizePool" rows="10" cols="50" {{ if .State.AutoComputePrizePool }}readonly{{ end }}>{{ .State.PrizePool }}</textarea>
             </div>
 
             <div class="form-group">
@@ -161,10 +180,98 @@
                         select.setAttribute('required', 'required');
                     }
                 }
+
+                function togglePrizePoolMode() {
+                    const mode = document.getElementById('PrizePoolMode').value;
+                    const paytableGroup = document.getElementById('PaytableGroup');
+                    const prizePoolTextarea = document.getElementById('PrizePool');
+                    const helpText = document.getElementById('PrizePoolHelp');
+                    
+                    if (mode === 'calculated') {
+                        paytableGroup.style.display = 'block';
+                        prizePoolTextarea.readOnly = true;
+                        helpText.textContent = 'Automatically calculated based on buy-ins, add-ons, and selected paytable';
+                        recalculatePrizePool();
+                    } else {
+                        paytableGroup.style.display = 'none';
+                        prizePoolTextarea.readOnly = false;
+                        helpText.textContent = 'Free-form text (no HTML).';
+                    }
+                }
+
+                async function recalculatePrizePool() {
+                    const mode = document.getElementById('PrizePoolMode').value;
+                    if (mode !== 'calculated') {
+                        return;
+                    }
+
+                    // Gather parameters
+                    const paytableId = parseInt(document.getElementById('PaytableID').value);
+                    const buyIns = parseInt(document.getElementById('BuyIns').value) || 0;
+                    const addOns = parseInt(document.getElementById('AddOns').value) || 0;
+                    const saves = parseInt(document.getElementById('Saves').value) || 0;
+                    const amountPerSave = parseInt(document.getElementById('AmountPerSave').value) || 0;
+                    const prizePoolPerBuyIn = parseInt(document.getElementById('PrizePoolPerBuyIn').value) || 0;
+                    const prizePoolPerAddOn = parseInt(document.getElementById('PrizePoolPerAddOn').value) || 0;
+                    const totalPrizePoolOverride = parseInt(document.getElementById('TotalPrizePoolOverride').value) || 0;
+
+                    try {
+                        const response = await fetch('/api/prizePoolCalculator', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                paytableId,
+                                buyIns,
+                                addOns,
+                                saves,
+                                amountPerSave,
+                                prizePoolPerBuyIn,
+                                prizePoolPerAddOn,
+                                totalPrizePoolOverride
+                            })
+                        });
+
+                        if (!response.ok) {
+                            throw new Error('Failed to calculate prize pool');
+                        }
+
+                        const data = await response.json();
+                        document.getElementById('PrizePool').value = data.prizePoolText;
+                    } catch (error) {
+                        console.error('Error calculating prize pool:', error);
+                        document.getElementById('PrizePool').value = 'Error calculating prize pool';
+                    }
+                }
+
+                // Add event listeners for recalculation on field changes
+                document.addEventListener('DOMContentLoaded', function() {
+                    const fieldsToWatch = [
+                        'BuyIns', 'AddOns', 'NumberOfSaves', 'AmountPerSave',
+                        'PrizePoolPerBuyIn', 'PrizePoolPerAddOn', 'TotalPrizePoolOverride'
+                    ];
+                    
+                    fieldsToWatch.forEach(fieldId => {
+                        const field = document.getElementById(fieldId);
+                        if (field) {
+                            field.addEventListener('input', () => {
+                                if (document.getElementById('PrizePoolMode').value === 'calculated') {
+                                    recalculatePrizePool();
+                                }
+                            });
+                        }
+                    });
+
+                    // Initialize on load if in calculated mode
+                    if (document.getElementById('PrizePoolMode').value === 'calculated') {
+                        recalculatePrizePool();
+                    }
+                });
             </script>
 
             <div class="form-group">
-                <label for="TotalPlayers">Current Players</label>
+                <label for="CurrentPlayers">Current Players</label>
                 <input type="text" id="CurrentPlayers" name="CurrentPlayers" maxlength="6" pattern="[0-9,]+" value="{{ .State.CurrentPlayers }}">
             </div>
 
