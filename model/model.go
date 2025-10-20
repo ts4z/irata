@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	ServerVersion = 4
+	ServerVersion = 5
 )
 
 var (

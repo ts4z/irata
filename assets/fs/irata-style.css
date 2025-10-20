@@ -11,7 +11,7 @@ body {
 }
 
 .container {
-    max-width: 50vw;
+    max-width: max(50vw, 800px);
     margin: 2em auto;
     background: #111;
     padding: 2em;

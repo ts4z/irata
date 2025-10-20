@@ -2,7 +2,7 @@
 
 "use strict";
 
-const next_level_sound = new Audio('/fs/ascending.mp3');
+const next_level_sound = new Audio('/fs/alto-sax-a-d-fanfare.mp3');
 
 async function sleep(ms) {
   await new Promise(resolve => setTimeout(resolve, ms));
@@ -14,6 +14,10 @@ function tournament_id() {
 }
 
 function randN(n) { return Math.floor(Math.random() * n); }
+
+function fanfare(_ = undefined) {
+    next_level_sound.play();
+}
 
 // t is in milliseconds
 function to_hmmss(t) {
@@ -388,7 +392,7 @@ function advance_clock_from_wall_clock() {
       let oldMinutes = oldEndsAt.getMinutes();
       last_model.State.CurrentLevelEndsAt = new Date(oldEndsAt.setMinutes(oldMinutes + nextDurationMinutes)); // gross
 
-      next_level_sound.play();
+      fanfare();
     }
 
     update_time_fields();
@@ -530,6 +534,7 @@ function install_keyboard_handlers() {
     'Period': smwa('AddBuyIn'),
     'KeyE': redirect_to_edit,
     'KeyF': next_footer_key,
+    'KeyG': fanfare,
     'Backspace': toggle_clock_controls_lock,
     'Escape': handle_escape,
     'Slash': show_help_dialog,
