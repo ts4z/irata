@@ -103,6 +103,40 @@
             </div>
 
             <div class="form-group">
+                <label for="FooterPlugsID">Footer Plugs</label>
+                <select id="FooterPlugsID" name="FooterPlugsID" required>
+                    {{ range $.FooterSets }}
+                    <option value="{{ .FooterPlugsID }}" {{ if eq .FooterPlugsID $.Tournament.FooterPlugsID }}selected{{ end }}>{{ .Name }}</option>
+                    {{ end }}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" id="ChangeStructure" name="ChangeStructure" onchange="toggleStructureSelect()">
+                    Change Structure (will reset to level 0 and pause tournament)
+                </label>
+                <select id="StructureID" name="StructureID" disabled>
+                    {{ range $.Structures }}
+                    <option value="{{ .ID }}" {{ if eq .ID $.Tournament.FromStructureID }}selected{{ end }}>{{ .Name }}</option>
+                    {{ end }}
+                </select>
+            </div>
+
+            <script>
+                function toggleStructureSelect() {
+                    const checkbox = document.getElementById('ChangeStructure');
+                    const select = document.getElementById('StructureID');
+                    select.disabled = !checkbox.checked;
+                    if (!checkbox.checked) {
+                        select.removeAttribute('required');
+                    } else {
+                        select.setAttribute('required', 'required');
+                    }
+                }
+            </script>
+
+            <div class="form-group">
                 <label for="TotalPlayers">Current Players</label>
                 <input type="text" id="CurrentPlayers" name="CurrentPlayers" maxlength="6" pattern="[0-9,]+" value="{{ .State.CurrentPlayers }}">
             </div>

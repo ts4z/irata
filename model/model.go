@@ -85,7 +85,9 @@ type Tournament struct {
 	Description   string
 	FooterPlugsID int64
 
-	Structure  *StructureData
+	FromStructureID int64 // ID of the structure this was denormalized from
+	Structure       *StructureData
+
 	State      *State
 	Transients *Transients
 }

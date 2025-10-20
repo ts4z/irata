@@ -253,12 +253,13 @@ func (app *irataApp) installHandlers() {
 						flash = "Error fetching structure"
 					} else {
 						t := &model.Tournament{
-							EventName:     eventName,
-							Handle:        handle,
-							Description:   description,
-							FooterPlugsID: footerPlugsID,
-							Structure:     &structure.StructureData,
-							State:         &model.State{PrizePool: prizePool},
+							EventName:       eventName,
+							Handle:          handle,
+							Description:     description,
+							FooterPlugsID:   footerPlugsID,
+							FromStructureID: structureID,
+							Structure:       &structure.StructureData,
+							State:           &model.State{PrizePool: prizePool},
 						}
 						id, err := app.storage.CreateTournament(ctx, t)
 						if err != nil {
@@ -627,12 +628,28 @@ func (app *irataApp) installHandlers() {
 			return
 		}
 
+		// Fetch structures and footer sets for the edit form
+		structures, err := app.storage.FetchStructureSlugs(ctx, 0, 100)
+		if err != nil {
+			he.SendErrorToHTTPClient(w, "fetch structure slugs", err)
+			return
+		}
+		footers, err := app.storage.ListFooterPlugSets(ctx)
+		if err != nil {
+			he.SendErrorToHTTPClient(w, "fetch footer plug sets", err)
+			return
+		}
+
 		args := &struct {
 			Tournament *model.Tournament
+			Structures []*model.StructureSlug
+			FooterSets []*model.FooterPlugs
 			IsAdmin    bool
 			IsNew      bool
 		}{
 			Tournament: t,
+			Structures: structures,
+			FooterSets: footers,
 			IsAdmin:    permission.IsAdmin(ctx),
 			IsNew:      false,
 		}

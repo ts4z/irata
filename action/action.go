@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/ts4z/irata/he"
 	"github.com/ts4z/irata/state"
@@ -61,6 +62,38 @@ func (a *Actor) EditEvent(ctx context.Context, id int64, form url.Values) error 
 	}
 
 	maybeCopyInt64(form, &t.Version, "Version")
+
+	// Handle structure change if checkbox is checked
+	changeStructure := form.Get("ChangeStructure") == "on"
+	if changeStructure {
+		structureID, err := strconv.ParseInt(form.Get("StructureID"), 10, 64)
+		if err != nil || structureID == 0 {
+			return he.HTTPCodedErrorf(400, "invalid structure ID")
+		}
+
+		// Fetch the new structure
+		structure, err := a.storage.FetchStructure(ctx, structureID)
+		if err != nil {
+			return he.HTTPCodedErrorf(404, "can't fetch structure")
+		}
+
+		// Replace the structure and reset tournament state
+		t.Structure = &structure.StructureData
+		t.FromStructureID = structureID
+		t.State.CurrentLevelNumber = 0
+		t.State.IsClockRunning = false
+		timeRemaining := (time.Duration(structure.Levels[0].DurationMinutes) * time.Millisecond).Milliseconds()
+		t.State.TimeRemainingMillis = &timeRemaining
+		t.State.CurrentLevelEndsAt = nil
+		log.Printf("Structure changed to %d, reset to level 0 and paused", structureID)
+	}
+
+	// Handle footer plugs change
+	if footerPlugsID := form.Get("FooterPlugsID"); footerPlugsID != "" {
+		if id, err := strconv.ParseInt(footerPlugsID, 10, 64); err == nil && id > 0 {
+			t.FooterPlugsID = id
+		}
+	}
 
 	maybeCopyInt(form, &t.Structure.ChipsPerBuyIn, "ChipsPerBuyIn")
 	maybeCopyInt(form, &t.Structure.ChipsPerAddOn, "ChipsPerAddOn")
