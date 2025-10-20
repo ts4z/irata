@@ -439,7 +439,9 @@ func (s *DBStorage) FetchTournament(ctx context.Context, id int64) (*model.Tourn
 	tm.Handle = handle
 	tm.Version = lock
 	// These don't come from the database at all.
-	tm.FillTransients(s.clock)
+	// TODO: This shouldn't be here, because the database has no business
+	// having a clock or paytable fetcher dependency.
+	tm.FillTransients(&model.Deps{Clock: s.clock, PaytableFetcher: nil})
 
 	return tm, nil
 }
@@ -513,7 +515,15 @@ func (s *DBStorage) SaveTournament(
 	tm.Version = newVersion
 
 	cpy.Version = newVersion
-	cpy.FillTransients(s.clock)
+
+	// TODO: This is the wrong place for this; we have some things that need to be untangled.
+	// We don't need to FillTransients here, we're only doing that becasue the listener wants it.
+	// The listener logic should be split out of this module.  This will fail to update the PrizePool field
+	// (which is actually in the state) but it'll probably work because of the exact flow of stuff.
+	//
+	// The right thing to do is to make raw storage unaware of the listener, and build that as
+	// a lookaside cache in a decorator of this API.
+	cpy.FillTransients(&model.Deps{Clock: s.clock, PaytableFetcher: nil})
 
 	// Notify listeners for this tournament id
 	listeners := s.resetTournamentListeners(tm.EventID)

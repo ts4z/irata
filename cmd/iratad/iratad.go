@@ -53,6 +53,16 @@ type modifiers struct {
 	Shift bool
 }
 
+type editTournamentArgs struct {
+	Flash      string
+	Tournament *model.Tournament
+	Structures []*model.StructureSlug
+	FooterSets []*model.FooterPlugs
+	Paytables  []*paytable.PaytableSlug
+	IsAdmin    bool
+	IsNew      bool
+}
+
 // irataApp prevents the proliferation of global variables.
 type irataApp struct {
 	listenAddress string
@@ -66,6 +76,7 @@ type irataApp struct {
 	subFS           fs.FS
 	bakery          *permission.Bakery
 	clock           nower
+	modelDeps       *model.Deps
 
 	keypressHandlers map[string]func(*model.Tournament, *modifiers) error
 
@@ -275,12 +286,12 @@ func (app *irataApp) installHandlers() {
 				}
 			}
 		}
-		data := struct {
-			Structures []*model.StructureSlug
-			FooterSets []*model.FooterPlugs
-			Flash      string
-			IsNew      bool
-		}{Structures: structures, FooterSets: footers, Flash: flash, IsNew: true}
+		data := &editTournamentArgs{
+			Structures: structures,
+			FooterSets: footers,
+			Flash:      flash,
+			IsNew:      true,
+		}
 		if err := app.templates.ExecuteTemplate(w, "edit-tournament.html.tmpl", data); err != nil {
 			log.Printf("can't render edit-tournament template: %v", err)
 		}
@@ -641,20 +652,13 @@ func (app *irataApp) installHandlers() {
 			he.SendErrorToHTTPClient(w, "fetch footer plug sets", err)
 			return
 		}
-		paytables, err := app.paytableStorage.FetchPayoutTableSlugs(ctx)
+		paytables, err := app.paytableStorage.FetchPaytableSlugs(ctx)
 		if err != nil {
 			he.SendErrorToHTTPClient(w, "fetch paytable slugs", err)
 			return
 		}
 
-		args := &struct {
-			Tournament *model.Tournament
-			Structures []*model.StructureSlug
-			FooterSets []*model.FooterPlugs
-			Paytables  []*paytable.PaytableSlug
-			IsAdmin    bool
-			IsNew      bool
-		}{
+		args := &editTournamentArgs{
 			Tournament: t,
 			Structures: structures,
 			FooterSets: footers,
@@ -875,20 +879,25 @@ func if10min(b bool) time.Duration {
 	return ifb(b, 10*time.Minute, 1*time.Minute)
 }
 
-func makeKeyboardHandlers(clock ts.Clock) map[string]func(*model.Tournament, *modifiers) error {
-	// todo: it is bogus that these require a clock.  it would make more sense if these methods
+func makeKeyboardHandlers(clock ts.Clock, fetcher model.PaytableFetcher) map[string]func(*model.Tournament, *modifiers) error {
+	// todo: it is bogus that these require a deps.  it would make more sense if these methods
 	// were moved outside the model, since they are not just data, but actual actions.
+	deps := &model.Deps{
+		Clock:           clock,
+		PaytableFetcher: fetcher,
+	}
+
 	return map[string]func(t *model.Tournament, bb *modifiers) error{
-		"PreviousLevel": func(t *model.Tournament, bb *modifiers) error { return t.PreviousLevel(clock) },
-		"SkipLevel":     func(t *model.Tournament, bb *modifiers) error { return t.AdvanceLevel(clock) },
-		"StopClock":     func(t *model.Tournament, bb *modifiers) error { return t.StopClock(clock) },
-		"StartClock":    func(t *model.Tournament, bb *modifiers) error { return t.StartClock(clock) },
-		"RemovePlayer":  func(t *model.Tournament, bb *modifiers) error { return t.ChangePlayers(clock, -if10(bb.Shift)) },
-		"AddPlayer":     func(t *model.Tournament, bb *modifiers) error { return t.ChangePlayers(clock, if10(bb.Shift)) },
-		"AddBuyIn":      func(t *model.Tournament, bb *modifiers) error { return t.ChangeBuyIns(clock, if10(bb.Shift)) },
-		"RemoveBuyIn":   func(t *model.Tournament, bb *modifiers) error { return t.ChangeBuyIns(clock, -if10(bb.Shift)) },
-		"PlusMinute":    func(t *model.Tournament, bb *modifiers) error { return t.PlusTime(clock, if10min(bb.Shift)) },
-		"MinusMinute":   func(t *model.Tournament, bb *modifiers) error { return t.MinusTime(clock, if10min(bb.Shift)) },
+		"PreviousLevel": func(t *model.Tournament, bb *modifiers) error { return t.PreviousLevel(deps) },
+		"SkipLevel":     func(t *model.Tournament, bb *modifiers) error { return t.AdvanceLevel(deps) },
+		"StopClock":     func(t *model.Tournament, bb *modifiers) error { return t.StopClock(deps) },
+		"StartClock":    func(t *model.Tournament, bb *modifiers) error { return t.StartClock(deps) },
+		"RemovePlayer":  func(t *model.Tournament, bb *modifiers) error { return t.ChangePlayers(deps, -if10(bb.Shift)) },
+		"AddPlayer":     func(t *model.Tournament, bb *modifiers) error { return t.ChangePlayers(deps, if10(bb.Shift)) },
+		"AddBuyIn":      func(t *model.Tournament, bb *modifiers) error { return t.ChangeBuyIns(deps, if10(bb.Shift)) },
+		"RemoveBuyIn":   func(t *model.Tournament, bb *modifiers) error { return t.ChangeBuyIns(deps, -if10(bb.Shift)) },
+		"PlusMinute":    func(t *model.Tournament, bb *modifiers) error { return t.PlusTime(deps, if10min(bb.Shift)) },
+		"MinusMinute":   func(t *model.Tournament, bb *modifiers) error { return t.MinusTime(deps, if10min(bb.Shift)) },
 	}
 }
 
@@ -964,13 +973,6 @@ func (app *irataApp) installKeyboardHandlers() {
 			return
 		}
 
-		// Fetch the paytable
-		pt, err := app.paytableStorage.FetchPayoutTableByID(ctx, req.PaytableID)
-		if err != nil {
-			he.SendErrorToHTTPClient(w, "fetch paytable", err)
-			return
-		}
-
 		// Create a temporary tournament with the parameters
 		tempTournament := &model.Tournament{
 			PrizePoolPerBuyIn: req.PrizePoolPerBuyIn,
@@ -985,7 +987,7 @@ func (app *irataApp) installKeyboardHandlers() {
 		}
 
 		// Compute the prize pool text
-		prizePoolText, err := tempTournament.ComputePrizePoolText(pt)
+		prizePoolText, err := tempTournament.ComputePrizePoolText(app.paytableStorage)
 		if err != nil {
 			he.SendErrorToHTTPClient(w, "compute prize pool", err)
 			return
@@ -1086,21 +1088,24 @@ func main() {
 
 	csp := http.NewCrossOriginProtection()
 
+	paytableStorage := state.NewDefaultPaytableStorage()
+
 	app := &irataApp{
 		appStorage:      storage,
 		siteStorage:     unprotectedStorage,
-		paytableStorage: state.NewDefaultPaytableStorage(),
+		paytableStorage: paytableStorage,
 		userStorage:     unprotectedStorage,
 		mutator:         mutator,
 		subFS:           subFS,
 		bakery:          bakery,
 		clock:           clock,
+		modelDeps:       &model.Deps{Clock: clock, PaytableFetcher: paytableStorage},
 	}
 	app.mux = http.NewServeMux()
 	// Stack the handlers together.  This isn't pretty.
 	tarpit := labrea.New(clockwork.NewRealClock(), middleware.NewRequestLogger(csp.Handler(&CookieParser{app: app, next: app.mux}), app.clock))
 	app.handler = tarpit
-	app.keypressHandlers = makeKeyboardHandlers(clock)
+	app.keypressHandlers = makeKeyboardHandlers(clock, paytableStorage)
 	app.listenAddress = viper.GetString("listen_address")
 
 	app.loadTemplates()

@@ -1,6 +1,7 @@
 package model
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log"
@@ -14,6 +15,21 @@ import (
 const (
 	ServerVersion = 5
 )
+
+type Clock interface {
+	Now() time.Time
+}
+
+type PaytableFetcher interface {
+	FetchPaytableByID(ctx context.Context, id int64) (*paytable.Paytable, error)
+}
+
+// Dependencies for model methods.  (This is something of a bug, and looks
+// like a dumping ground.)
+type Deps struct {
+	Clock           Clock
+	PaytableFetcher PaytableFetcher
+}
 
 type AuthCookieData struct {
 	RealUserID      int64
@@ -217,9 +233,9 @@ func (m *Tournament) CurrentLevelEndsAtAsTime() time.Time {
 }
 
 // adjustStateForElapsedTime fixes the state to reflect the current time.
-func (m *Tournament) adjustStateForElapsedTime(clock Clock) {
+func (m *Tournament) adjustStateForElapsedTime(deps *Deps) {
 	if m.CurrentLevel() == nil {
-		m.RestartLastLevel(clock)
+		m.RestartLastLevel(deps)
 		return
 	}
 
@@ -227,10 +243,10 @@ func (m *Tournament) adjustStateForElapsedTime(clock Clock) {
 		if m.State.TimeRemainingMillis == nil {
 			if m.CurrentLevel() != nil {
 				log.Printf("BUG: clock is not running but TimeRemainingMillis is nil, resetting to full time")
-				m.restartLevel(clock)
+				m.restartLevel(deps)
 			} else {
 				log.Printf("BUG: clock running, no time remaining, no level?")
-				m.RestartLastLevel(clock)
+				m.RestartLastLevel(deps)
 			}
 		}
 		return
@@ -250,7 +266,7 @@ func (m *Tournament) adjustStateForElapsedTime(clock Clock) {
 
 	if m.State.CurrentLevelEndsAt == nil {
 		log.Printf("BUG: clock is running but CurrentLevelEndsAt is nil, resetting to full time")
-		later := clock.Now().Add(time.Duration(m.CurrentLevel().DurationMinutes) * time.Minute).UnixMilli()
+		later := deps.Clock.Now().Add(time.Duration(m.CurrentLevel().DurationMinutes) * time.Minute).UnixMilli()
 		m.State.CurrentLevelEndsAt = &later
 		m.State.TimeRemainingMillis = nil
 		return
@@ -258,7 +274,7 @@ func (m *Tournament) adjustStateForElapsedTime(clock Clock) {
 
 	for m.CurrentLevel() != nil {
 		endsAt := m.CurrentLevelEndsAtAsTime()
-		if endsAt.After(clock.Now()) {
+		if endsAt.After(deps.Clock.Now()) {
 			// end of level still in the future!  we're good.
 			break
 		}
@@ -271,7 +287,7 @@ func (m *Tournament) adjustStateForElapsedTime(clock Clock) {
 		}
 		newLevel := m.CurrentLevel()
 		if newLevel == nil {
-			m.RestartLastLevel(clock)
+			m.RestartLastLevel(deps)
 			break
 		}
 
@@ -282,19 +298,15 @@ func (m *Tournament) adjustStateForElapsedTime(clock Clock) {
 	}
 }
 
-func (m *Tournament) RestartLastLevel(clock Clock) {
+func (m *Tournament) RestartLastLevel(deps *Deps) {
 	m.State.CurrentLevelNumber = len(m.Structure.Levels) - 1
-	m.restartLevel(clock)
-}
-
-type Clock interface {
-	Now() time.Time
+	m.restartLevel(deps)
 }
 
 // FillTransients fills out computed fields.  (These shouldn't be serialized to
 // the database as they're redundant, but they are very convenient for access
 // from templates and maybe JS.)
-func (m *Tournament) FillTransients(clock Clock) {
+func (m *Tournament) FillTransients(deps *Deps) {
 	m.Transients = &Transients{
 		ServerVersion: ServerVersion,
 	}
@@ -311,7 +323,13 @@ func (m *Tournament) FillTransients(clock Clock) {
 		m.Transients.AverageChips = int(math.Round(float64(m.Transients.TotalChips) / float64(m.State.CurrentPlayers)))
 	}
 
-	m.adjustStateForElapsedTime(clock)
+	m.adjustStateForElapsedTime(deps)
+
+	if deps.PaytableFetcher != nil {
+		if ppt, err := m.ComputePrizePoolText(deps.PaytableFetcher); err == nil {
+			m.State.PrizePool = ppt
+		}
+	}
 
 	m.fillNextBreak()
 	m.fillNextLevel()
@@ -356,12 +374,12 @@ func (m *Tournament) fillNextLevel() {
 	m.Transients.NextLevel = nil
 }
 
-func (m *Tournament) PreviousLevel(clock Clock) error {
+func (m *Tournament) PreviousLevel(deps *Deps) error {
 	if m.State.CurrentLevelNumber <= 0 {
 		return errors.New("already at min level")
 	}
 	m.State.CurrentLevelNumber--
-	m.restartLevel(clock)
+	m.restartLevel(deps)
 	return nil
 }
 
@@ -374,14 +392,14 @@ func (m *Tournament) endOfTime() {
 	m.State.IsClockRunning = false
 }
 
-func (m *Tournament) AdvanceLevel(clock Clock) error {
+func (m *Tournament) AdvanceLevel(deps *Deps) error {
 	if m.State.CurrentLevelNumber >= len(m.Structure.Levels)-1 {
 		m.endOfTime()
 		return nil
 	}
 
 	m.State.CurrentLevelNumber++
-	m.restartLevel(clock)
+	m.restartLevel(deps)
 	return nil
 }
 
@@ -395,14 +413,14 @@ func (m *Tournament) CurrentLevelDuration() *time.Duration {
 
 // restartLevel resets the current level's clocks after a manual level change.
 // (It doesn't make sense to call this externally.)
-func (m *Tournament) restartLevel(clock Clock) {
+func (m *Tournament) restartLevel(deps *Deps) {
 	if m.CurrentLevel() == nil {
 		log.Printf("debug: can't restart level: no current level")
 	}
 	minutes := m.CurrentLevel().DurationMinutes
 	d := time.Duration(minutes) * time.Minute
 	if m.State.IsClockRunning {
-		later := clock.Now().Add(d).UnixMilli()
+		later := deps.Clock.Now().Add(d).UnixMilli()
 		m.State.CurrentLevelEndsAt = &later
 		m.State.TimeRemainingMillis = nil
 	} else {
@@ -412,9 +430,9 @@ func (m *Tournament) restartLevel(clock Clock) {
 	}
 }
 
-func (m *Tournament) StopClock(clock Clock) error {
+func (m *Tournament) StopClock(deps *Deps) error {
 	log.Printf("stop clock request for tournament %d", m.EventID)
-	m.adjustStateForElapsedTime(clock)
+	m.adjustStateForElapsedTime(deps)
 
 	if !m.State.IsClockRunning {
 		log.Printf("debug: can't stop a stopped clock")
@@ -426,7 +444,7 @@ func (m *Tournament) StopClock(clock Clock) error {
 	}
 
 	endsAt := m.CurrentLevelEndsAtAsTime()
-	remainingMillis := endsAt.Sub(clock.Now()).Milliseconds()
+	remainingMillis := endsAt.Sub(deps.Clock.Now()).Milliseconds()
 
 	m.State.IsClockRunning = false
 	m.State.TimeRemainingMillis = &remainingMillis
@@ -434,8 +452,8 @@ func (m *Tournament) StopClock(clock Clock) error {
 	return nil
 }
 
-func (m *Tournament) StartClock(clock Clock) error {
-	m.adjustStateForElapsedTime(clock)
+func (m *Tournament) StartClock(deps *Deps) error {
+	m.adjustStateForElapsedTime(deps)
 
 	if m.State.IsClockRunning {
 		log.Printf("debug: can't start a started clock")
@@ -455,33 +473,33 @@ func (m *Tournament) StartClock(clock Clock) error {
 		remaining = *m.CurrentLevelDuration()
 	}
 
-	endsAt := clock.Now().Add(remaining).UnixMilli()
+	endsAt := deps.Clock.Now().Add(remaining).UnixMilli()
 	m.State.CurrentLevelEndsAt = &endsAt
 	m.State.TimeRemainingMillis = nil
 	m.State.IsClockRunning = true
 	return nil
 }
 
-func (m *Tournament) ChangePlayers(clock Clock, n int) error {
+func (m *Tournament) ChangePlayers(deps *Deps, n int) error {
 	m.State.CurrentPlayers += n
 	if m.State.CurrentPlayers < 1 {
 		m.State.CurrentPlayers = 1
 	}
-	m.FillTransients(clock)
+	m.FillTransients(deps)
 	return nil
 }
 
-func (m *Tournament) ChangeBuyIns(clock Clock, n int) error {
+func (m *Tournament) ChangeBuyIns(deps *Deps, n int) error {
 	m.State.BuyIns += n
 	if m.State.BuyIns < 1 {
 		m.State.BuyIns = 1
 	}
-	m.FillTransients(clock)
+	m.FillTransients(deps)
 	return nil
 }
 
-func (m *Tournament) PlusTime(clock Clock, d time.Duration) error {
-	m.adjustStateForElapsedTime(clock)
+func (m *Tournament) PlusTime(deps *Deps, d time.Duration) error {
+	m.adjustStateForElapsedTime(deps)
 
 	if m.CurrentLevel() == nil {
 		return errors.New("can't add a minute: no current level")
@@ -508,17 +526,17 @@ func (m *Tournament) PlusTime(clock Clock, d time.Duration) error {
 		m.State.CurrentLevelEndsAt = nil
 	}
 
-	m.FillTransients(clock)
+	m.FillTransients(deps)
 
 	return nil
 }
 
-func (m *Tournament) MinusTime(clock Clock, d time.Duration) error {
+func (m *Tournament) MinusTime(deps *Deps, d time.Duration) error {
 	if d < 0 {
 		log.Fatalf("can't happen: MinusTime with negative duration %v", d)
 	}
 
-	m.adjustStateForElapsedTime(clock)
+	m.adjustStateForElapsedTime(deps)
 
 	if m.CurrentLevel() == nil {
 		return errors.New("can't add a minute: no current level")
@@ -532,9 +550,9 @@ func (m *Tournament) MinusTime(clock Clock, d time.Duration) error {
 
 		// special case: if there was less than a minute left and we just
 		// bumped to the next level, we just start the next level as normal.
-		if newEndsAt.Before(clock.Now()) {
+		if newEndsAt.Before(deps.Clock.Now()) {
 			// Skip to next level, which should reset it (or end the tournamment).
-			m.AdvanceLevel(clock)
+			m.AdvanceLevel(deps)
 			return nil
 		}
 	} else {
@@ -551,7 +569,7 @@ func (m *Tournament) MinusTime(clock Clock, d time.Duration) error {
 		if int64(remaining) < 0 {
 			// special case: if we just exhausted this level, go to the next level
 			// and give it a full time allotment.
-			m.AdvanceLevel(clock)
+			m.AdvanceLevel(deps)
 			return nil
 		} else {
 			newRemainingMillis := remaining.Milliseconds()
@@ -560,7 +578,7 @@ func (m *Tournament) MinusTime(clock Clock, d time.Duration) error {
 		}
 	}
 
-	m.FillTransients(clock)
+	m.FillTransients(deps)
 
 	return nil
 }
@@ -591,9 +609,10 @@ func (m *Tournament) TotalPrizePool() int {
 // ComputePrizePoolText calculates the prize pool distribution and returns
 // a formatted text block suitable for display in the PrizePool textarea.
 // Returns an error if the paytable is nil or if the calculation fails.
-func (m *Tournament) ComputePrizePoolText(pt *paytable.Paytable) (string, error) {
-	if pt == nil {
-		return "", errors.New("paytable is nil")
+func (m *Tournament) ComputePrizePoolText(ptf PaytableFetcher) (string, error) {
+	pt, err := ptf.FetchPaytableByID(context.Background(), m.PaytableID)
+	if err != nil {
+		return "", fmt.Errorf("while regenerating pay table: failed to fetch paytable: %w", err)
 	}
 
 	// Calculate total prize pool

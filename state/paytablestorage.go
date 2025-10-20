@@ -15,7 +15,7 @@ type DefaultPaytableStorage struct {
 }
 
 // FetchPayoutTableByID implements PaytableStorage.
-func (d *DefaultPaytableStorage) FetchPayoutTableByID(ctx context.Context, id int64) (*paytable.Paytable, error) {
+func (d *DefaultPaytableStorage) FetchPaytableByID(ctx context.Context, id int64) (*paytable.Paytable, error) {
 	for _, pt := range d.paytables {
 		if pt.ID == id {
 			return pt, nil
@@ -25,7 +25,7 @@ func (d *DefaultPaytableStorage) FetchPayoutTableByID(ctx context.Context, id in
 }
 
 // FetchPayoutTableSlugs implements PaytableStorage.
-func (d *DefaultPaytableStorage) FetchPayoutTableSlugs(ctx context.Context) ([]*paytable.PaytableSlug, error) {
+func (d *DefaultPaytableStorage) FetchPaytableSlugs(ctx context.Context) ([]*paytable.PaytableSlug, error) {
 	slugs := []*paytable.PaytableSlug{}
 	for name, pt := range d.paytables {
 		slugs = append(slugs, &paytable.PaytableSlug{

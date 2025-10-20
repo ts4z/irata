@@ -21,7 +21,7 @@ func TestSumTo10000(t *testing.T) {
 func TestPayout(t *testing.T) {
 	tests := []struct {
 		name          string
-		prizePool     int64
+		prizePool     int
 		numPlayers    int
 		wantNumPrizes int
 	}{
@@ -69,7 +69,7 @@ func TestPayout(t *testing.T) {
 			}
 
 			// Verify total equals prize pool
-			total := int64(0)
+			total := 0
 			for _, p := range prizes {
 				total += p
 			}
@@ -112,7 +112,7 @@ func TestPayoutSmallAmounts(t *testing.T) {
 		t.Fatalf("Payout() returned error: %v", err)
 	}
 
-	total := int64(0)
+	total := 0
 	for _, p := range prizes {
 		total += p
 	}

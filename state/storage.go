@@ -71,6 +71,6 @@ type UserStorage interface {
 type PaytableStorage interface {
 	Closer
 
-	FetchPayoutTableByID(ctx context.Context, id int64) (*paytable.Paytable, error)
-	FetchPayoutTableSlugs(ctx context.Context) ([]*paytable.PaytableSlug, error)
+	FetchPaytableByID(ctx context.Context, id int64) (*paytable.Paytable, error)
+	FetchPaytableSlugs(ctx context.Context) ([]*paytable.PaytableSlug, error)
 }
