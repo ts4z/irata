@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/ts4z/irata/model"
+	"github.com/ts4z/irata/paytable"
 )
 
 type Closer interface {
@@ -65,4 +66,11 @@ type UserStorage interface {
 	AddPassword(ctx context.Context, userID int64, passwordHash string) error
 	RemoveExpiredPasswords(ctx context.Context, before time.Time) error
 	ReplacePassword(ctx context.Context, userID int64, newPasswordHash string, oldPasswordsExpire time.Time) error
+}
+
+type PaytableStorage interface {
+	Closer
+
+	FetchPayoutTableByID(ctx context.Context, id int64) (*paytable.Paytable, error)
+	FetchPayoutTableSlugs(ctx context.Context) ([]*paytable.PaytableSlug, error)
 }

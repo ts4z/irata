@@ -4,16 +4,11 @@ import (
 	"errors"
 	"log"
 	"math"
-	"regexp"
 	"time"
 )
 
 const (
 	ServerVersion = 5
-)
-
-var (
-	dashDashRE = regexp.MustCompile(`\s*--\s*`)
 )
 
 type AuthCookieData struct {
@@ -85,6 +80,9 @@ type Tournament struct {
 	Description   string
 	FooterPlugsID int64
 
+	PrizePoolPerBuyIn int // amount to prize pool per buy-in
+	PrizePoolPerAddOn int // amount to prize pool per add-on
+
 	FromStructureID int64 // ID of the structure this was denormalized from
 	Structure       *StructureData
 
@@ -137,7 +135,8 @@ type StructureSlug struct {
 	ID   int64
 }
 
-// State represents the mutable state of a tournament.
+// State represents the mutable state of a tournament (stuff that is supposed to
+// change during the tournament).  If we clone a tournament, we don't clone this part.
 //
 // This is distinct from Transients, which are computed from State and Structure.
 // This is serialized to the database but changes frequently.
@@ -147,8 +146,13 @@ type State struct {
 	CurrentPlayers     int
 	BuyIns             int
 	AddOns             int
-	TotalChipsOverride int    // if > 0, overrides computed total chips
-	PrizePool          string // right-hand side display
+	Saves              int
+	AmountPerSave      int
+
+	TotalChipsOverride     int // if > 0, overrides computed total chips
+	TotalPrizePoolOverride int // if > 0, overrides computed prize pool
+
+	PrizePool string // right-hand side display, usually (but not always) the prize pool
 
 	// EndsAt indicates when the level ends iff the clock is running.  This is in
 	// Unix millis.  This value is not useful if the current level is paused, because
@@ -174,6 +178,18 @@ type Transients struct {
 	NextBreakAt *int64
 	// NextLevel is the next non-break level, or nil if there are no more levels.
 	NextLevel *Level
+}
+
+func (m *Tournament) PrizePoolAmount() int {
+	if m.State.TotalPrizePoolOverride > 0 {
+		return m.State.TotalPrizePoolOverride
+	}
+
+	buyIns := m.PrizePoolPerBuyIn * m.State.BuyIns
+	addOns := m.PrizePoolPerAddOn * m.State.AddOns
+	saves := m.State.AmountPerSave * m.State.Saves
+
+	return buyIns + addOns - saves
 }
 
 // Current level returns the current level, or if the tourn

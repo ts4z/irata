@@ -33,12 +33,6 @@
             </div>
 
             <div class="form-group">
-                <label for="PrizePool">Prize Pool</label>
-                <small>Free-form text. No HTML tags.</small>
-                <textarea id="PrizePool" name="PrizePool" rows="10" cols="50"></textarea>
-            </div>
-
-            <div class="form-group">
                 <label for="StructureID">Structure</label>
                 <select id="StructureID" name="StructureID" required>
                     {{ range .Structures }}
@@ -54,6 +48,17 @@
                     <option value="{{ .FooterPlugsID }}">{{ .Name }}</option>
                     {{ end }}
                 </select>
+            </div>
+
+            <div class="form-group">
+                <label for="TotalPrizePoolOverride">Total Chips Override</label>
+                <input type="text" id="TotalPrizePoolOverride" name="TotalPrizePoolOverride" maxlength="30" pattern="[0-9,]+" placeholder="0 to auto-compute" value="{{ .State.TotalPrizePoolOverride }}">
+            </div>
+
+            <div class="form-group">
+                <label for="PrizePool">Prize Pool Message</label>
+                <small>Free-form text. No HTML tags.</small>
+                <textarea id="PrizePool" name="PrizePool" rows="10" cols="50"></textarea>
             </div>
 
             <div class="actions">
@@ -82,8 +87,30 @@
             </div>
 
             <div class="form-group">
+                <label for="ChipsPerBuyIn">Prize Pool Per Buy-In</label>
+                <input type="text" id="PrizePoolPerBuyIn" name="PrizePoolPerBuyIn" maxlength="30" pattern="[0-9,]+" required value="{{ .Structure.PrizePoolPerBuyIn }}">
+            </div>
+
+            <div class="form-group">
+                <label for="ChipsPerBuyIn">Prize Pool Per Add On</label>
+                <input type="text" id="PrizePoolPerAddOn" name="PrizePoolPerAddOn" maxlength="30" pattern="[0-9,]+" required value="{{ .Structure.PrizePoolPerAddOn }}">
+            </div>
+
+            <div class="form-group">
+                <label for="Saves">Saves</label>
+                <input type="text" id="Saves" name="NumberOfSaves" maxlength="6" pattern="[0-9,]+" 
+                 value="{{ .State.Saves }}">
+            </div>
+
+            <div class="form-group">
+                <label for="Saves">Amount per Save</label>
+                <input type="text" id="AmountPerSave" name="AmountPerSave" maxlength="30" pattern="[0-9,]+" 
+                 value="{{ .State.AmountPerSave }}">
+            </div>
+
+            <div class="form-group">
                 <label for="ChipsPerBuyIn">Chips Per Buy-In</label>
-                <input type="text" id="ChipsPerBuyIn" name="ChipsPerBuyIn" maxlength="30" pattern="[0-9,]+" required value="{{ .Structure.ChipsPerBuyIn }}">
+                <input type="text" id="ChipsPerBuyIn" name="ChipsPerBuyIn" maxlength="30" pattern="[0-9,]+" value="{{ .Structure.ChipsPerBuyIn }}">
             </div>
 
             <div class="form-group">
