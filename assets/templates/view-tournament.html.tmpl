@@ -18,11 +18,10 @@
           height: 100%;
           margin: 0;
           padding: 0;
-          overflow: hidden;
+          /* overflow: hidden; */
       }
       body {
           font-family: arcade, monospace;
-          font-size: 10vi;
           background-color: #000000;
           color: #ffffff;
       }
@@ -32,6 +31,7 @@
       td {
           text-align: center;
           line-height: 110%;
+          vertical-align: middle;
       }
       .fullsize {
           /*width: 100%;*/
@@ -74,10 +74,20 @@
           color: #ffffff;
       }
       .current-players {
-          font-size: 5vi;
+          font-size: 4vi;
           text-align: center;
+          line-height: 110%;
+      }
+      .current-players-label {
+          font-size: 1.7vi;
+          text-align: center;
+          line-height: 110%;
       }
       .buyins {
+          font-size: 1.5vi;
+          text-align: center;
+      }
+      .addons {
           font-size: 1.5vi;
           text-align: center;
       }
@@ -97,13 +107,25 @@
       .prize-pool {
           font-size: 1.5vi;
           text-align: left;
+          line-height: 120%;
       }
       .right-rail {
           border: 1px solid white;
       }
+      .rr-bottom-box {
+          height: 20vi;
+      }
       .rr-label {
           font-size: 1.7vi;
           line-height: 140%;
+      }
+      .rr-data {
+        font-size: 2.5vi;
+        text-align: center;
+        line-height: 140%;
+      }
+      .rr-rotate-container {
+        display: none;
       }
       .help-dialog-overlay {
         display: none;
@@ -171,23 +193,25 @@
           <table class="fullsize">
             <tr>
               <td class="title">
-                &#9824; {{ .Tournament.EventName }} &#9824;
+                {{ .Tournament.EventName }}
+              </td>
+              <td class="level" id="level"> LOADING... </td>
+              <td> 
+                <span class="current-players" id="current-players">{{ .Tournament.State.CurrentPlayers }}</span>
+                <span class="current-players-label"> PLAYERS </span>
               </td>
             </tr>
             <tr>
-              <td class="level" width="75%" id="level"> LOADING... </td>
-            </tr>
-            <tr>
-              <td width="75%" class="clock" id="clock-td" style="position:relative;">
+              <td colspan="3" width="75%" class="clock" id="clock-td" style="position:relative;">
               <span id="clock">&#9824;&#9829;:&#9830;&#9827;</span>
                 <div id="paused-overlay" class="paused-overlay">PAUSED</div>
               </td>
             </tr>
             <tr>
-              <td width="75%" class="blinds" id="blinds"> LOADING...</td>
+              <td colspan="3" width="75%" class="blinds" id="blinds"> LOADING...</td>
             </tr>
             <tr>
-              <td>
+              <td colspan="3">
                 <table width="100%">
                   <tr>
                     <td width="5%" class="footer">
@@ -212,49 +236,42 @@
           <table width="100%" class="fullsize">
             <tr><td>
                 <table align="center" width="100%"><tbody>
-                    <tr> <td class="current-players" id="current-players">{{ .Tournament.State.CurrentPlayers }}</td></tr>
-                    <tr> <td class="rr-label"> PLAYERS </td></tr>
-                    <tr> <td class="buyins"><span id="buyins">{{- .Tournament.State.BuyIns -}}</span> BUYINS </td></tr>
-                    {{ if ne 0 .Tournament.Structure.ChipsPerAddOn }}
-                    <tr> <td class="addons"><span id="addons">{{- .Tournament.State.AddOns -}}</span> ADD-ONS </td></tr>
-                    {{ end }}
+                    <tr> <td class="buyins">
+                      <span id="buyins">{{- .Tournament.State.BuyIns -}}</span> BUYINS </td></tr>
+                    <tr> 
+                      <td class="addons">
+                        <span id="addons-container">
+                          <span id="addons">{{- .Tournament.State.AddOns -}}</span>
+                          ADD-ONS 
+                        </span>
+                      </td>
+                    </tr>
                 </tbody></table>
               </td>
             </tr>
-            <tr>
-              <!-- <td style="font-size: 3vi;" align="center"> -->
-              <!--   &#9830; -->
-              <!-- </td> -->
-            </tr>
             <tr><td>
-                <table align="center">
-                  <!-- <tr> <td class="rr-label"> PRIZE POOL </td> </tr> -->
-                  <tr>
-                    <td class="prize-pool">
                       <hr>
-                      <span id="prize-pool">
+                      <span id="prize-pool" class="prize-pool">
                       {{ .Tournament.State.PrizePool }}
                       </span>
                       <hr>
-                    </td>
-                </table>
             </td></tr>
-            <tr>
-              <!-- <td style="font-size: 3vi;" align="center"> -->
-              <!--   &#9830; -->
-              <!-- </td> -->
-            </tr>
-            <tr><td>
-                <table width="100%">
-                  <tbody>
-                  <tr> <td class="rr-label"> AVG CHIPS </tr>
-                  <tr> <td class="avg-chips" id="avg-chips"> {{ .Tournament.Transients.AverageChips }} </tr>
-                  <tr> <td class="rr-label"> NEXT LEVEL </tr>
-                  <tr> <td class="next-level" id="next-level"> TBD </tr>
-                  <tr> <td class="rr-label"> NEXT BREAK </tr>
-                  <tr> <td class="next-break" id="next-break"> RSN </tr>
-                  </tbody>
-                </table>
+            <tr><td class="rr-bottom-box">
+              <div id="next-level-container" class="rr-rotate-container">
+                <div class="rr-label"> NEXT LEVEL </div>
+                <span class="rr-data" id="next-banner"> TBD</span>
+                <span class="rr-data" id="next-description"> TBD </span>
+              </div>
+              <div id="avg-chips-container" class="rr-rotate-container">
+                <div>
+                  <div class="rr-label"> AVERAGE CHIPS </div>
+                  <span class="rr-data" id="avg-chips"> {{ .Tournament.Transients.AverageChips }} </span>
+                </div>
+                <div>
+                  <div class="rr-label"> NEXT BREAK </div>
+                  <div class="rr-data" id="next-break"> RSN </div>
+                </div>
+              </div>
             </tr>
           </table>
         </td>

@@ -16,7 +16,7 @@ function tournament_id() {
 function randN(n) { return Math.floor(Math.random() * n); }
 
 function fanfare(_ = undefined) {
-    next_level_sound.play();
+  next_level_sound.play();
 }
 
 // t is in milliseconds
@@ -241,7 +241,7 @@ function import_new_model_from_server(model) {
   console.log(`import new model from server ${model.Transients.ServerVersion}, version ${model.Version}`)
 
   if (last_model.Transients.ServerVersion &&
-      model.Transients.ServerVersion != last_model.Transients.ServerVersion) {
+    model.Transients.ServerVersion != last_model.Transients.ServerVersion) {
     // new model changed the ServerVersion
     // this is tagged as an incompatible change
     window.location.reload();
@@ -254,11 +254,18 @@ function import_new_model_from_server(model) {
   set_html("prize-pool", protect_html(model.State.PrizePool))
   set_text("current-players", model.State.CurrentPlayers)
   set_text("buyins", model.State.BuyIns)
-  // set rebuys
-  // set addons
+  set_text("addons", model.State.AddOns)
+  console.log("start " + Date.now());
+  if (model.State.AddOns > 0) {
+    show_els_by_ids(["addons-container"]);
+  } else {
+    hide_els_by_ids(["addons-container"]);
+  }
+  console.log("end " + Date.now());
   set_text("avg-chips", model.Transients.AverageChips)
   if (model.Transients.NextLevel !== null) {
-    set_text("next-level", model.Transients.NextLevel.Description)
+    set_text("next-banner", model.Transients.NextLevel.Banner)
+    set_text("next-description", model.Transients.NextLevel.Description)
   }
 }
 
@@ -270,7 +277,7 @@ function show_paused_overlay(show) {
 }
 
 function protect_html(s) {
-    return s
+  return s
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
@@ -303,6 +310,24 @@ function set_class(id, value) {
     el.className = value;
   } else {
     console.log("can't find element with id " + id)
+  }
+}
+
+function show_els_by_ids(ids) {
+  for (let id of ids) {
+    const el = document.getElementById(id);
+    if (el) {
+      el.style.display = "block";
+    }
+  }
+}
+
+function hide_els_by_ids(ids) {
+  for (let id of ids) {
+    const el = document.getElementById(id);
+    if (el) {
+      el.style.display = "none";
+    }
   }
 }
 
@@ -614,5 +639,26 @@ async function tick() {
   });
 }
 
+let rr_rotation_interval_id = undefined;
+function start_rotating_rrdata_containers() {
+  const next_rr_data_interval_ms = 11000;
+  let containers = document.getElementsByClassName("rr-rotate-container");
+  let current = 0;
+  let next_rr_data = function() {
+    containers[current].style.display = "none";
+    current++;
+    if (current >= containers.length) {
+      current = 0;
+    }
+    containers[current].style.display = "block";
+  }
+
+  if (typeof rr_rotation_interval_id === 'undefined') {
+    next_rr_data();
+    rr_rotation_interval_id = setInterval(next_rr_data, next_rr_data_interval_ms);
+  }
+}
+
+start_rotating_rrdata_containers();
 start_rotating_footers();
 tick();
