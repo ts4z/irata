@@ -183,9 +183,9 @@ func (app *irataApp) requiringAdminTakingIDHandleFunc(pattern string, handler fu
 }
 
 func (app *irataApp) renderTournament(ctx context.Context, id int64, w http.ResponseWriter, r *http.Request) {
-
-	id, err := idPathValue(w, r)
+	sc, err := app.siteStorage.FetchSiteConfig(ctx)
 	if err != nil {
+		he.SendErrorToHTTPClient(w, "fetch site config", err)
 		return
 	}
 
@@ -194,12 +194,15 @@ func (app *irataApp) renderTournament(ctx context.Context, id int64, w http.Resp
 		he.SendErrorToHTTPClient(w, "get tournament from database", err)
 		return
 	}
+
 	args := struct {
 		Tournament              *model.Tournament
 		InstallKeyboardHandlers bool
+		Theme                   string
 	}{
 		Tournament:              t,
 		InstallKeyboardHandlers: permission.CheckWriteAccessToTournamentID(ctx, id) == nil,
+		Theme:                   sc.Theme,
 	}
 	log.Printf("render with args: %+v", args)
 	if err := app.templates.ExecuteTemplate(w, "view-tournament.html.tmpl", args); err != nil {

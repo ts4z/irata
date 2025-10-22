@@ -14,6 +14,10 @@
           font-family: arcade;
           src: url('/fs/PressStart2P-vaV7.ttf') format('truetype');
       }
+      @font-face {
+          font-family: redhatmono;
+          src: url('/fs/RedHatMono-VariableFont_wght.ttf') format('truetype');
+      }
       html, body {
           height: 100%;
           margin: 0;
@@ -33,8 +37,7 @@
           line-height: 110%;
           vertical-align: middle;
       }
-      .fullsize {
-          /*width: 100%;*/
+      .full-height {
           height: 100%;
       }
       .level {
@@ -42,11 +45,11 @@
           color: yellow;
       }
       .clock {
+          font-family: arcade;
           font-size: 15vi;
-          color: #22ff22;
           width: 75%;
-      }
-      .clock #clock {
+          color: #22ff22;
+          line-height: 100%
           display: inline-block;
           white-space: nowrap;
           font-size: 15vi;
@@ -108,9 +111,8 @@
           font-size: 1.5vi;
           text-align: left;
           line-height: 120%;
-      }
-      .right-rail {
-          border: 1px solid white;
+          overflow-y: auto;
+          height: 30vi;
       }
       .rr-bottom-box {
           height: 20vi;
@@ -186,19 +188,19 @@
       }
     </style>
 
-    <table class="fullsize">
+    <table class="full-height">
       <tr>
-        <td width="75%" class="fullsize">
+        <td width="75%" class="full-height">
           <!-- left main -->
-          <table class="fullsize">
+          <table class="full-height">
             <tr>
               <td class="title">
                 {{ .Tournament.EventName }}
               </td>
               <td class="level" id="level"> LOADING... </td>
               <td> 
-                <span class="current-players" id="current-players">{{ .Tournament.State.CurrentPlayers }}</span>
-                <span class="current-players-label"> PLAYERS </span>
+                <div class="current-players" id="current-players">{{ .Tournament.State.CurrentPlayers }}</div>
+                <div style="text-align: center;" class="current-players-label"> PLAYERS </div>
               </td>
             </tr>
             <tr>
@@ -231,9 +233,9 @@
             </tr>
           </table>
         </td>
-        <td width="25%" class="fullsize">
+        <td width="25%">
           <!-- right rail -->
-          <table width="100%" class="fullsize">
+          <table  class="full-height">
             <tr><td>
                 <table align="center" width="100%"><tbody>
                     <tr> <td class="buyins">
@@ -250,16 +252,15 @@
               </td>
             </tr>
             <tr><td>
-                      <hr>
-                      <span id="prize-pool" class="prize-pool">
-                      {{ .Tournament.State.PrizePool }}
-                      </span>
-                      <hr>
+                <hr>
+                <span id="prize-pool" class="prize-pool">
+                {{ .Tournament.State.PrizePool }}
+                </span>
+                <hr>
             </td></tr>
             <tr><td class="rr-bottom-box">
               <div id="next-level-container" class="rr-rotate-container">
                 <div class="rr-label"> NEXT LEVEL </div>
-                <span class="rr-data" id="next-banner"> TBD</span>
                 <span class="rr-data" id="next-description"> TBD </span>
               </div>
               <div id="avg-chips-container" class="rr-rotate-container">

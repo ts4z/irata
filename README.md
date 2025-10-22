@@ -80,17 +80,16 @@ There are quite a few inside jokes in the current state of the code as well.
 Fonts
 -----
 
-This repo embeds and includes a font called Press Start 2P by CodeMan38.
-When built, the `irata` binary will include a copy of this font.  It is covered
-by its own license.
+This repo includes a couple fonts stolen from Internet sources.  Their licenses
+are in the `license` directory.  These fonts are baked into the `iratad` binary,
+and a Docker image, if that is built.
 
-https://fonts.google.com/specimen/Press+Start+2P/about
+These can be changed.  Any font will work, but the clock will dance around the screen
+if the font is not a monospace font.
 
-If this is a problem, any font will work, but the current style is intended for
-a monospace font.  PressStart2P is honestly monospace, and has a nice low
-line-height (no padding), and allowed the displayed pages to have that very
-1981 look.
-
+PressStart2P is honestly monospace (not every arcade-style mono font is), and
+has a nice low line-height (no padding), and allowed the displayed pages to
+have that very 1981 look.  This is used in the default `irata` theme.
 
 To Do
 -----
@@ -113,7 +112,7 @@ To Do
   this is not currently a problem.
 * Pagination isn't supported.  Since we have only a trivial number of users,
   this isn't a problem.
-* irata.go is way too long.
+* iratad.go is way too long.
 * Changing anything in site config means restarting the server, but this
   could be detected automatically.
 * Database doesn't notify for changes, so we can really only have a single

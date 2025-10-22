@@ -32,7 +32,7 @@ function to_hmmss(t) {
     return "♦♦:♦♦";
   }
   if (t < 1000) {
-    return "00:00";
+    return "0:00";
   }
 
   var seconds = parseInt(t / 1000);
@@ -41,7 +41,7 @@ function to_hmmss(t) {
   var s = seconds % 60;
 
   var hh = h;
-  var mm = m >= 10 ? m : "0" + m;
+  var mm = m; // m >= 10 ? m : "0" + m;
   var ss = s >= 10 ? s : "0" + s;
 
   if (h === 0) {
@@ -264,7 +264,6 @@ function import_new_model_from_server(model) {
   console.log("end " + Date.now());
   set_text("avg-chips", model.Transients.AverageChips)
   if (model.Transients.NextLevel !== null) {
-    set_text("next-banner", model.Transients.NextLevel.Banner)
     set_text("next-description", model.Transients.NextLevel.Description)
   }
 }

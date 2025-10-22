@@ -325,7 +325,7 @@ func (m *Tournament) FillTransients(deps *Deps) {
 
 	m.adjustStateForElapsedTime(deps)
 
-	if deps.PaytableFetcher != nil {
+	if deps.PaytableFetcher != nil && m.State.AutoComputePrizePool {
 		if ppt, err := m.ComputePrizePoolText(deps.PaytableFetcher); err == nil {
 			m.State.PrizePool = ppt
 		}
