@@ -6,9 +6,7 @@
     <title>
       Irata Poker Clock: {{ .Tournament.EventName }}
     </title>
-  </head>
-  <body>
-   
+
     <style>
       @font-face {
           font-family: arcade;
@@ -87,10 +85,12 @@
           line-height: 110%;
       }
       .buyins {
-          font-size: 1.5vi;
+          font-size: 2.0vi;
           text-align: center;
+          line-height: 120%;
       }
       .addons {
+          line-height: 120%;
           font-size: 1.5vi;
           text-align: center;
       }
@@ -107,15 +107,35 @@
           font-size: 2.5vi;
           text-align: center;
       }
-      .prize-pool {
-          font-size: 1.5vi;
-          text-align: left;
+      .rr {
+          display: flex;
+          flex-direction: column;
+          height: 100vh;
           line-height: 120%;
+          justify-content: center; /* Horizontally centers content */
+          align-items: center;    /* Vertically centers content */
+      }
+      .rr-prize-pool {
+          flex: 1 1 auto;
+          border-top: 1px solid white;
+          border-bottom: 1px solid white;
+          padding-top: 2px;
+          padding-bottom: 2px;
+          height: 30vi;
+          overflow-y: auto;
+      }
+      .prize-pool {
+          font-size: 1.7vi;
+          line-height: 120%;
+          text-align: center;
           overflow-y: auto;
           height: 30vi;
       }
+      .rr-top-box {
+          padding: 1rem;
+          line-height: 120%
+      }
       .rr-bottom-box {
-          height: 20vi;
       }
       .rr-label {
           font-size: 1.7vi;
@@ -187,12 +207,16 @@
         font-weight: bold;
       }
     </style>
-
+  </head>
+  
+  <body>
     <table class="full-height">
+      <tbody>
       <tr>
         <td width="75%" class="full-height">
           <!-- left main -->
           <table class="full-height">
+            <tbody>
             <tr>
               <td class="title">
                 {{ .Tournament.EventName }}
@@ -215,6 +239,7 @@
             <tr>
               <td colspan="3">
                 <table width="100%">
+                  <tbody>
                   <tr>
                     <td width="5%" class="footer">
                       &nbsp;<br>&nbsp;<br>&nbsp;<br>&nbsp;
@@ -228,44 +253,41 @@
                         &nbsp;<br>&nbsp;<br>&nbsp;<br>&nbsp;
                     </td>
                   </tr>
+                  </tbody>
                 </table>
               </td>
             </tr>
           </table>
         </td>
-        <td width="25%">
+        <td width="25%" class="full-height">
           <!-- right rail -->
-          <table  class="full-height">
-            <tr><td>
-                <table align="center" width="100%"><tbody>
-                    <tr> <td class="buyins">
-                      <span id="buyins">{{- .Tournament.State.BuyIns -}}</span> BUYINS </td></tr>
-                    <tr> 
-                      <td class="addons">
-                        <span id="addons-container">
-                          <span id="addons">{{- .Tournament.State.AddOns -}}</span>
-                          ADD-ONS 
-                        </span>
-                      </td>
-                    </tr>
-                </tbody></table>
-              </td>
-            </tr>
-            <tr><td>
-                <hr>
-                <span id="prize-pool" class="prize-pool">
-                {{ .Tournament.State.PrizePool }}
+          <div class="rr full-height">
+            <div class="rr-top-box">
+              <div class="buyins">
+                <span id="buyins">{{- .Tournament.State.BuyIns -}}</span> BUYINS
+              </div>
+              <div class="addons">
+                <span id="addons-container">
+                  <span id="addons">{{- .Tournament.State.AddOns -}}</span>
+                  ADD-ONS 
                 </span>
-                <hr>
-            </td></tr>
-            <tr><td class="rr-bottom-box">
+              </div>
+            </div>
+              
+            <div class="rr-prize-pool">
+              <span id="prize-pool" class="prize-pool">
+                {{ .Tournament.State.PrizePool }}
+              </span>
+            </div>
+              
+            <div class="rr-bottom-box">
               <div id="next-level-container" class="rr-rotate-container">
                 <div class="rr-label"> NEXT LEVEL </div>
                 <span class="rr-data" id="next-description"> TBD </span>
               </div>
               <div id="avg-chips-container" class="rr-rotate-container">
                 <div>
-                  <div class="rr-label"> AVERAGE CHIPS </div>
+                  <div class="rr-label"> AVG CHIPS </div>
                   <span class="rr-data" id="avg-chips"> {{ .Tournament.Transients.AverageChips }} </span>
                 </div>
                 <div>
@@ -273,10 +295,11 @@
                   <div class="rr-data" id="next-break"> RSN </div>
                 </div>
               </div>
-            </tr>
-          </table>
+            </div>
+          </div>
         </td>
       </tr>
+      </tbody>
     </table>
 
     <div id="help-dialog" class="help-dialog-overlay">

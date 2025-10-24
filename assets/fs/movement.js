@@ -41,7 +41,7 @@ function to_hmmss(t) {
   var s = seconds % 60;
 
   var hh = h;
-  var mm = m; // m >= 10 ? m : "0" + m;
+  var mm = h > 0 && m < 10 ? "0"+m : m;
   var ss = s >= 10 ? s : "0" + s;
 
   if (h === 0) {
@@ -351,22 +351,17 @@ function millis_remaining_in_level() {
 }
 
 function update_break_clock() {
-  var td = document.getElementById("next-break");
-  if (td === null) {
-    console.log("update_break_clock: no next-break node to update");
-    return;
-  }
+  let set = function(v) { set_text("next-break", v); }
 
   if (!last_model.State.IsClockRunning) {
-    td.innerHTML = "PAUSED";
-    return
+    set("PAUSED");
   }
 
   if (!last_model.Transients.NextBreakAt) {
-    td.innerHTML = "N/A";
+    set("N/A");
   } else if (typeof last_model.Transients.NextBreakAt !== 'number') {
     console.log("update_break_clock: NextBreakAt is nonsense");
-    td.innerHTML = "???";
+    set("???");
   } else {
     var remaining = (next_break_at - Date.now());
     if (remaining < 0) {
@@ -375,7 +370,7 @@ function update_break_clock() {
     }
 
     var mins = Math.floor(remaining / (1000 * 60));
-    td.innerHTML = mins + " MIN";
+    set(mins + " MIN");
   }
 }
 
@@ -461,7 +456,7 @@ function install_keyboard_handlers() {
     } else {
       console.log("clock unlocked");
       stop_rotating_footers();
-      set_html("footer", "<nobr>level/clock controls</nobr> <nobr>available when paused</nobr>");
+      set_html("footer", "<nobr>level/clock controls</nobr> unlocked");
     }
   }
 
@@ -493,7 +488,7 @@ function install_keyboard_handlers() {
   // if paused && clock unlocked, send modify with arg
   function ipcusmwa(arg) {
     return function (shift) {
-      if (!clock_controls_locked && !last_model.State.IsClockRunning) {
+      if (!clock_controls_locked) {
         send_modify(arg, shift);
       } else {
         console.log(`clock_controls_locked=${clock_controls_locked} and running=$(last_model.State.IsClockRunning}`)
