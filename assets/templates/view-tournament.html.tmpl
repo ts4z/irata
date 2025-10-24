@@ -1,255 +1,55 @@
 <!DOCTYPE html>
-<html>
+<html class="clock-page">
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>
       Irata Poker Clock: {{ .Tournament.EventName }}
     </title>
-
-    <style>
-      @font-face {
-          font-family: arcade;
-          src: url('/fs/PressStart2P-vaV7.ttf') format('truetype');
-      }
-      @font-face {
-          font-family: redhatmono;
-          src: url('/fs/RedHatMono-VariableFont_wght.ttf') format('truetype');
-      }
-      html, body {
-          height: 100%;
-          margin: 0;
-          padding: 0;
-          /* overflow: hidden; */
-      }
-      body {
-          font-family: arcade, monospace;
-          background-color: #000000;
-          color: #ffffff;
-      }
-      table {
-          table-layout: fixed;
-      }
-      td {
-          text-align: center;
-          line-height: 110%;
-          vertical-align: middle;
-      }
-      .full-height {
-          height: 100%;
-      }
-      .level {
-          font-size: 3vi;
-          color: yellow;
-      }
-      .clock {
-          font-family: arcade;
-          font-size: 15vi;
-          width: 75%;
-          color: #22ff22;
-          line-height: 100%
-          display: inline-block;
-          white-space: nowrap;
-          font-size: 15vi;
-      }
-      /* Shrink clock when it has 7 characters (includes hours) */
-      #clock.has-hours {
-          font-size: 11vi !important;
-      }
-      .clock-break {
-          font-size: 15vi;
-          color: #ffffff;
-          background-color:#8b1a1a;
-      }
-      .blinds {
-          font-size: 4vi;
-          color: #cc0099;
-      }
-      .footer {
-          font-size: 2vi;
-          color: #aaaaaa;
-      }
-      .title {
-          font-size: 1.8vi;
-          text-align: center;
-          color: #ffffff;
-      }
-      .current-players {
-          font-size: 4vi;
-          text-align: center;
-          line-height: 110%;
-      }
-      .current-players-label {
-          font-size: 1.7vi;
-          text-align: center;
-          line-height: 110%;
-      }
-      .buyins {
-          font-size: 2.0vi;
-          text-align: center;
-          line-height: 120%;
-      }
-      .addons {
-          line-height: 120%;
-          font-size: 1.5vi;
-          text-align: center;
-      }
-      .avg-chips {
-          font-size: 2.5vi;
-          text-align: center;
-      }
-      .next-level {
-          font-size: 2vi;
-          text-align: center;
-          color: #ffffff;
-      }
-      .next-break {
-          font-size: 2.5vi;
-          text-align: center;
-      }
-      .rr {
-          display: flex;
-          flex-direction: column;
-          height: 100vh;
-          line-height: 120%;
-          justify-content: center; /* Horizontally centers content */
-          align-items: center;    /* Vertically centers content */
-      }
-      .rr-prize-pool {
-          flex: 1 1 auto;
-          border-top: 1px solid white;
-          border-bottom: 1px solid white;
-          padding-top: 2px;
-          padding-bottom: 2px;
-          height: 30vi;
-          overflow-y: auto;
-      }
-      .prize-pool {
-          font-size: 1.7vi;
-          line-height: 120%;
-          text-align: center;
-          overflow-y: auto;
-          height: 30vi;
-      }
-      .rr-top-box {
-          padding: 1rem;
-          line-height: 120%
-      }
-      .rr-bottom-box {
-      }
-      .rr-label {
-          font-size: 1.7vi;
-          line-height: 140%;
-      }
-      .rr-data {
-        font-size: 2.5vi;
-        text-align: center;
-        line-height: 140%;
-      }
-      .rr-rotate-container {
-        display: none;
-      }
-      .help-dialog-overlay {
-        display: none;
-        position: fixed;
-        top: 0; left: 0; right: 0; bottom: 0;
-        background: rgba(0,0,0,0.95);
-        color: #fff;
-        z-index: 9999;
-        font-family: arcade, monospace;
-        font-size: 2vi;
-        text-align: center;
-        padding-top: 5vi;
-      }
-      .help-dialog-content {
-        margin: auto;
-        background: #222;
-        border: 2px solid #aaaaff;
-        border-radius: 1vi;
-        padding: 2vi;
-        display: inline-block;
-        text-align: left;
-        color: #fff;
-      }
-      .help-dialog-close {
-        font-size: 1.5vi;
-        color: #aaaaff;
-        margin-top: 2vi;
-      }
-      .help-dialog-table-key {
-        width: 18%;
-        text-align: left;
-        padding: 0.1vi 0.4vi 0.1vi 0;
-      }
-      .help-dialog-table-desc {
-        text-align: left;
-        padding: 0.1vi 0;
-      }
-      .paused-overlay {
-        display: none;
-        position: absolute;
-        left: 50%;
-        top: 50%;
-        transform: translate(-50%, -50%) rotate(-33deg);
-        font-size: 8vi;
-        color: #ffffff;
-        text-shadow:
-          -0.7vi -0.7vi 0 #000,
-          0.7vi -0.7vi 0 #000,
-          -0.7vi 0.7vi 0 #000,
-          0.7vi 0.7vi 0 #000,
-          0 0 100px #000;
-        font-family: arcade, monospace;
-        pointer-events: none;
-        z-index: 10;
-        white-space: nowrap;
-        letter-spacing: 0.1em;
-        font-weight: bold;
-      }
-    </style>
+    <link rel="stylesheet" href="/fs/irata-style.css">
   </head>
   
-  <body>
-    <table class="full-height">
+  <body class="clock-page">
+    <table class="clock-full-height">
       <tbody>
       <tr>
-        <td width="75%" class="full-height">
+        <td width="75%" class="clock-full-height">
           <!-- left main -->
-          <table class="full-height">
+          <table class="clock-full-height">
             <tbody>
             <tr>
-              <td class="title">
+              <td class="clock-title">
                 {{ .Tournament.EventName }}
               </td>
-              <td class="level" id="level"> LOADING... </td>
+              <td class="clock-level" id="level"> LOADING... </td>
               <td> 
-                <div class="current-players" id="current-players">{{ .Tournament.State.CurrentPlayers }}</div>
-                <div style="text-align: center;" class="current-players-label"> PLAYERS </div>
+                <div class="clock-current-players" id="current-players">{{ .Tournament.State.CurrentPlayers }}</div>
+                <div style="text-align: center;" class="clock-current-players-label"> PLAYERS </div>
               </td>
             </tr>
             <tr>
-              <td colspan="3" width="75%" class="clock" id="clock-td" style="position:relative;">
-              <span id="clock">&#9824;&#9829;:&#9830;&#9827;</span>
-                <div id="paused-overlay" class="paused-overlay">PAUSED</div>
+              <td colspan="3"  class="clock-container" id="clock-td">
+              <span id="clock" class="clock-time">&#9824;&#9829;:&#9830;&#9827;</span>
+                <div id="paused-overlay" class="clock-paused-overlay">PAUSED</div>
               </td>
             </tr>
             <tr>
-              <td colspan="3" width="75%" class="blinds" id="blinds"> LOADING...</td>
+              <td colspan="3"  class="clock-blinds" id="blinds"> LOADING...</td>
             </tr>
             <tr>
               <td colspan="3">
-                <table width="100%">
+                <table>
                   <tbody>
                   <tr>
-                    <td width="5%" class="footer">
+                    <td width="5%" class="clock-footer">
                       &nbsp;<br>&nbsp;<br>&nbsp;<br>&nbsp;
                     </td>
-                    <td width="95%" class="footer" id="footer">
+                    <td width="95%" class="clock-footer" id="footer">
                       IRATA POKER CLOCK<br>
                       TIM SHOWALTER, 2025<br>
                       ALL RIGHTS REVERSED
                     </td>
-                    <td width="5%" class="footer">
+                    <td width="5%" class="clock-footer">
                         &nbsp;<br>&nbsp;<br>&nbsp;<br>&nbsp;
                     </td>
                   </tr>
@@ -259,14 +59,14 @@
             </tr>
           </table>
         </td>
-        <td width="25%" class="full-height">
+        <td width="25%" class="clock-full-height">
           <!-- right rail -->
-          <div class="rr full-height">
-            <div class="rr-top-box">
-              <div class="buyins">
+          <div class="clock-rr clock-full-height">
+            <div class="clock-rr-top-box">
+              <div class="clock-buyins">
                 <span id="buyins">{{- .Tournament.State.BuyIns -}}</span> BUYINS
               </div>
-              <div class="addons">
+              <div class="clock-addons">
                 <span id="addons-container">
                   <span id="addons">{{- .Tournament.State.AddOns -}}</span>
                   ADD-ONS 
@@ -274,25 +74,25 @@
               </div>
             </div>
               
-            <div class="rr-prize-pool">
-              <span id="prize-pool" class="prize-pool">
+            <div class="clock-rr-prize-pool">
+              <span id="prize-pool" class="clock-prize-pool">
                 {{ .Tournament.State.PrizePool }}
               </span>
             </div>
               
-            <div class="rr-bottom-box">
-              <div id="next-level-container" class="rr-rotate-container">
-                <div class="rr-label"> NEXT LEVEL </div>
-                <span class="rr-data" id="next-description"> TBD </span>
+            <div class="clock-rr-bottom-box">
+              <div id="next-level-container" class="clock-rr-rotate-container">
+                <div class="clock-rr-label"> NEXT LEVEL </div>
+                <span class="clock-rr-data" id="next-description"> TBD </span>
               </div>
-              <div id="avg-chips-container" class="rr-rotate-container">
+              <div id="avg-chips-container" class="clock-rr-rotate-container">
                 <div>
-                  <div class="rr-label"> AVG CHIPS </div>
-                  <span class="rr-data" id="avg-chips"> {{ .Tournament.Transients.AverageChips }} </span>
+                  <div class="clock-rr-label"> AVG CHIPS </div>
+                  <span class="clock-rr-data" id="avg-chips"> {{ .Tournament.Transients.AverageChips }} </span>
                 </div>
                 <div>
-                  <div class="rr-label"> NEXT BREAK </div>
-                  <div class="rr-data" id="next-break"> RSN </div>
+                  <div class="clock-rr-label"> NEXT BREAK </div>
+                  <div class="clock-rr-data" id="next-break"> RSN </div>
                 </div>
               </div>
             </div>
@@ -302,64 +102,64 @@
       </tbody>
     </table>
 
-    <div id="help-dialog" class="help-dialog-overlay">
-      <div class="help-dialog-content">
+    <div id="help-dialog" class="clock-help-dialog-overlay">
+      <div class="clock-help-dialog-content">
         <h3>Keyboard Control</h3>
         <table style="width:100%; border-collapse:collapse; margin:0; font-size:1.3vi;">
           <tbody>
             <tr>
-              <td class="help-dialog-table-key"><b>Space</b></td>
-              <td class="help-dialog-table-desc">Pause/Resume Clock (or [Enter])</td>
+              <td class="clock-help-dialog-table-key"><b>Space</b></td>
+              <td class="clock-help-dialog-table-desc">Pause/Resume Clock (or [Enter])</td>
             </tr>
             <tr>
-              <td class="help-dialog-table-key"><b>PgUp</b></td>
-              <td class="help-dialog-table-desc">Add Player †</td>
+              <td class="clock-help-dialog-table-key"><b>PgUp</b></td>
+              <td class="clock-help-dialog-table-desc">Add Player †</td>
             </tr>
             <tr>
-              <td class="help-dialog-table-key"><b>PgDn</b></td>
-              <td class="help-dialog-table-desc">†Remove Player †</td>
+              <td class="clock-help-dialog-table-key"><b>PgDn</b></td>
+              <td class="clock-help-dialog-table-desc">†Remove Player †</td>
             </tr>
             <tr>
-              <td class="help-dialog-table-key"><b>Home</b></td>
-              <td class="help-dialog-table-desc">Add Buy-In (or [=] or [.]) †</td>
+              <td class="clock-help-dialog-table-key"><b>Home</b></td>
+              <td class="clock-help-dialog-table-desc">Add Buy-In (or [=] or [.]) †</td>
             </tr>
             <tr>
-              <td class="help-dialog-table-key"><b>End</b></td>
-              <td class="help-dialog-table-desc">Remove Buy-In (or [-] or [,]) †</td>
-            </tr>
-            <tr> <td colspan="2"> <hr> </td> </tr>
-            <tr>
-              <td class="help-dialog-table-key"><b>BS</b></td>
-              <td class="help-dialog-table-desc">Unlock level/clock keys</td>
-            </tr>
-            <tr>
-              <td class="help-dialog-table-key"><b>←</b></td>
-              <td class="help-dialog-table-desc">*Previous Level</td>
-            </tr>
-            <tr>
-              <td class="help-dialog-table-key"><b>→</b></td>
-              <td class="help-dialog-table-desc">*Skip to Next Level</td>
-            </tr>
-            <tr>
-              <td class="help-dialog-table-key"><b>↑</b></td>
-              <td class="help-dialog-table-desc">*Add 1 Minute †</td>
-            </tr>
-            <tr>
-              <td class="help-dialog-table-key"><b>↓</b></td>
-              <td class="help-dialog-table-desc">*Subtract 1 Minute †</td>
+              <td class="clock-help-dialog-table-key"><b>End</b></td>
+              <td class="clock-help-dialog-table-desc">Remove Buy-In (or [-] or [,]) †</td>
             </tr>
             <tr> <td colspan="2"> <hr> </td> </tr>
             <tr>
-              <td class="help-dialog-table-key"><b>E</b></td>
-              <td class="help-dialog-table-desc">Edit Event</td>
+              <td class="clock-help-dialog-table-key"><b>BS</b></td>
+              <td class="clock-help-dialog-table-desc">Unlock level/clock keys</td>
             </tr>
             <tr>
-              <td class="help-dialog-table-key"><b>Esc</b></td>
-              <td class="help-dialog-table-desc">Exit to Overview</td>
+              <td class="clock-help-dialog-table-key"><b>←</b></td>
+              <td class="clock-help-dialog-table-desc">*Previous Level</td>
+            </tr>
+            <tr>
+              <td class="clock-help-dialog-table-key"><b>→</b></td>
+              <td class="clock-help-dialog-table-desc">*Skip to Next Level</td>
+            </tr>
+            <tr>
+              <td class="clock-help-dialog-table-key"><b>↑</b></td>
+              <td class="clock-help-dialog-table-desc">*Add 1 Minute †</td>
+            </tr>
+            <tr>
+              <td class="clock-help-dialog-table-key"><b>↓</b></td>
+              <td class="clock-help-dialog-table-desc">*Subtract 1 Minute †</td>
+            </tr>
+            <tr> <td colspan="2"> <hr> </td> </tr>
+            <tr>
+              <td class="clock-help-dialog-table-key"><b>E</b></td>
+              <td class="clock-help-dialog-table-desc">Edit Event</td>
+            </tr>
+            <tr>
+              <td class="clock-help-dialog-table-key"><b>Esc</b></td>
+              <td class="clock-help-dialog-table-desc">Exit to Overview</td>
             </tr>
           </tbody>
         </table>
-        <div class="help-dialog-close">
+        <div class="clock-help-dialog-close">
           † If holding shift, these step by 10. </br>
           * These are disabled unless clock is paused and unlocked. <br>
           <b>F1</b>, <b>?</b>, or <b>/</b> will show this message. <br>

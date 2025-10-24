@@ -3,6 +3,11 @@
     src: url('/fs/PressStart2P-vaV7.ttf') format('truetype');
 }
 
+html, body {
+    margin: 0;
+    padding: 0;
+}
+
 body {
     font-family: arcade, monospace;
     background-color: #000000;
@@ -10,6 +15,16 @@ body {
     line-height: 1.7;
 }
 
+a {
+    color: #fff;
+    text-decoration: underline;
+}
+
+ul {
+    list-style-type: none;
+}
+
+/* Container for form/admin pages */
 .container {
     max-width: max(50vw, 800px);
     margin: 2em auto;
@@ -26,33 +41,26 @@ h2 {
     margin-bottom: 0.8em;
 }
 
-table {
+/* Data table styling - add this class to tables that need borders/hover */
+.data-table {
     width: 100%;
     border-collapse: collapse;
     margin-bottom: 2em;
 }
 
-th, td {
+.data-table th,
+.data-table td {
     padding: 0.5em;
     border-bottom: 1px solid #333;
     text-align: left;
 }
 
-th {
+.data-table th {
     background: #222;
 }
 
-tr:hover {
+.data-table tr:hover {
     background: #222;
-}
-
-a {
-    color: #fff;
-    text-decoration: underline;
-}
-
-ul {
-    list-style-type: none;;
 }
 
 label {
@@ -248,4 +256,237 @@ input[type="submit"]:hover, button:hover {
 .login-box p {
     text-align: center;
     margin-top: 1.5em;
+}
+
+/* Clock display styles */
+.clock-page body {
+    line-height: 1;
+}
+
+.clock-page html,
+.clock-page body {
+    height: 100%;
+}
+
+.clock-page table {
+    table-layout: fixed;
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0;
+}
+
+.clock-page td {
+    text-align: center;
+    line-height: 110%;
+    vertical-align: middle;
+    padding: 0;
+    border: none;
+}
+
+.clock-full-height {
+    height: 100%;
+}
+
+.clock-container {
+    position: relative;
+    text-align: center;
+    vertical-align: middle;
+    padding: 15vh 0;
+}
+
+.clock-container.clock-td-running {
+    color: #22ff22;
+}
+
+.clock-container.clock-td-break {
+    color: #ffffff;
+    background-color: #8b1a1a;
+}
+
+.clock-level {
+    font-size: 3vi;
+    color: yellow;
+}
+
+.clock-time {
+    font-size: 15vi;
+    line-height: 100%;
+}
+
+.clock-time.clock-has-hours {
+    font-size: 11vi !important;
+}
+
+.clock-td-running {
+    color: #22ff22;
+}
+
+.clock-td-break {
+    color: #ffffff;
+    background-color: #8b1a1a;
+}
+
+.clock-blinds {
+    font-size: 4vi;
+    color: #cc0099;
+}
+
+.clock-footer {
+    font-size: 2vi;
+    color: #aaaaaa;
+}
+
+.clock-title {
+    font-size: 1.8vi;
+    text-align: center;
+    color: #ffffff;
+}
+
+.clock-current-players {
+    font-size: 4vi;
+    text-align: center;
+    line-height: 110%;
+}
+
+.clock-current-players-label {
+    font-size: 1.7vi;
+    text-align: center;
+    line-height: 110%;
+}
+
+.clock-buyins {
+    font-size: 2.0vi;
+    text-align: center;
+    line-height: 120%;
+}
+
+.clock-addons {
+    line-height: 120%;
+    font-size: 1.5vi;
+    text-align: center;
+}
+
+.clock-avg-chips {
+    font-size: 2.5vi;
+    text-align: center;
+}
+
+.clock-next-level {
+    font-size: 2vi;
+    text-align: center;
+    color: #ffffff;
+}
+
+.clock-next-break {
+    font-size: 2.5vi;
+    text-align: center;
+}
+
+.clock-rr {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    line-height: 120%;
+    justify-content: center;
+    align-items: center;
+}
+
+.clock-rr-prize-pool {
+    flex: 1 1 auto;
+    border-top: 1px solid white;
+    border-bottom: 1px solid white;
+    padding-top: 2px;
+    padding-bottom: 2px;
+    height: 30vi;
+    overflow-y: auto;
+}
+
+.clock-prize-pool {
+    font-size: 1.7vi;
+    line-height: 120%;
+    text-align: center;
+    overflow-y: auto;
+    height: 30vi;
+}
+
+.clock-rr-top-box {
+    padding: 1rem;
+    line-height: 120%;
+}
+
+.clock-rr-label {
+    font-size: 1.7vi;
+    line-height: 140%;
+}
+
+.clock-rr-data {
+    font-size: 2.5vi;
+    text-align: center;
+    line-height: 140%;
+}
+
+.clock-rr-rotate-container {
+    display: none;
+}
+
+.clock-help-dialog-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.95);
+    color: #fff;
+    z-index: 9999;
+    font-family: arcade, monospace;
+    font-size: 2vi;
+    text-align: center;
+    padding-top: 5vi;
+}
+
+.clock-help-dialog-content {
+    margin: auto;
+    background: #222;
+    border: 2px solid #aaaaff;
+    border-radius: 1vi;
+    padding: 2vi;
+    display: inline-block;
+    text-align: left;
+    color: #fff;
+}
+
+.clock-help-dialog-close {
+    font-size: 1.5vi;
+    color: #aaaaff;
+    margin-top: 2vi;
+}
+
+.clock-help-dialog-table-key {
+    width: 18%;
+    text-align: left;
+    padding: 0.1vi 0.4vi 0.1vi 0;
+}
+
+.clock-help-dialog-table-desc {
+    text-align: left;
+    padding: 0.1vi 0;
+}
+
+.clock-paused-overlay {
+    display: none;
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%) rotate(-33deg);
+    font-size: 8vi;
+    color: #ffffff;
+    text-shadow: -0.7vi -0.7vi 0 #000, 0.7vi -0.7vi 0 #000, -0.7vi 0.7vi 0 #000,
+        0.7vi 0.7vi 0 #000, 0 0 100px #000;
+    font-family: arcade, monospace;
+    pointer-events: none;
+    z-index: 10;
+    white-space: nowrap;
+    letter-spacing: 0.1em;
+    font-weight: bold;
 }

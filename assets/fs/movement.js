@@ -222,10 +222,10 @@ function update_next_level_and_break_fields() {
 
   if (level.IsBreak) {
     set_text("blinds", level.Description);
-    set_class("clock-td", "clock-break");
+    set_class("clock-td", "clock-container clock-td-break");
   } else {
     set_text("blinds", level.Description);
-    set_class("clock-td", "clock");
+    set_class("clock-td", "clock-container clock-td-running");
   }
 
   let level_banner = level.Banner;
@@ -264,8 +264,14 @@ function import_new_model_from_server(model) {
   console.log("end " + Date.now());
   set_text("avg-chips", model.Transients.AverageChips)
   if (model.Transients.NextLevel !== null) {
-    set_text("next-description", model.Transients.NextLevel.Description)
+    set_text("next-description", 
+      abridgeNextLevel(model.Transients.NextLevel.Description))
   }
+}
+
+const leadingBlindsRE = /^BLINDS /i;
+function abridgeNextLevel(description) {
+  return description.replace(leadingBlindsRE, "");
 }
 
 function show_paused_overlay(show) {
@@ -433,13 +439,13 @@ function update_big_clock() {
   var clockElement = document.getElementById("clock");
   clockElement.innerHTML = render;
 
-  // Add/remove has-hours class for responsive sizing
+  // Add/remove clock-has-hours class for responsive sizing
   // Count colons to detect format: 1 colon = MM:SS (5 chars), 2 colons = H:MM:SS (7+ chars)
   var colonCount = (render.match(/:/g) || []).length;
   if (colonCount >= 2) {
-    clockElement.classList.add("has-hours");
+    clockElement.classList.add("clock-has-hours");
   } else {
-    clockElement.classList.remove("has-hours");
+    clockElement.classList.remove("clock-has-hours");
   }
 }
 
@@ -636,7 +642,7 @@ async function tick() {
 let rr_rotation_interval_id = undefined;
 function start_rotating_rrdata_containers() {
   const next_rr_data_interval_ms = 11000;
-  let containers = document.getElementsByClassName("rr-rotate-container");
+  let containers = document.getElementsByClassName("clock-rr-rotate-container");
   let current = 0;
   let next_rr_data = function() {
     containers[current].style.display = "none";
