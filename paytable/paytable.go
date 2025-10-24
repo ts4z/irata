@@ -18,9 +18,10 @@ type Row struct {
 // Paytable is a collection of payout percentages that define prize distributions
 // for different player count ranges.
 type Paytable struct {
-	ID   int64  // Unique identifier for the payout table
-	Name string // Name of the payout table (e.g., "BARGE 2025")
-	Rows []Row  // Ordered list of payout rows
+	ID        int64  // Unique identifier for the payout table
+	Name      string // Name of the payout table (e.g., "BARGE 2025")
+	Increment int    // Minimum unit for splits
+	Rows      []Row  // Ordered list of payout rows
 }
 
 // PaytableSlug is a lightweight representation of a payout table for lists.
@@ -41,15 +42,18 @@ func (pt *Paytable) Payout(totalPrizePool int, numPlayers int) ([]int, error) {
 	totalAllocated := int(0)
 
 	for i := 0; i < len(percentages); i++ {
-		prizes[i] = (totalPrizePool * int(percentages[i])) / 10000
-		totalAllocated += prizes[i]
+		prizeRaw := (totalPrizePool * int(percentages[i])) / 10000
+		prizeRounded := (prizeRaw / pt.Increment) * pt.Increment
+		prizes[i] = prizeRounded
+		totalAllocated += prizeRounded
 	}
 
 	remainder := totalPrizePool - totalAllocated
 	for i := 0; remainder > 0; {
-		prizes[i%len(prizes)]++
+		delta := min(remainder, pt.Increment)
+		prizes[i%len(prizes)] += delta
 		i++
-		remainder--
+		remainder -= delta
 	}
 
 	return prizes, nil
@@ -67,9 +71,10 @@ func (pt *Paytable) findRow(numPlayers int) []int {
 
 func (pt *Paytable) Clone() *Paytable {
 	clone := &Paytable{
-		ID:   pt.ID,
-		Name: pt.Name,
-		Rows: make([]Row, len(pt.Rows)),
+		ID:        pt.ID,
+		Increment: pt.Increment,
+		Name:      pt.Name,
+		Rows:      make([]Row, len(pt.Rows)),
 	}
 	for i, row := range pt.Rows {
 		clone.Rows[i] = row

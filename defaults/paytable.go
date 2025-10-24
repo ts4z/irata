@@ -8,7 +8,8 @@ import (
 // of the 2025 BARGE Structures PDF.
 // Tournaments with less than 5 players are winner take all.
 var bargePayoutTable = &paytable.Paytable{
-	Name: "BARGE Unified Poker Payouts",
+	Name:      "BARGE Unified Poker Payouts",
+	Increment: 5,
 	Rows: []paytable.Row{
 		{
 			MinPlayers:  1,
