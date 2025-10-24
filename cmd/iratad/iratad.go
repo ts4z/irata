@@ -146,8 +146,7 @@ func (app *irataApp) handleFunc(pattern string, handler func(context.Context, ht
 }
 
 func (app *irataApp) handleFuncTakingID(pattern string, handler func(context.Context, int64, http.ResponseWriter, *http.Request)) {
-	app.mux.HandleFunc(pattern, func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
+	app.handleFunc(pattern, func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		id, err := idPathValue(w, r)
 		if err != nil {
 			he.SendErrorToHTTPClient(w, "parse url", err)
@@ -157,8 +156,7 @@ func (app *irataApp) handleFuncTakingID(pattern string, handler func(context.Con
 }
 
 func (app *irataApp) requiringAdminHandleFunc(pattern string, handler func(context.Context, http.ResponseWriter, *http.Request)) {
-	app.mux.HandleFunc(pattern, func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
+	app.handleFunc(pattern, func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		if !permission.IsAdmin(ctx) {
 			he.SendErrorToHTTPClient(w, "authorize", he.HTTPCodedErrorf(http.StatusUnauthorized, "permission denied"))
 			return
@@ -182,7 +180,7 @@ func (app *irataApp) requiringAdminTakingIDHandleFunc(pattern string, handler fu
 	})
 }
 
-func (app *irataApp) renderTournament(ctx context.Context, id int64, w http.ResponseWriter, r *http.Request) {
+func (app *irataApp) renderTournament(ctx context.Context, id int64, w http.ResponseWriter, _ *http.Request) {
 	sc, err := app.siteStorage.FetchSiteConfig(ctx)
 	if err != nil {
 		he.SendErrorToHTTPClient(w, "fetch site config", err)
@@ -547,12 +545,7 @@ func (app *irataApp) installHandlers() {
 	})
 
 	app.requiringAdminTakingIDHandleFunc("/manage/footer-set/{id}/delete", func(ctx context.Context, id int64, w http.ResponseWriter, r *http.Request) {
-		id, err := idPathValue(w, r)
-		if err != nil {
-			return
-		}
-
-		err = app.appStorage.DeleteFooterPlugSet(ctx, id)
+		err := app.appStorage.DeleteFooterPlugSet(ctx, id)
 		if err != nil {
 			he.SendErrorToHTTPClient(w, "delete footer plug set", err)
 			return
@@ -575,9 +568,7 @@ func (app *irataApp) installHandlers() {
 		}
 	})
 
-	app.mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
-
+	app.handleFunc("/", func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		sc, err := app.siteStorage.FetchSiteConfig(ctx)
 		if err != nil {
 			he.SendErrorToHTTPClient(w, "fetch site config", err)
@@ -602,11 +593,11 @@ func (app *irataApp) installHandlers() {
 		}
 	})
 
-	app.mux.HandleFunc("/favicon.ico", func(w http.ResponseWriter, r *http.Request) {
+	app.handleFunc("/favicon.ico", func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		http.ServeFileFS(w, r, app.subFS, "favicon.ico")
 	})
 
-	app.mux.HandleFunc("/logout", func(w http.ResponseWriter, r *http.Request) {
+	app.handleFunc("/logout", func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		app.bakery.ClearCookie(w)
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 	})
@@ -676,13 +667,8 @@ func (app *irataApp) installHandlers() {
 		}
 	})
 
-	app.mux.HandleFunc("/api/footerPlugs/{id}", func(w http.ResponseWriter, r *http.Request) {
-		id, err := idPathValue(w, r)
-		if err != nil {
-			return
-		}
-
-		fp, err := app.appStorage.FetchPlugs(r.Context(), id)
+	app.handleFuncTakingID("/api/footerPlugs/{id}", func(ctx context.Context, id int64, w http.ResponseWriter, r *http.Request) {
+		fp, err := app.appStorage.FetchPlugs(ctx, id)
 		if err != nil {
 			he.SendErrorToHTTPClient(w, "get plugs from db", err)
 			return
@@ -705,12 +691,8 @@ func (app *irataApp) installHandlers() {
 		}
 	})
 
-	app.mux.HandleFunc("/api/model/{id}", func(w http.ResponseWriter, r *http.Request) {
-		id64, err := idPathValue(w, r)
-		if err != nil {
-			return
-		}
-		t, err := app.fetchTournament(r.Context(), id64)
+	app.handleFuncTakingID("/api/model/{id}", func(ctx context.Context, id64 int64, w http.ResponseWriter, r *http.Request) {
+		t, err := app.fetchTournament(ctx, id64)
 		if err != nil {
 			he.SendErrorToHTTPClient(w, "get tourney from db", err)
 			return
@@ -728,8 +710,7 @@ func (app *irataApp) installHandlers() {
 		}
 	})
 
-	app.mux.HandleFunc("/login", func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
+	app.handleFunc("/login", func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		default:
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -787,7 +768,7 @@ func (app *irataApp) installHandlers() {
 	})
 
 	// Handler for /api/tournament-listen
-	app.mux.HandleFunc("/api/tournament-listen", func(w http.ResponseWriter, r *http.Request) {
+	app.handleFunc("/api/tournament-listen", func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		type reqBody struct {
 			TournamentID int64 `json:"tournament_id"`
 			Version      int64 `json:"version"`
@@ -801,7 +782,7 @@ func (app *irataApp) installHandlers() {
 		errCh := make(chan error, 1)
 		tournamentCh := make(chan *model.Tournament, 1)
 		timeoutCh := time.After(time.Hour)
-		go app.appStorage.ListenTournamentVersion(r.Context(), req.TournamentID, req.Version, errCh, tournamentCh)
+		go app.appStorage.ListenTournamentVersion(ctx, req.TournamentID, req.Version, errCh, tournamentCh)
 		select {
 		case err := <-errCh:
 			he.SendErrorToHTTPClient(w, "listening for tournament version change", err)
