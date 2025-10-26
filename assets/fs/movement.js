@@ -2,7 +2,8 @@
 
 "use strict";
 
-const next_level_sound = new Audio('/fs/alto-sax-a-d-fanfare.mp3');
+// const next_level_sound = new Audio('/fs/alto-sax-a-d-fanfare.mp3');
+const next_level_sound = new Audio('/fs/inchy.mp3');
 
 async function sleep(ms) {
   await new Promise(resolve => setTimeout(resolve, ms));
