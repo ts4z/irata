@@ -261,12 +261,12 @@ input[type="submit"]:hover, button:hover {
 /* Clock display styles */
 .clock-page body {
     line-height: 1;
-    overflow: hidden;
 }
 
 .clock-page html,
 .clock-page body {
     height: 100%;
+    overflow: hidden;
 }
 
 .clock-page table {
