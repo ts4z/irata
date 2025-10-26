@@ -6,6 +6,7 @@
 html, body {
     margin: 0;
     padding: 0;
+    overflow: hidden;
 }
 
 body {
@@ -386,9 +387,13 @@ input[type="submit"]:hover, button:hover {
     display: flex;
     flex-direction: column;
     height: 100vh;
+    width: 100%;
     line-height: 120%;
     justify-content: center;
-    align-items: center;
+}
+
+.clock-rr > * {
+    width: 100%;
 }
 
 .clock-rr-prize-pool {
@@ -399,9 +404,13 @@ input[type="submit"]:hover, button:hover {
     padding-bottom: 2px;
     height: 30vi;
     overflow-y: auto;
+    width: 100%;
+    align-self: stretch;
 }
 
 .clock-prize-pool {
+    display: block;
+    width: 100%;
     font-size: 1.7vi;
     line-height: 120%;
     text-align: center;
@@ -412,6 +421,13 @@ input[type="submit"]:hover, button:hover {
 .clock-rr-top-box {
     padding: 1rem;
     line-height: 120%;
+    width: 100%;
+    align-self: stretch;
+}
+
+.clock-rr-bottom-box {
+    width: 100%;
+    align-self: stretch;
 }
 
 .clock-rr-label {

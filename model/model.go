@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	ServerVersion = 5
+	ServerVersion = 6
 )
 
 type Clock interface {
