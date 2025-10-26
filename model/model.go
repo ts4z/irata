@@ -13,7 +13,11 @@ import (
 )
 
 const (
-	ServerVersion = 7
+	// ServerVersion indicates an incompatible change to the client/server interaction.
+	// If the client gets a different number than it originally got here, it should reload
+	// to get a new copy of all server files.  This does not indicate any particular
+	// compatibility problem.
+	ServerVersion = 10
 )
 
 type Clock interface {
@@ -196,10 +200,6 @@ type Transients struct {
 	ServerVersion int
 	TotalChips    int
 	AverageChips  int
-	// NextBreakAt is the time the next break starts, in Unix millis, or nil if there are no more breaks.
-	NextBreakAt *int64
-	// NextLevel is the next non-break level, or nil if there are no more levels.
-	NextLevel *Level
 }
 
 func (m *Tournament) PrizePoolAmount() int {
@@ -330,48 +330,6 @@ func (m *Tournament) FillTransients(deps *Deps) {
 			m.State.PrizePool = ppt
 		}
 	}
-
-	m.fillNextBreak()
-	m.fillNextLevel()
-}
-
-func (m *Tournament) fillNextBreak() {
-	if !m.State.IsClockRunning {
-		m.Transients.NextBreakAt = nil
-		return
-	}
-
-	if m.State.CurrentLevelEndsAt == nil {
-		log.Printf("can't fillNextBreak: CurrentLevelEndsAt is nil")
-	}
-
-	when := m.CurrentLevelEndsAtAsTime()
-
-	for i := m.State.CurrentLevelNumber + 1; i < len(m.Structure.Levels); i++ {
-		maybeBreakLevel := m.Structure.Levels[i]
-		if maybeBreakLevel.IsBreak {
-			millis := when.UnixMilli()
-			m.Transients.NextBreakAt = &millis
-			return
-		}
-
-		when = when.Add(time.Duration(maybeBreakLevel.DurationMinutes) * time.Minute)
-	}
-
-	// no break for you
-	m.Transients.NextBreakAt = nil
-}
-
-// fillNextLevel sets Transients.NextLevel to the next non-break level.
-func (m *Tournament) fillNextLevel() {
-	for i := m.State.CurrentLevelNumber + 1; i < len(m.Structure.Levels); i++ {
-		if m.Structure.Levels[i].IsBreak {
-			continue
-		}
-		m.Transients.NextLevel = m.Structure.Levels[i]
-		return
-	}
-	m.Transients.NextLevel = nil
 }
 
 func (m *Tournament) PreviousLevel(deps *Deps) error {

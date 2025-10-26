@@ -770,8 +770,9 @@ func (app *irataApp) installHandlers() {
 	// Handler for /api/tournament-listen
 	app.handleFunc("/api/tournament-listen", func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		type reqBody struct {
-			TournamentID int64 `json:"tournament_id"`
-			Version      int64 `json:"version"`
+			TournamentID  int64
+			Version       int64
+			ServerVersion int64
 		}
 		var req reqBody
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -782,7 +783,13 @@ func (app *irataApp) installHandlers() {
 		errCh := make(chan error, 1)
 		tournamentCh := make(chan *model.Tournament, 1)
 		timeoutCh := time.After(time.Hour)
-		go app.appStorage.ListenTournamentVersion(ctx, req.TournamentID, req.Version, errCh, tournamentCh)
+		version := req.Version
+		if req.ServerVersion != model.ServerVersion {
+			// trash the version number, we will need an update immediately and the client will
+			// have to reload
+			version = -1
+		}
+		go app.appStorage.ListenTournamentVersion(ctx, req.TournamentID, version, errCh, tournamentCh)
 		select {
 		case err := <-errCh:
 			he.SendErrorToHTTPClient(w, "listening for tournament version change", err)

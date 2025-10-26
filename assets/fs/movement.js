@@ -16,7 +16,7 @@ function tournament_id() {
 
 function randN(n) { return Math.floor(Math.random() * n); }
 
-function fanfare(_ = undefined) {
+function play_fanfare(_ = undefined) {
   next_level_sound.play();
 }
 
@@ -92,7 +92,6 @@ var last_model = {
   // Transients are things that are computed from State and Structure.
   "Transients": {
     "NextBreakAt": undefined,
-    "NextLevel": undefined,
     "EndsAt": undefined,
     "ServerVersion": undefined,
   }
@@ -199,6 +198,7 @@ async function listen_and_consume_model_changes(abortSignal) {
     return Promise.reject("no tournament id");
   }
   const version = last_model?.Version ?? 0;
+  const server_version = last_model?.Transients?.ServerVersion ?? 0;
 
   const response = await fetch("/api/tournament-listen", {
     signal: abortSignal,
@@ -207,7 +207,7 @@ async function listen_and_consume_model_changes(abortSignal) {
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ tournament_id: tid, version: version })
+    body: JSON.stringify({ TournamentID: tid, Version: version, ServerVersion: server_version }),
   });
   const model = await response.json();
   import_new_model_from_server(model);
@@ -234,7 +234,7 @@ function update_next_level_and_break_fields() {
 
   next_level_complete_at = new Date(last_model.State.CurrentLevelEndsAt)
 
-  show_paused_overlay(!last_model.State.IsClockRunning);
+  show_paused_overlay(!is_clock_running());
 }
 
 // Server sent a whole new model.  Update all the fields.
@@ -246,6 +246,10 @@ function import_new_model_from_server(model) {
     // new model changed the ServerVersion
     // this is tagged as an incompatible change
     window.location.reload();
+  } else {
+    console.log(`last_model.Transients.ServerVersion= ${!! last_model.Transients.ServerVersion}`);
+    console.log(`model.Transients.ServerVersion= ${model.Transients.ServerVersion}`);
+    console.log(`model.Transients.ServerVersion != last_model.Transients.ServerVersion)= ${model.Transients.ServerVersion != last_model.Transients.ServerVersion}`);
   }
 
   last_model = model;
@@ -264,14 +268,59 @@ function import_new_model_from_server(model) {
   }
   console.log("end " + Date.now());
   set_text("avg-chips", model.Transients.AverageChips)
-  if (model.Transients.NextLevel !== null) {
-    set_text("next-description", 
-      abridgeNextLevel(model.Transients.NextLevel.Description))
+  set_next_description();
+}
+
+function next_break_level_number() {
+  let cln = last_model.State.CurrentLevelNumber;
+  let levels = last_model.Structure.Levels;
+  for (let i = cln + 1; i < levels.length; i++) {
+    if (levels[i].IsBreak) {
+      return i;
+    }
+  }
+  return undefined;
+}
+
+function is_clock_running() {
+  return last_model.State.IsClockRunning;
+}
+
+function ms_until_next_break() {
+  if (!is_clock_running()) {
+    return undefined;
+  }
+  let amt = last_model.State.TimeRemainingMillis || 0;
+  for (let i = last_model.State.CurrentLevelNumber + 1; i < last_model.Structure.Levels.length; i++) {
+    let level = last_model.Structure.Levels[i];
+    if (level.IsBreak) {
+      return amt;
+    }
+    amt += level.DurationMinutes * 60 * 1000;
+  }
+  return undefined;
+}
+
+function next_non_break_level() {
+  let cln = last_model.State.CurrentLevelNumber;
+  let levels = last_model.Structure.Levels;
+  for (let i = cln + 1; i < levels.length; i++) {
+    if (!levels[i].IsBreak) {
+      return levels[i];
+    }
+  }
+  return null;
+}
+
+function set_next_description() {
+  let nnb = next_non_break_level();
+  if (nnb !== null) {
+      set_text("next-description", abridgeDescription(nnb.Description));
   }
 }
 
 const leadingBlindsRE = /^BLINDS /i;
-function abridgeNextLevel(description) {
+function abridgeDescription(description) {
   return description.replace(leadingBlindsRE, "");
 }
 
@@ -360,29 +409,15 @@ function millis_remaining_in_level() {
 function update_break_clock() {
   let set = function(v) { set_text("next-break", v); }
 
-  if (!last_model.State.IsClockRunning) {
+  if (!is_clock_running()) {
     set("PAUSED");
   }
 
-  if (!last_model.Transients.NextBreakAt) {
-    set("N/A");
-  } else if (typeof last_model.Transients.NextBreakAt !== 'number') {
-    console.log("update_break_clock: NextBreakAt is nonsense");
-    set("???");
-  } else {
-    var remaining = (next_break_at - Date.now());
-    if (remaining < 0) {
-      console.log("remaining is < 0; next_break_at = " + next_break_at);
-      remaining = 0;        // can't happen?
-    }
-
-    var mins = Math.floor(remaining / (1000 * 60));
-    set(mins + " MIN");
-  }
+  set(Math.floor(ms_until_next_break() / (1000 * 60)) + " MIN");
 }
 
 async function maybe_clock_tick() {
-  if (!last_model.State.IsClockRunning) {
+  if (!is_clock_running()) {
     return Promise.reject("clock not running");
   }
 
@@ -417,8 +452,9 @@ function advance_clock_from_wall_clock() {
       let nextDurationMinutes = last_model.Structure.Levels[last_model.State.CurrentLevelNumber].DurationMinutes;
       let oldMinutes = oldEndsAt.getMinutes();
       last_model.State.CurrentLevelEndsAt = new Date(oldEndsAt.setMinutes(oldMinutes + nextDurationMinutes)); // gross
-
-      fanfare();
+      
+      play_fanfare();
+      set_next_description();
     }
 
     update_time_fields();
@@ -426,7 +462,7 @@ function advance_clock_from_wall_clock() {
 }
 
 function update_time_fields() {
-  update_break_clock(last_model);
+  update_break_clock();
   update_big_clock();
   update_next_level_and_break_fields();
 }
@@ -506,7 +542,7 @@ function install_keyboard_handlers() {
   function toggle_pause(_) {
     if (last_model === undefined) {
       console.log("last_model undefined")
-    } else if (last_model.State.IsClockRunning) {
+    } else if (is_clock_running()) {
       send_modify('StopClock')
     } else {
       send_modify('StartClock')
@@ -560,7 +596,7 @@ function install_keyboard_handlers() {
     'Period': smwa('AddBuyIn'),
     'KeyE': redirect_to_edit,
     'KeyF': next_footer_key,
-    'KeyG': fanfare,
+    'KeyG': play_fanfare,
     'Backspace': toggle_clock_controls_lock,
     'Escape': handle_escape,
     'Slash': show_help_dialog,
@@ -625,7 +661,7 @@ const cached_change_listener = (() => {
 
 async function tick() {
   let wait = [cached_change_listener()];
-  if (last_model.State.IsClockRunning) {
+  if (is_clock_running()) {
     wait.push(maybe_clock_tick());
   }
   if (want_footers()) {
