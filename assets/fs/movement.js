@@ -64,7 +64,7 @@ function shuffle_array(a) {
 
 const next_footer_interval_ms = 30000;
 
-let next_level_complete_at = undefined, next_break_at = undefined, clock_controls_locked = true;
+let next_level_complete_at = undefined, clock_controls_locked = true;
 
 // Initialize last_model (the last model we loaded) with a fail-safe initial
 // model value
@@ -216,7 +216,6 @@ async function listen_and_consume_model_changes(abortSignal) {
 
 function update_next_level_and_break_fields() {
   next_level_complete_at = last_model.Transients.EndsAt;
-  next_break_at = last_model.Transients.NextBreakAt;
 
   var cln = last_model.State.CurrentLevelNumber;
   var level = last_model.Structure.Levels[cln]
@@ -412,8 +411,14 @@ function update_break_clock() {
   if (!is_clock_running()) {
     set("PAUSED");
   }
+  
+  let ms = ms_until_next_break();
 
-  set(Math.floor(ms_until_next_break() / (1000 * 60)) + " MIN");
+  if (ms) {
+    set(Math.floor(ms / (1000 * 60)) + " MIN");
+  } else {
+    set("N/A");
+  }
 }
 
 async function maybe_clock_tick() {
