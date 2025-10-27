@@ -1,9 +1,11 @@
 <!DOCTYPE html>
 <html>
+
 <head>
     <title>{{ if .IsNew }}Create{{ else }}Edit{{ end }} Tournament</title>
-    <link rel="stylesheet" href="/fs/irata-style.css">
+    <link rel="stylesheet" href="/fs/{{ .SiteConfig.Theme }}-style.css">
 </head>
+
 <body>
     <div class="container">
         <div class="admin-bar">
@@ -14,6 +16,16 @@
         </div>
 
         <h1>{{ if .IsNew }}CREATE TOURNAMENT{{ else }}EDIT EVENT {{ .Tournament.EventID }}{{ end }}</h1>
+
+        {{ if not .IsNew }}
+        <div class="info-box">
+            <p>Be sure to press Save.</p>
+            <p>
+                Edits to a live tournament will behave weirdly. Any changes to a live tournament will
+                lock out this form, and you will have to hit reload before you can make additional edits.
+            </p>
+        </div>
+        {{ end }}
 
         {{ if .IsNew }}
         <form method="POST">
@@ -66,107 +78,139 @@
         <form method="POST">
             <input type="hidden" name="Version" value="{{ .Version }}">
 
-            <div class="form-group">
-                <label for="EventName">Event Name</label>
-                <input type="text" id="EventName" name="EventName" maxlength="30" value="{{ .EventName }}">
+            <div class="form-section">
+                <h2> Event Details </h2>
+                <div class="form-group">
+                    <label for="EventName">Event Name</label>
+                    <input type="text" id="EventName" name="EventName" maxlength="30" value="{{ .EventName }}">
+                </div>
+
+                <div class="form-group">
+                    <label for="Handle">Handle</label>
+                    <input type="text" id="Handle" name="Handle" maxlength="30" value="{{ .Handle }}">
+                </div>
+
+                <div class="form-group">
+                    <label for="Description">Description</label>
+                    <input type="text" id="Description" name="Description" maxlength="50" value="{{ .Description }}">
+                </div>
+
+                <div class="form-group">
+                    <label for="FooterPlugsID">Footer Plugs</label>
+                    <select id="FooterPlugsID" name="FooterPlugsID" required>
+                        {{ range $.FooterSets }}
+                        <option value="{{ .FooterPlugsID }}" {{ if eq .FooterPlugsID $.Tournament.FooterPlugsID
+                            }}selected{{ end }}>{{ .Name }}</option>
+                        {{ end }}
+                    </select>
+                </div>
             </div>
 
-            <div class="form-group">
-                <label for="Handle">Handle</label>
-                <input type="text" id="Handle" name="Handle" maxlength="30" value="{{ .Handle }}">
+            <div class="form-section">
+                <h2> Chip Setup </h2>
+                <div class="form-group">
+                    <label for="ChipsPerBuyIn">Prize Pool Per Buy-In</label>
+                    <input type="text" id="PrizePoolPerBuyIn" name="PrizePoolPerBuyIn" maxlength="30" pattern="[0-9,]+"
+                        required value="{{ .PrizePoolPerBuyIn }}">
+                </div>
+
+                <div class="form-group">
+                    <label for="ChipsPerBuyIn">Prize Pool Per Add On</label>
+                    <input type="text" id="PrizePoolPerAddOn" name="PrizePoolPerAddOn" maxlength="30" pattern="[0-9,]+"
+                        required value="{{ .PrizePoolPerAddOn }}">
+                </div>
+
+                <div class="form-group">
+                    <label for="TotalPrizePoolOverride">Total Chips Override</label>
+                    <input type="text" id="TotalPrizePoolOverride" name="TotalPrizePoolOverride" maxlength="30"
+                        pattern="[0-9,]+" placeholder="0 to auto-compute" value="{{ .State.TotalPrizePoolOverride }}">
+                </div>
+
+                <div class="form-group">
+                    <label title="Chips per buy-in, used for calculating total chips in play." for="ChipsPerBuyIn">Chips
+                        Per Buy-In</label>
+                    <input type="text" id="ChipsPerBuyIn" name="ChipsPerBuyIn" maxlength="30" pattern="[0-9,]+"
+                        value="{{ .Structure.ChipsPerBuyIn }}">
+                </div>
+
+                <div class="form-group">
+                    <label for="ChipsPerAddOn">Chips Per Add-On</label>
+                    <input type="text" id="ChipsPerAddOn" name="ChipsPerAddOn" maxlength="30" pattern="[0-9,]+" required
+                        value="{{ .Structure.ChipsPerAddOn }}">
+                </div>
+
+                <div class="form-group">
+                    <label for="TotalChipsOverride">Total Chips Override</label>
+                    <input type="text" id="TotalChipsOverride" name="TotalChipsOverride" maxlength="30"
+                        pattern="[0-9,]+" placeholder="0 to auto-compute" value="{{ .State.TotalChipsOverride }}">
+                </div>
             </div>
 
-            <div class="form-group">
-                <label for="Description">Description</label>
-                <input type="text" id="Description" name="Description" maxlength="50" value="{{ .Description }}">
+            <div class="form-section">
+                <h2> Prize Pool Calculation &amp; Display </h2>
+                <div class="form-group">
+                    <label for="PrizePoolMode">Prize Pool Mode</label>
+                    <select id="PrizePoolMode" name="PrizePoolMode" onchange="togglePrizePoolMode()">
+                        <option value="manual" {{ if not .State.AutoComputePrizePool }}selected{{ end }}>Manual Message
+                        </option>
+                        <option value="calculated" {{ if .State.AutoComputePrizePool }}selected{{ end }}>Calculated
+                            Prize
+                            Pool</option>
+                    </select>
+                </div>
+
+                <div class="form-group" id="PaytableGroup"
+                    style="display: {{ if .State.AutoComputePrizePool -}} block {{- else -}} none {{- end -}};">
+                    <label for="PaytableID">Paytable</label>
+                    <select id="PaytableID" name="PaytableID" onchange="recalculatePrizePool()">
+                        {{ range $.Paytables }}
+                        <option value="{{ .ID }}" {{ if eq .ID $.Tournament.PaytableID }}selected{{ end }}>{{ .Name }}
+                        </option>
+                        {{ end }}
+                    </select>
+
+                <div class="form-group">
+                    <label for="Saves">Saves</label>
+                    <input type="text" id="Saves" name="NumberOfSaves" maxlength="6" pattern="[0-9,]+"
+                        value="{{ .State.Saves }}">
+                </div>
+
+                <div class="form-group">
+                    <label for="AmountPerSave">Amount per Save</label>
+                    <input type="text" id="AmountPerSave" name="AmountPerSave" maxlength="30" pattern="[0-9,]+"
+                        value="{{ .State.AmountPerSave }}">
+                </div>
+                </div>
+
+
+                <div class="form-group">
+                    <label title="Prize pool displayed on right rail of tourney view page." for="PrizePool">Prize
+                        Pool</label>
+                    <small id="PrizePoolHelp">{{ if .State.AutoComputePrizePool }}Automatically calculated based on
+                        buy-ins,
+                        add-ons, and selected paytable{{ else }}Free-form text. No HTML tags.{{ end }}</small>
+                    <textarea id="PrizePool" name="PrizePool" rows="10" cols="50" {{ if .State.AutoComputePrizePool
+                        }}readonly{{ end }}>{{ .State.PrizePool }}</textarea>
+                </div>
             </div>
 
-            <div class="form-group">
-                <label for="ChipsPerBuyIn">Prize Pool Per Buy-In</label>
-                <input type="text" id="PrizePoolPerBuyIn" name="PrizePoolPerBuyIn" maxlength="30" pattern="[0-9,]+" required value="{{ .PrizePoolPerBuyIn }}">
-            </div>
-
-            <div class="form-group">
-                <label for="ChipsPerBuyIn">Prize Pool Per Add On</label>
-                <input type="text" id="PrizePoolPerAddOn" name="PrizePoolPerAddOn" maxlength="30" pattern="[0-9,]+" required value="{{ .PrizePoolPerAddOn }}">
-            </div>
-
-            <div class="form-group">
-                <label for="TotalPrizePoolOverride">Total Chips Override</label>
-                <input type="text" id="TotalPrizePoolOverride" name="TotalPrizePoolOverride" maxlength="30" pattern="[0-9,]+" placeholder="0 to auto-compute" value="{{ .State.TotalPrizePoolOverride }}">
-            </div>
-
-            <div class="form-group">
-                <label for="Saves">Saves</label>
-                <input type="text" id="Saves" name="NumberOfSaves" maxlength="6" pattern="[0-9,]+" 
-                 value="{{ .State.Saves }}">
-            </div>
-
-            <div class="form-group">
-                <label for="AmountPerSave">Amount per Save</label>
-                <input type="text" id="AmountPerSave" name="AmountPerSave" maxlength="30" pattern="[0-9,]+" 
-                 value="{{ .State.AmountPerSave }}">
-            </div>
-
-            <div class="form-group">
-                <label for="ChipsPerBuyIn">Chips Per Buy-In</label>
-                <input type="text" id="ChipsPerBuyIn" name="ChipsPerBuyIn" maxlength="30" pattern="[0-9,]+" value="{{ .Structure.ChipsPerBuyIn }}">
-            </div>
-
-            <div class="form-group">
-                <label for="ChipsPerAddOn">Chips Per Add-On</label>
-                <input type="text" id="ChipsPerAddOn" name="ChipsPerAddOn" maxlength="30" pattern="[0-9,]+" required value="{{ .Structure.ChipsPerAddOn }}">
-            </div>
-
-            <div class="form-group">
-                <label for="TotalChipsOverride">Total Chips Override</label>
-                <input type="text" id="TotalChipsOverride" name="TotalChipsOverride" maxlength="30" pattern="[0-9,]+" placeholder="0 to auto-compute" value="{{ .State.TotalChipsOverride }}">
-            </div>
-
-            <div class="form-group">
-                <label for="PrizePoolMode">Prize Pool Mode</label>
-                <select id="PrizePoolMode" name="PrizePoolMode" onchange="togglePrizePoolMode()">
-                    <option value="manual" {{ if not .State.AutoComputePrizePool }}selected{{ end }}>Manual Message</option>
-                    <option value="calculated" {{ if .State.AutoComputePrizePool }}selected{{ end }}>Calculated Prize Pool</option>
-                </select>
-            </div>
-
-            <div class="form-group" id="PaytableGroup" style="{{ if not .State.AutoComputePrizePool }}display: none;{{ end }}">
-                <label for="PaytableID">Paytable</label>
-                <select id="PaytableID" name="PaytableID" onchange="recalculatePrizePool()">
-                    {{ range $.Paytables }}
-                    <option value="{{ .ID }}" {{ if eq .ID $.Tournament.PaytableID }}selected{{ end }}>{{ .Name }}</option>
-                    {{ end }}
-                </select>
-            </div>
-
-            <div class="form-group">
-                
-
-                <label for="PrizePool">Prize Pool</label>
-                <small id="PrizePoolHelp">{{ if .State.AutoComputePrizePool }}Automatically calculated based on buy-ins, add-ons, and selected paytable{{ else }}Free-form text. No HTML tags.{{ end }}</small>
-                <textarea id="PrizePool" name="PrizePool" rows="10" cols="50" {{ if .State.AutoComputePrizePool }}readonly{{ end }}>{{ .State.PrizePool }}</textarea>
-            </div>
-
-            <div class="form-group">
-                <label for="FooterPlugsID">Footer Plugs</label>
-                <select id="FooterPlugsID" name="FooterPlugsID" required>
-                    {{ range $.FooterSets }}
-                    <option value="{{ .FooterPlugsID }}" {{ if eq .FooterPlugsID $.Tournament.FooterPlugsID }}selected{{ end }}>{{ .Name }}</option>
-                    {{ end }}
-                </select>
-            </div>
-
-            <div class="form-group">
-                <label>
-                    <input type="checkbox" id="ChangeStructure" name="ChangeStructure" onchange="toggleStructureSelect()">
-                    Change Structure (will reset to level 0 and pause tournament)
-                </label>
-                <select id="StructureID" name="StructureID" disabled>
-                    {{ range $.Structures }}
-                    <option value="{{ .ID }}" {{ if eq .ID $.Tournament.FromStructureID }}selected{{ end }}>{{ .Name }}</option>
-                    {{ end }}
-                </select>
+            <div class="form-section">
+                <h2> Change Structure </h2>
+                <div class="form-group">
+                <p>Changing the structure will reset the tournament to level 0!</p>
+                    <label>
+                        <input type="checkbox" id="ChangeStructure" name="ChangeStructure"
+                            onchange="toggleStructureSelect()">
+                        Change Structure
+                    </label>
+                    <select id="StructureID" name="StructureID" disabled>
+                        {{ range $.Structures }}
+                        <option value="{{ .ID }}" {{ if eq .ID $.Tournament.FromStructureID }}selected{{ end }}>{{ .Name
+                            }}
+                        </option>
+                        {{ end }}
+                    </select>
+                </div>
             </div>
 
             <script>
@@ -186,7 +230,7 @@
                     const paytableGroup = document.getElementById('PaytableGroup');
                     const prizePoolTextarea = document.getElementById('PrizePool');
                     const helpText = document.getElementById('PrizePoolHelp');
-                    
+
                     if (mode === 'calculated') {
                         paytableGroup.style.display = 'block';
                         prizePoolTextarea.readOnly = true;
@@ -246,12 +290,12 @@
                 }
 
                 // Add event listeners for recalculation on field changes
-                document.addEventListener('DOMContentLoaded', function() {
+                document.addEventListener('DOMContentLoaded', function () {
                     const fieldsToWatch = [
                         'BuyIns', 'AddOns', 'Saves', 'AmountPerSave',
                         'PrizePoolPerBuyIn', 'PrizePoolPerAddOn', 'TotalPrizePoolOverride'
                     ];
-                    
+
                     fieldsToWatch.forEach(fieldId => {
                         const field = document.getElementById(fieldId);
                         if (field) {
@@ -270,21 +314,28 @@
                 });
             </script>
 
-            <div class="form-group">
-                <label for="CurrentPlayers">Current Players</label>
-                <input type="text" id="CurrentPlayers" name="CurrentPlayers" maxlength="6" pattern="[0-9,]+" value="{{ .State.CurrentPlayers }}">
+            <div class="form-section">
+                <h2> Tournament State </h2>
+                <div> Most of this can be edited live on the tournament view page. </div>
+                <div class="form-group">
+                    <label for="CurrentPlayers">Current Players</label>
+                    <input type="text" id="CurrentPlayers" name="CurrentPlayers" maxlength="6" pattern="[0-9,]+"
+                        value="{{ .State.CurrentPlayers }}">
+                </div>
+
+                <div class="form-group">
+                    <label for="BuyIns">Buy-Ins</label>
+                    <input type="text" id="BuyIns" name="BuyIns" maxlength="6" pattern="[0-9,]+"
+                        value="{{ .State.BuyIns }}">
+                </div>
+
+                <div class="form-group">
+                    <label for="AddOns">Add-Ons</label>
+                    <input type="text" id="AddOns" name="AddOns" maxlength="6" pattern="[0-9,]+"
+                        value="{{ .State.AddOns }}">
+                </div>
             </div>
 
-            <div class="form-group">
-                <label for="BuyIns">Buy-Ins</label>
-                <input type="text" id="BuyIns" name="BuyIns" maxlength="6" pattern="[0-9,]+" value="{{ .State.BuyIns }}">
-            </div>
-
-            <div class="form-group">
-                <label for="AddOns">Add-Ons</label>
-                <input type="text" id="AddOns" name="AddOns" maxlength="6" pattern="[0-9,]+" value="{{ .State.AddOns }}">
-            </div>
-            
             <div class="actions">
                 {{ if $.IsAdmin }}
                 <button type="submit">Save Changes</button>
@@ -293,7 +344,7 @@
                 <p>You can look but you can't touch</p>
                 {{ end }}
             </div>
-           
+
         </form>
         {{ end }}
         {{ end }}
@@ -301,4 +352,5 @@
         {{ if .Flash }}<div class="flash">{{ .Flash }}</div>{{ end }}
     </div>
 </body>
+
 </html>

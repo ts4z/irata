@@ -69,6 +69,15 @@ label {
     font-weight: bold;
 }
 
+.form-section {
+    margin: 10px;
+    padding: 10px;
+    border-width: 1px;
+    border-radius: 5px;
+    border-style: solid;
+    border-color: #aaa;
+}
+
 .form-group {
     margin-bottom: 1.5em;
 }

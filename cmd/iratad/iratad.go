@@ -61,6 +61,7 @@ type editTournamentArgs struct {
 	Paytables  []*paytable.PaytableSlug
 	IsAdmin    bool
 	IsNew      bool
+	SiteConfig *model.SiteConfig
 }
 
 // irataApp prevents the proliferation of global variables.
@@ -287,11 +288,17 @@ func (app *irataApp) installHandlers() {
 				}
 			}
 		}
+		sc, err := app.siteStorage.FetchSiteConfig(ctx)
+		if err != nil {
+			he.SendErrorToHTTPClient(w, "fetch site config", err)
+			return
+		}
 		data := &editTournamentArgs{
 			Structures: structures,
 			FooterSets: footers,
 			Flash:      flash,
 			IsNew:      true,
+			SiteConfig: sc,
 		}
 		if err := app.templates.ExecuteTemplate(w, "edit-tournament.html.tmpl", data); err != nil {
 			log.Printf("can't render edit-tournament template: %v", err)
@@ -652,6 +659,11 @@ func (app *irataApp) installHandlers() {
 			return
 		}
 
+		sc, err := app.siteStorage.FetchSiteConfig(ctx)
+		if err != nil {
+			he.SendErrorToHTTPClient(w, "fetch site config", err)
+			return
+		}
 		args := &editTournamentArgs{
 			Tournament: t,
 			Structures: structures,
@@ -659,6 +671,7 @@ func (app *irataApp) installHandlers() {
 			Paytables:  paytables,
 			IsAdmin:    permission.IsAdmin(ctx),
 			IsNew:      false,
+			SiteConfig: sc,
 		}
 
 		if err := app.templates.ExecuteTemplate(w, "edit-tournament.html.tmpl", args); err != nil {
