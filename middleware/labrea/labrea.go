@@ -16,7 +16,7 @@ type Clock interface {
 	Now() time.Time
 }
 
-type Handler struct {
+type Tarpit struct {
 	clock Clock
 	rand  *rand.Rand
 	next  http.Handler
@@ -27,7 +27,7 @@ type Handler struct {
 	ipCount map[string]int
 }
 
-var _ http.Handler = &Handler{}
+var _ http.Handler = &Tarpit{}
 
 var defaultPaths = []string{
 	".env",
@@ -68,22 +68,28 @@ var defaultPaths = []string{
 	"xmlrpc.php",
 }
 
-func New(clock Clock, next http.Handler) *Handler {
+type Config struct {
+	Clock Clock
+	Next  http.Handler
+}
+
+func Handler(cf *Config) *Tarpit {
 	pathMap := make(map[string]struct{}, len(defaultPaths))
 	for _, p := range defaultPaths {
 		pathMap[p] = struct{}{}
 	}
-	return &Handler{
-		clock:   clock,
+	return &Tarpit{
+		next:  cf.Next,
+		clock: cf.Clock,
+
 		mu:      sync.Mutex{},
 		ipCount: map[string]int{},
-		next:    next,
 		rand:    rand.New(rand.NewSource(time.Now().UnixNano())),
 		paths:   pathMap,
 	}
 }
 
-func (h *Handler) countIP(ip string) int {
+func (h *Tarpit) countIP(ip string) int {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.ipCount[ip]++
@@ -95,13 +101,13 @@ func (h *Handler) countIP(ip string) int {
 	return h.ipCount[ip]
 }
 
-func (h *Handler) flush(w http.ResponseWriter) {
+func (h *Tarpit) flush(w http.ResponseWriter) {
 	if f, ok := w.(http.Flusher); ok {
 		f.Flush()
 	}
 }
 
-func (h *Handler) Mishandle(w http.ResponseWriter, r *http.Request) {
+func (h *Tarpit) Mishandle(w http.ResponseWriter, r *http.Request) {
 	minimum := time.Duration(11*h.countIP(r.RemoteAddr)) * time.Millisecond
 	initialDelay := h.randomDelay(minimum, 3*time.Second)
 	time.Sleep(initialDelay)
@@ -135,7 +141,7 @@ error was encountered while trying to use an ErrorDocument to handle the request
 
 // randomDelay returns a random duration between min and max milliseconds.
 // The arguments can actually appear in either order.
-func (h *Handler) randomDelay(min, max time.Duration) time.Duration {
+func (h *Tarpit) randomDelay(min, max time.Duration) time.Duration {
 	if min > max {
 		return max
 	}
@@ -160,7 +166,7 @@ func last2(path string) string {
 	return s
 }
 
-func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (h *Tarpit) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// start := h.clock.Now()
 	path := last2(r.URL.Path)
 	if _, ok := h.paths[path]; ok {

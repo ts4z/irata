@@ -25,6 +25,7 @@ import (
 	"github.com/ts4z/irata/config"
 	"github.com/ts4z/irata/he"
 	"github.com/ts4z/irata/middleware"
+	"github.com/ts4z/irata/middleware/c2ctx"
 	"github.com/ts4z/irata/middleware/labrea"
 	"github.com/ts4z/irata/model"
 	"github.com/ts4z/irata/password"
@@ -93,19 +94,6 @@ func (app *irataApp) fetchTournament(ctx context.Context, id int64) (*model.Tour
 	return t, nil
 }
 
-func (app *irataApp) fetchUserFromCookie(ctx context.Context, r *http.Request) (*model.UserIdentity, error) {
-	cookieData, err := app.bakery.ReadCookie(r)
-	if err != nil {
-		return nil, err
-	}
-
-	identity, err := app.userStorage.FetchUserByUserID(ctx, cookieData.EffectiveUserID)
-	if err != nil {
-		log.Printf("can't fetch user %+v: %v", cookieData.EffectiveUserID, err)
-	}
-	return identity, nil
-}
-
 var RegexpLFLF = regexp.MustCompile(`\n\n+`)
 
 func parseFooterPlugsBox(plugsRaw string) []string {
@@ -118,25 +106,6 @@ func parseFooterPlugsBox(plugsRaw string) []string {
 		}
 	}
 	return plugs
-}
-
-type CookieParser struct {
-	app  *irataApp
-	next http.Handler
-}
-
-func (cp *CookieParser) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-
-	identity, err := cp.app.fetchUserFromCookie(ctx, r)
-	if err != nil {
-		log.Printf("can't fetch user data from cookie: %v", err)
-	} else {
-		ctx = permission.UserIdentityInContext(ctx, identity)
-		r = r.WithContext(ctx)
-	}
-
-	cp.next.ServeHTTP(w, r)
 }
 
 func (app *irataApp) handleFunc(pattern string, handler func(context.Context, http.ResponseWriter, *http.Request)) {
@@ -1088,9 +1057,21 @@ func main() {
 		clock:           clock,
 		modelDeps:       &model.Deps{Clock: clock, PaytableFetcher: paytableStorage},
 	}
+
 	app.mux = http.NewServeMux()
+
 	// Stack the handlers together.  This isn't pretty.
-	tarpit := labrea.New(clockwork.NewRealClock(), middleware.NewRequestLogger(csp.Handler(&CookieParser{app: app, next: app.mux}), app.clock))
+	c2c := c2ctx.Handler(&c2ctx.Config{
+		Bakery:      app.bakery,
+		UserStorage: app.userStorage,
+		Next:        app.mux,
+	})
+	logger := middleware.NewRequestLogger(csp.Handler(c2c), app.clock)
+	tarpit := labrea.Handler(&labrea.Config{
+		// Use real clock here for sub-ms precision.
+		Clock: clockwork.NewRealClock(),
+		Next:  logger,
+	})
 	app.handler = tarpit
 	app.keypressHandlers = makeKeyboardHandlers(clock, paytableStorage)
 	app.listenAddress = viper.GetString("listen_address")
