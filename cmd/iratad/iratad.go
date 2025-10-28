@@ -237,6 +237,18 @@ func (app *irataApp) installHandlers() {
 
 	app.requiringAdminHandleFunc("/create/tournament", func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		var flash string
+		if r.Method == http.MethodPost {
+			if err := r.ParseForm(); err != nil {
+				flash = "Error parsing form"
+			} else if id, err := app.mutator.CreateTournament(ctx, r.Form); err != nil {
+				log.Printf("error parsing form: %v", err)
+				flash = "Error parsing form"
+			} else {
+				// success!
+				http.Redirect(w, r, fmt.Sprintf("/t/%d", id), http.StatusSeeOther)
+				return
+			}
+		}
 		// Fetch available structures and footer plug sets
 		structures, err := app.appStorage.FetchStructureSlugs(ctx, 0, 100)
 		if err != nil {
@@ -248,49 +260,14 @@ func (app *irataApp) installHandlers() {
 			he.SendErrorToHTTPClient(w, "fetch footer plug sets", err)
 			return
 		}
-		if r.Method == http.MethodPost {
-			if err := r.ParseForm(); err != nil {
-				flash = "Error parsing form"
-			} else {
-				eventName := r.FormValue("EventName")
-				handle := r.FormValue("Handle")
-				description := r.FormValue("Description")
-				prizePool := r.FormValue("PrizePool")
-				structureID, _ := strconv.ParseInt(r.FormValue("StructureID"), 10, 64)
-				footerPlugsID, _ := strconv.ParseInt(r.FormValue("FooterPlugsID"), 10, 64)
-				if eventName == "" || handle == "" || structureID == 0 || footerPlugsID == 0 {
-					flash = "All required fields must be filled"
-				} else {
-					// Fetch structure and denormalize into tournament
-					structure, err := app.appStorage.FetchStructure(ctx, structureID)
-					if err != nil {
-						log.Printf("error fetching structure %d: %v", structureID, err)
-						flash = "Error fetching structure"
-					} else {
-						t := &model.Tournament{
-							EventName:       eventName,
-							Handle:          handle,
-							Description:     description,
-							FooterPlugsID:   footerPlugsID,
-							FromStructureID: structureID,
-							Structure:       &structure.StructureData,
-							State:           &model.State{PrizePool: prizePool},
-						}
-						id, err := app.appStorage.CreateTournament(ctx, t)
-						if err != nil {
-							log.Printf("error creating tournament: %v", err)
-							flash = "Error creating tournament (is the handle not unique?)"
-						} else {
-							http.Redirect(w, r, fmt.Sprintf("/t/%d", id), http.StatusSeeOther)
-							return
-						}
-					}
-				}
-			}
-		}
 		sc, err := app.siteStorage.FetchSiteConfig(ctx)
 		if err != nil {
 			he.SendErrorToHTTPClient(w, "fetch site config", err)
+			return
+		}
+		paytables, err := app.paytableStorage.FetchPaytableSlugs(ctx)
+		if err != nil {
+			he.SendErrorToHTTPClient(w, "fetch paytable slugs", err)
 			return
 		}
 		data := &editTournamentArgs{
@@ -300,6 +277,10 @@ func (app *irataApp) installHandlers() {
 			IsNew:      true,
 			IsAdmin:    permission.IsAdmin(ctx),
 			SiteConfig: sc,
+			Tournament: &model.Tournament{State: &model.State{
+				AutoComputePrizePool: true,
+			}},
+			Paytables: paytables,
 		}
 		if err := app.templates.ExecuteTemplate(w, "edit-tournament.html.tmpl", data); err != nil {
 			log.Printf("can't render edit-tournament template: %v", err)
@@ -628,7 +609,7 @@ func (app *irataApp) installHandlers() {
 	app.requiringAdminTakingIDHandleFunc("/t/{id}/edit", func(ctx context.Context, id64 int64, w http.ResponseWriter, r *http.Request) {
 		r.ParseForm()
 		if len(r.Form) != 0 {
-			err := app.mutator.EditEvent(ctx, id64, r.Form)
+			err := app.mutator.EditTournament(ctx, id64, r.Form)
 			if err != nil {
 				he.SendErrorToHTTPClient(w, "parsing form", err)
 				return
@@ -994,6 +975,7 @@ func (app *irataApp) installKeyboardHandlers() {
 		// Compute the prize pool text
 		prizePoolText, err := tempTournament.ComputePrizePoolText(app.paytableStorage)
 		if err != nil {
+			log.Printf("error computing prize pool: %v", err)
 			he.SendErrorToHTTPClient(w, "compute prize pool", err)
 			return
 		}

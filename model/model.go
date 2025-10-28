@@ -109,7 +109,7 @@ type Tournament struct {
 
 	PaytableID      int64 // ID of the paytable to use for prize pool calculation
 	FromStructureID int64 // ID of the structure this was denormalized from
-	Structure       *StructureData
+	Structure       StructureData
 
 	State      *State
 	Transients *Transients
@@ -118,9 +118,6 @@ type Tournament struct {
 func (m *Tournament) Clone() *Tournament {
 	new := *m
 
-	if m.Structure != nil {
-		new.Structure = m.Structure.Clone()
-	}
 	if m.State != nil {
 		new.State = m.State.Clone()
 	}
@@ -221,6 +218,9 @@ func (m *Tournament) CurrentLevel() *Level {
 		lvl = 0
 	} else if lvl >= len(m.Structure.Levels) {
 		lvl = len(m.Structure.Levels) - 1
+	}
+	if len(m.Structure.Levels) == 0 {
+		return nil
 	}
 	return m.Structure.Levels[lvl]
 }

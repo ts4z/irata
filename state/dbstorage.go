@@ -450,6 +450,10 @@ func (s *DBStorage) CreateTournament(
 	ctx context.Context,
 	tm *model.Tournament) (int64, error) {
 
+	if len(tm.Structure.Levels) == 0 {
+		return 0, fmt.Errorf("cannot create tournament with no structure levels")
+	}
+
 	var id int64
 
 	cpy := *tm

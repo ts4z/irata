@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/ts4z/irata/he"
+	"github.com/ts4z/irata/model"
 	"github.com/ts4z/irata/state"
 )
 
@@ -53,17 +54,12 @@ func maybeCopyInt(form url.Values, dest *int, key string) {
 	}
 }
 
-func (a *Actor) EditEvent(ctx context.Context, id int64, form url.Values) error {
-	log.Printf("edit path: %v", id)
-
-	t, err := a.storage.FetchTournament(ctx, id)
-	if err != nil {
-		return he.HTTPCodedErrorf(404, "can't get tournament from database")
-	}
-
+// ApplyFormToTournament takes form values and applies them to a tournament,
+// returning the modified tournament and any error encountered.
+// This function may need to fetch additional data (like structures) from storage.
+func ApplyFormToTournament(ctx context.Context, form url.Values, t *model.Tournament, storage state.AppStorage) error {
 	maybeCopyInt64(form, &t.Version, "Version")
 
-	// Handle structure change if checkbox is checked
 	changeStructure := form.Get("ChangeStructure") == "on"
 	if changeStructure {
 		structureID, err := strconv.ParseInt(form.Get("StructureID"), 10, 64)
@@ -72,13 +68,13 @@ func (a *Actor) EditEvent(ctx context.Context, id int64, form url.Values) error 
 		}
 
 		// Fetch the new structure
-		structure, err := a.storage.FetchStructure(ctx, structureID)
+		structure, err := storage.FetchStructure(ctx, structureID)
 		if err != nil {
 			return he.HTTPCodedErrorf(404, "can't fetch structure")
 		}
 
 		// Replace the structure and reset tournament state
-		t.Structure = &structure.StructureData
+		t.Structure = structure.StructureData
 		t.FromStructureID = structureID
 		t.State.CurrentLevelNumber = 0
 		t.State.IsClockRunning = false
@@ -88,7 +84,6 @@ func (a *Actor) EditEvent(ctx context.Context, id int64, form url.Values) error 
 		log.Printf("Structure changed to %d, reset to level 0 and paused", structureID)
 	}
 
-	// Handle footer plugs change
 	if footerPlugsID := form.Get("FooterPlugsID"); footerPlugsID != "" {
 		if id, err := strconv.ParseInt(footerPlugsID, 10, 64); err == nil && id > 0 {
 			t.FooterPlugsID = id
@@ -121,5 +116,34 @@ func (a *Actor) EditEvent(ctx context.Context, id int64, form url.Values) error 
 		t.State.AutoComputePrizePool = false
 	}
 
+	return nil
+}
+
+func (a *Actor) EditTournament(ctx context.Context, id int64, form url.Values) error {
+	log.Printf("edit path: %v", id)
+
+	t, err := a.storage.FetchTournament(ctx, id)
+	if err != nil {
+		return he.HTTPCodedErrorf(404, "can't get tournament from database")
+	}
+
+	err = ApplyFormToTournament(ctx, form, t, a.storage)
+	if err != nil {
+		return err
+	}
+
 	return a.storage.SaveTournament(ctx, t)
+}
+
+func (a *Actor) CreateTournament(ctx context.Context, form url.Values) (int64, error) {
+	t := &model.Tournament{
+		State: &model.State{},
+	}
+
+	err := ApplyFormToTournament(ctx, form, t, a.storage)
+	if err != nil {
+		return 0, err
+	}
+
+	return a.storage.CreateTournament(ctx, t)
 }
