@@ -27,8 +27,8 @@
         </div>
         {{ end }}
 
-        {{ if .IsNew }}
         <form method="POST">
+        {{ if .IsNew }}
             <div class="form-group">
                 <label for="EventName">Event Name</label>
                 <input type="text" id="EventName" name="EventName" maxlength="30" required>
@@ -72,10 +72,8 @@
                 <button type="submit">Create Tournament</button>
                 <button type="reset">Reset</button>
             </div>
-        </form>
         {{ else }}
         {{ with .Tournament }}
-        <form method="POST">
             <input type="hidden" name="Version" value="{{ .Version }}">
 
             <div class="form-section">
@@ -345,9 +343,9 @@
                 {{ end }}
             </div>
 
+        {{ end }}
+        {{ end }}
         </form>
-        {{ end }}
-        {{ end }}
 
         {{ if .Flash }}<div class="flash">{{ .Flash }}</div>{{ end }}
     </div>
