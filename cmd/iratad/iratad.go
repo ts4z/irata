@@ -298,6 +298,7 @@ func (app *irataApp) installHandlers() {
 			FooterSets: footers,
 			Flash:      flash,
 			IsNew:      true,
+			IsAdmin:    permission.IsAdmin(ctx),
 			SiteConfig: sc,
 		}
 		if err := app.templates.ExecuteTemplate(w, "edit-tournament.html.tmpl", data); err != nil {
