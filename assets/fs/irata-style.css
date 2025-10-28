@@ -466,19 +466,23 @@ input[type="submit"]:hover, button:hover {
     z-index: 9999;
     font-family: arcade, monospace;
     font-size: 2vi;
-    text-align: center;
-    padding-top: 5vi;
 }
 
 .clock-help-dialog-content {
-    margin: auto;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
     background: #222;
     border: 2px solid #aaaaff;
     border-radius: 1vi;
     padding: 2vi;
-    display: inline-block;
     text-align: left;
     color: #fff;
+    width: 60vw;
+    max-width: 800px;
+    max-height: 90vh;
+    overflow-y: auto;
 }
 
 .clock-help-dialog-close {
@@ -489,13 +493,13 @@ input[type="submit"]:hover, button:hover {
 
 .clock-help-dialog-table-key {
     width: 18%;
-    text-align: left;
+    text-align: right;
     padding: 0.1vi 0.4vi 0.1vi 0;
 }
 
 .clock-help-dialog-table-desc {
     text-align: left;
-    padding: 0.1vi 0;
+    padding: 0.1vi 0 0.1vi 1vi;
 }
 
 .clock-paused-overlay {

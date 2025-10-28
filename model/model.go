@@ -343,9 +343,9 @@ func (m *Tournament) PreviousLevel(deps *Deps) error {
 
 func (m *Tournament) endOfTime() {
 	log.Printf("tournament %d at end of time", m.EventID)
-	one := int64(1)
+	zero := int64(0)
 	m.State.CurrentLevelNumber = len(m.Structure.Levels) - 1
-	m.State.TimeRemainingMillis = &one
+	m.State.TimeRemainingMillis = &zero
 	m.State.CurrentLevelEndsAt = nil
 	m.State.IsClockRunning = false
 }
@@ -451,6 +451,15 @@ func (m *Tournament) ChangeBuyIns(deps *Deps, n int) error {
 	m.State.BuyIns += n
 	if m.State.BuyIns < 1 {
 		m.State.BuyIns = 1
+	}
+	m.FillTransients(deps)
+	return nil
+}
+
+func (m *Tournament) ChangeAddOns(deps *Deps, n int) error {
+	m.State.AddOns += n
+	if m.State.AddOns < 1 {
+		m.State.AddOns = 0
 	}
 	m.FillTransients(deps)
 	return nil

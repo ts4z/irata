@@ -850,6 +850,8 @@ func makeKeyboardHandlers(clock ts.Clock, fetcher model.PaytableFetcher) map[str
 		"RemovePlayer":  func(t *model.Tournament, bb *modifiers) error { return t.ChangePlayers(deps, -if10(bb.Shift)) },
 		"AddPlayer":     func(t *model.Tournament, bb *modifiers) error { return t.ChangePlayers(deps, if10(bb.Shift)) },
 		"AddBuyIn":      func(t *model.Tournament, bb *modifiers) error { return t.ChangeBuyIns(deps, if10(bb.Shift)) },
+		"AddAddOn":      func(t *model.Tournament, bb *modifiers) error { return t.ChangeAddOns(deps, if10(bb.Shift)) },
+		"RemoveAddOn":   func(t *model.Tournament, bb *modifiers) error { return t.ChangeAddOns(deps, -if10(bb.Shift)) },
 		"RemoveBuyIn":   func(t *model.Tournament, bb *modifiers) error { return t.ChangeBuyIns(deps, -if10(bb.Shift)) },
 		"PlusMinute":    func(t *model.Tournament, bb *modifiers) error { return t.PlusTime(deps, if10min(bb.Shift)) },
 		"MinusMinute":   func(t *model.Tournament, bb *modifiers) error { return t.MinusTime(deps, if10min(bb.Shift)) },

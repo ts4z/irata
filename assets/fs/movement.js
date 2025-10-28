@@ -22,6 +22,8 @@ function play_fanfare(_ = undefined) {
 
 // t is in milliseconds
 function to_hmmss(t) {
+  t += 999;
+
   if (isNaN(t)) {
     console.log("can't clock " + t);
     return "♠♠:♠♠";
@@ -606,6 +608,8 @@ function install_keyboard_handlers() {
     'Escape': handle_escape,
     'Slash': show_help_dialog,
     'F1': show_help_dialog,
+    'Insert': smwa('AddAddOn'),
+    'Delete': smwa('RemoveAddOn'),
   }
 
   document.addEventListener('keydown', (event) => {
