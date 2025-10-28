@@ -608,10 +608,14 @@ func (m *Tournament) ComputePrizePoolText(ptf PaytableFetcher) (string, error) {
 
 	// Add saves if any
 	if m.State.Saves > 0 {
-		for i := 0; i < m.State.Saves; i++ {
-			savePlace := len(prizes) + i + 1
-			savePlaceStr := formatPlace(savePlace)
-			lines = append(lines, fmt.Sprintf("%s: $%d*", savePlaceStr, m.State.AmountPerSave))
+		firstSave := len(prizes) + 1
+		lastSave := firstSave + m.State.Saves - 1
+		if firstSave == lastSave {
+			nth := formatPlace(firstSave)
+			lines = append(lines, fmt.Sprintf("%s: $%d*", nth, m.State.AmountPerSave))
+		} else {
+			lastth := formatPlace(lastSave)
+			lines = append(lines, fmt.Sprintf("%d-%s: $%d*", firstSave, lastth, m.State.AmountPerSave))
 		}
 		lines = append(lines, "* save")
 	}
