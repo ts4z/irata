@@ -64,16 +64,53 @@
                 <h2> Chip Setup </h2>
 
                 <div class="form-group">
-                    <label title="Chips per buy-in, used for calculating total chips in play." for="ChipsPerBuyIn">Chips
-                        Per Buy-In</label>
-                    <input type="text" id="ChipsPerBuyIn" name="ChipsPerBuyIn" class="field-medium" maxlength="30" pattern="[0-9,]+"{{ if not .IsNew }}
-                      value="{{ .Tournament.Structure.ChipsPerBuyIn }}"{{ end }}>
-                </div>
-
-                <div class="form-group">
-                    <label for="ChipsPerAddOn">Chips Per Add-On</label>
-                    <input type="text" id="ChipsPerAddOn" name="ChipsPerAddOn" class="field-medium" maxlength="30" pattern="[0-9,]+" 
-                    {{ if not .IsNew }}value="{{ .Tournament.Structure.ChipsPerAddOn }}"{{ end }}>
+                    <label>Chip Calculator</label>
+                    <table class="calc-table" style="border-collapse: collapse;">
+                        <thead>
+                            <tr>
+                                <th style="text-align: left;">Type</th>
+                                <th style="text-align: left;">Amount</th>
+                                <th style="text-align: center;">&numero;</th>
+                                <th style="text-align: right;">Subtotal</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Buy-Ins:</td>
+                                <td>
+                                    <input type="text" id="ChipsPerBuyIn" name="ChipsPerBuyIn" class="field-medium editable" maxlength="30" pattern="[0-9,]+"
+                                        placeholder="Chips/Buy-in"{{ if not .IsNew }} value="{{ .Tournament.Structure.ChipsPerBuyIn }}"{{ end }}> ×
+                                </td>
+                                <td>
+                                    <input type="text" id="ChipSetupBuyIns" class="field-small editable" maxlength="6" pattern="[0-9,]+"
+                                        placeholder="Count" value="{{ .Tournament.State.BuyIns }}"> =
+                                </td>
+                                <td>
+                                    <input type="text" id="ChipsBuyInSubtotal" class="field-large uneditable" readonly>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>Add-Ons:</td>
+                                <td>
+                                    <input type="text" id="ChipsPerAddOn" name="ChipsPerAddOn" class="field-medium editable" maxlength="30" pattern="[0-9,]+"
+                                        placeholder="Chips/Add-on"{{ if not .IsNew }} value="{{ .Tournament.Structure.ChipsPerAddOn }}"{{ end }}> ×
+                                </td>
+                                <td>
+                                    <input type="text" id="ChipSetupAddOns" class="field-small editable" maxlength="6" pattern="[0-9,]+"
+                                        placeholder="Count" value="{{ .Tournament.State.AddOns }}"> =
+                                </td>
+                                <td>
+                                    <input type="text" id="ChipsAddOnSubtotal" class="field-large uneditable" readonly>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td colspan="3" style="text-align: right; font-weight: bold;">Total:</td>
+                                <td>
+                                    <input type="text" id="ChipsTotal" class="field-large uneditable" readonly style="font-weight: bold;">
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
 
                 <div class="form-group">
@@ -81,33 +118,90 @@
                     <input type="text" id="TotalChipsOverride" name="TotalChipsOverride" class="field-large" maxlength="30"
                         pattern="[0-9,]+" placeholder="0 to auto-compute"{{ if not .IsNew }}
                         value="{{ .Tournament.State.TotalChipsOverride }}"{{ end }}>
+                    <small>Leave at 0 to use calculated value above</small>
                 </div>
             </div>
 
             <div class="form-section">
-                <h2> Prize Pool Calculation &amp; Display </h2>
+                <h2> Prize Pool </h2>
 
                 <div class="form-group">
-                    <label title="Amount added to prize pool per buy-in (regular or re-buy)."
-                    for="PrizePoolPerBuyIn">Prize Pool Per Buy-In</label>
-                    <input type="text" id="PrizePoolPerBuyIn" name="PrizePoolPerBuyIn" class="field-medium" maxlength="7" pattern="[0-9,]+"
-                        {{ if not .IsNew }} value="{{ .Tournament.PrizePoolPerBuyIn }}"{{ end }}>
+                    <label>Prize Pool Calculator</label>
+                    <table class="calc-table" style="border-collapse: collapse;">
+                        <thead>
+                            <tr>
+                                <th style="text-align: left;">Type</th>
+                                <th style="text-align: left;">Amount</th>
+                                <th style="text-align: left;">&numero;</th>
+                                <th style="text-align: right;">Subtotal</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Buy-Ins:</td>
+                                <td>
+                                    <input type="text" id="PrizePoolPerBuyIn" name="PrizePoolPerBuyIn" class="field-medium editable" maxlength="7" pattern="[0-9,]+"
+                                        placeholder="$/Buy-in"{{ if not .IsNew }} value="{{ .Tournament.PrizePoolPerBuyIn }}"{{ end }}> ×
+                                </td>
+                                <td>
+                                     <input type="text" id="PrizePoolBuyIns" class="field-small editable" maxlength="6" pattern="[0-9,]+"
+                                        placeholder="Count" value="{{ .Tournament.State.BuyIns }}"> =
+                                </td>
+                                <td>
+                                    <input type="text" id="PrizePoolBuyInSubtotal" class="field-large uneditable" readonly>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>Add-Ons:</td>
+                                <td>
+                                    <input type="text" id="PrizePoolPerAddOn" name="PrizePoolPerAddOn" class="field-medium editable" maxlength="7" pattern="[0-9,]+"
+                                        placeholder="$/Add-on"{{ if not .IsNew }} value="{{ .Tournament.PrizePoolPerAddOn }}"{{ end }}> × 
+                                </td>
+                                <td>
+                                    <input type="text" id="PrizePoolAddOns" class="field-small editable" maxlength="6" pattern="[0-9,]+"
+                                        placeholder="Count" value="{{ .Tournament.State.AddOns }}"> =
+                                </td>
+                                <td>
+                                    <input type="text" id="PrizePoolAddOnSubtotal" class="field-large uneditable" readonly>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td colspan="3" style="text-align: right;">Contributions:</td>
+                                <td>
+                                    <input type="text" id="PrizePoolSubtotal" class="field-large uneditable" readonly>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>Saves:</td>
+                                <td>
+                                    <input type="text" id="AmountPerSave" name="AmountPerSave" class="field-medium editable" maxlength="30" pattern="[0-9,]+"
+                                        placeholder="$/Save" value="{{ .Tournament.State.AmountPerSave }}"> × 
+                                </td>
+                                <td>
+                                    <input type="text" id="Saves" name="NumberOfSaves" class="field-small editable" maxlength="6" pattern="[0-9,]+"
+                                        placeholder="Count" value="{{ .Tournament.State.Saves }}"> =
+                                </td>
+                                <td>
+                                    <input type="text" id="PrizePoolSavesSubtotal" class="field-large uneditable" readonly>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td colspan="3" style="text-align: right; font-weight: bold;">Total:</td>
+                                <td>
+                                    <input type="text" id="PrizePoolTotal" class="field-large uneditable" readonly>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
 
                 <div class="form-group">
-                    <label title="Amount added to prize pool per add-on."
-                    for="PrizePoolPerAddOn">Prize Pool Per Add On</label>
-                    <input type="text" id="PrizePoolPerAddOn" name="PrizePoolPerAddOn" class="field-medium" maxlength="7" pattern="[0-9,]+"
-                        {{ if not .IsNew }} value="{{ .Tournament.PrizePoolPerAddOn }}"{{ end }}>
-                </div>
-
-                <div class="form-group">
-                    <label 
-                    title="Set this to override the automatic computation of the prize pool."
+                    <label title="Set this to override the automatic computation of the prize pool."
                     for="TotalPrizePoolOverride">Total Prize Pool Override</label>
                     <input type="text" id="TotalPrizePoolOverride" name="TotalPrizePoolOverride" class="field-large" maxlength="30"
                         pattern="[0-9,]+" placeholder="0 to auto-compute"{{ if not .IsNew }}
                         value="{{ .Tournament.State.TotalPrizePoolOverride }}"{{ end }}>
+                    <small>Leave at 0 to use calculated value above</small>
                 </div>
 
                 <div class="form-group">
@@ -132,18 +226,6 @@
                         </option>
                         {{ end }}
                     </select>
-
-                    <div class="form-group">
-                        <label for="Saves">Saves</label>
-                        <input type="text" id="Saves" name="NumberOfSaves" class="field-small" maxlength="6" pattern="[0-9,]+"
-                            value="{{ .Tournament.State.Saves }}">
-                    </div>
-
-                    <div class="form-group">
-                        <label for="AmountPerSave">Amount per Save</label>
-                        <input type="text" id="AmountPerSave" name="AmountPerSave" class="field-medium" maxlength="30" pattern="[0-9,]+"
-                            value="{{ .Tournament.State.AmountPerSave }}">
-                    </div>
                 </div>
 
                 <div class="form-group">
@@ -153,7 +235,7 @@
                         based on
                         buy-ins,
                         add-ons, and selected paytable{{ else }}Free-form text. No HTML tags.{{ end }}</small>
-                    <textarea id="PrizePool" name="PrizePool" class="field-full" rows="12" cols="20" {{ if and (not .IsNew)
+                    <textarea id="PrizePool" name="PrizePool" rows="12" cols="20" style="width: auto;" {{ if and (not .IsNew)
                         .Tournament.State.AutoComputePrizePool }}readonly{{ end
                         }}>{{ if not .IsNew }}{{ .Tournament.State.PrizePool }}{{ end }}</textarea>
                 </div>
@@ -165,12 +247,13 @@
                     {{ if .IsNew }}
                     <input type="hidden" id="ChangeStructure" name="ChangeStructure" value="on">
                     {{ else }}
-                    <p>Changing the structure will reset the tournament to level 0!</p>
-                    <label>
+                    <div>
                         <input type="checkbox" id="ChangeStructure" name="ChangeStructure"
-                            onchange="toggleStructureSelect()">
-                        Change Structure
-                    </label>
+                            onchange="toggleStructureSelect()" style="display: inline; margin: 0; width: auto;">
+                        <label for="ChangeStructure" style="display: inline; margin: 0;">
+                            Change Structure (+ Re-Start Tournament)
+                        </label>
+                    </div>
                     {{ end }}
                     <select id="StructureID" name="StructureID" {{ if .IsNew }}required{{ else }}disabled{{ end }}>
                         {{ range $.Structures }}
@@ -204,6 +287,99 @@
             </div>
 
             <script>
+                // Utility function to parse number inputs that may contain commas
+                function parseNumber(value) {
+                    if (!value) return 0;
+                    return parseInt(value.toString().replace(/,/g, '')) || 0;
+                }
+
+                // Utility function to format numbers with commas
+                function commaize(num) {
+                    return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+                }
+
+                // Sync buy-ins and add-ons across all three sections
+                function syncFields() {
+                    const buyInsFields = ['ChipSetupBuyIns', 'PrizePoolBuyIns', 'BuyIns'];
+                    const addOnsFields = ['ChipSetupAddOns', 'PrizePoolAddOns', 'AddOns'];
+
+                    // Setup sync for buy-ins
+                    buyInsFields.forEach(fieldId => {
+                        const field = document.getElementById(fieldId);
+                        if (field) {
+                            field.addEventListener('input', function(e) {
+                                const value = e.target.value;
+                                buyInsFields.forEach(otherId => {
+                                    if (otherId !== fieldId) {
+                                        const otherField = document.getElementById(otherId);
+                                        if (otherField) {
+                                            otherField.value = value;
+                                        }
+                                    }
+                                });
+                                calculateChips();
+                                calculatePrizePoolAmount();
+                            });
+                        }
+                    });
+
+                    // Setup sync for add-ons
+                    addOnsFields.forEach(fieldId => {
+                        const field = document.getElementById(fieldId);
+                        if (field) {
+                            field.addEventListener('input', function(e) {
+                                const value = e.target.value;
+                                addOnsFields.forEach(otherId => {
+                                    if (otherId !== fieldId) {
+                                        const otherField = document.getElementById(otherId);
+                                        if (otherField) {
+                                            otherField.value = value;
+                                        }
+                                    }
+                                });
+                                calculateChips();
+                                calculatePrizePoolAmount();
+                            });
+                        }
+                    });
+                }
+
+                function nff(field) { /* number from field */
+                    return parseNumber(document.getElementById(field).value) || 0;
+                }
+
+                function snf(field, value) { /* set number to field */
+                    document.getElementById(field).value = commaize(value);
+                }
+
+                // Calculate and display total chips in play
+                function calculateChips() {
+                    const buyInChips = nff('BuyIns') * nff('ChipsPerBuyIn');
+                    const addOnChips = nff('AddOns') * nff('ChipsPerAddOn');
+
+                    snf('ChipsBuyInSubtotal', buyInChips);
+                    snf('ChipsAddOnSubtotal', addOnChips);
+                    snf('ChipsTotal',  buyInChips + addOnChips);
+                }
+
+                function calculatePrizePoolAmount() {
+                    const buyInAmount = nff('PrizePoolBuyIns') * nff('PrizePoolPerBuyIn');
+                    const addOnAmount = nff('PrizePoolAddOns') * nff('PrizePoolPerAddOn');
+                    const subtotal = buyInAmount + addOnAmount;
+                    const savesAmount = nff('Saves') * nff('AmountPerSave');
+                    const total = subtotal - savesAmount;
+
+                    snf('PrizePoolBuyInSubtotal', buyInAmount);
+                    snf('PrizePoolAddOnSubtotal', addOnAmount);
+                    snf('PrizePoolSubtotal', subtotal);
+                    snf('PrizePoolSavesSubtotal', savesAmount);
+                    snf('PrizePoolTotal', total);
+
+                    if (document.getElementById('PrizePoolMode').value === 'calculated') {
+                        recalculatePrizePool();
+                    }
+                }
+
                 {{ if not .IsNew }}
                 function toggleStructureSelect() {
                     const checkbox = document.getElementById('ChangeStructure');
@@ -241,15 +417,14 @@
                         return;
                     }
 
-                    // Gather parameters
-                    const paytableId = parseInt(document.getElementById('PaytableID').value);
-                    const buyIns = parseInt(document.getElementById('BuyIns').value) || 0;
-                    const addOns = parseInt(document.getElementById('AddOns').value) || 0;
-                    const saves = parseInt(document.getElementById('Saves').value) || 0;
-                    const amountPerSave = parseInt(document.getElementById('AmountPerSave').value) || 0;
-                    const prizePoolPerBuyIn = parseInt(document.getElementById('PrizePoolPerBuyIn').value) || 0;
-                    const prizePoolPerAddOn = parseInt(document.getElementById('PrizePoolPerAddOn').value) || 0;
-                    const totalPrizePoolOverride = parseInt(document.getElementById('TotalPrizePoolOverride').value) || 0;
+                    const paytableId = nff('PaytableID');
+                    const buyIns = nff('BuyIns');
+                    const addOns = nff('AddOns');
+                    const saves = nff('Saves');
+                    const amountPerSave = nff('AmountPerSave');
+                    const prizePoolPerBuyIn = nff('PrizePoolPerBuyIn');
+                    const prizePoolPerAddOn = nff('PrizePoolPerAddOn');
+                    const totalPrizePoolOverride = nff('TotalPrizePoolOverride');
 
                     if (buyIns === 0) {
                         document.getElementById('PrizePool').value = 'No buy-ins, so no prizes.';
@@ -292,6 +467,26 @@
 
                 // Add event listeners for recalculation on field changes
                 document.addEventListener('DOMContentLoaded', function () {
+                    // Sync buy-ins and add-ons fields first
+                    syncFields();
+
+                    // Watch chip-related fields - add listeners to all fields that affect chip calculation
+                    ['ChipsPerBuyIn', 'ChipsPerAddOn', 'ChipSetupBuyIns', 'ChipSetupAddOns'].forEach(fieldId => {
+                        const field = document.getElementById(fieldId);
+                        if (field) {
+                            field.addEventListener('input', calculateChips);
+                        }
+                    });
+
+                    // Watch prize pool amount fields - add listeners to all fields that affect prize pool calculation
+                    ['PrizePoolPerBuyIn', 'PrizePoolPerAddOn', 'PrizePoolBuyIns', 'PrizePoolAddOns', 'Saves', 'AmountPerSave'].forEach(fieldId => {
+                        const field = document.getElementById(fieldId);
+                        if (field) {
+                            field.addEventListener('input', calculatePrizePoolAmount);
+                        }
+                    });
+
+                    // Watch fields for prize pool text calculation
                     const fieldsToWatch = [
                         'BuyIns', 'AddOns', 'Saves', 'AmountPerSave',
                         'PrizePoolPerBuyIn', 'PrizePoolPerAddOn', 'TotalPrizePoolOverride'
@@ -308,10 +503,9 @@
                         }
                     });
 
-                    // Initialize on load if in calculated mode
-                    if (document.getElementById('PrizePoolMode').value === 'calculated') {
-                        recalculatePrizePool();
-                    }
+                    // Initialize calculations on load
+                    calculateChips();
+                    calculatePrizePoolAmount();                    
                 });
             </script>
 

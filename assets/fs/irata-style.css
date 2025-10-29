@@ -104,15 +104,15 @@ input, select, textarea {
 
 /* Field sizing classes */
 .field-small {
-    max-width: 5ch;
+    max-width: 6ch;
 }
 
 .field-medium {
-    max-width: 8ch;
+    max-width: 9ch;
 }
 
 .field-large {
-    max-width: 12ch;
+    max-width: 13ch;
 }
 
 .field-text {
@@ -121,6 +121,22 @@ input, select, textarea {
 
 .field-full {
     max-width: 100%;
+}
+
+/* Input field styling classes */
+.editable {
+    background-color: #222222;
+}
+
+.uneditable {
+    background-color: #000000;
+    text-align: right;
+}
+
+/* Calculator table styling */
+.calc-table td,
+.calc-table th {
+    padding: 0.3em;
 }
 
 input[type="submit"], button {
