@@ -37,17 +37,17 @@
                 <h2> Event Details </h2>
                 <div class="form-group">
                     <label for="EventName">Event Name</label>
-                    <input type="text" id="EventName" name="EventName" maxlength="30" required{{ if not .IsNew }} value="{{ .Tournament.EventName }}"{{ end }}>
+                    <input type="text" id="EventName" name="EventName" class="field-text" maxlength="30" required{{ if not .IsNew }} value="{{ .Tournament.EventName }}"{{ end }}>
                 </div>
 
                 <div class="form-group">
                     <label for="Handle">Handle</label>
-                    <input type="text" id="Handle" name="Handle" maxlength="30" required{{ if not .IsNew }} value="{{ .Tournament.Handle }}"{{ end }}>
+                    <input type="text" id="Handle" name="Handle" class="field-large" maxlength="30" required{{ if not .IsNew }} value="{{ .Tournament.Handle }}"{{ end }}>
                 </div>
 
                 <div class="form-group">
                     <label for="Description">Description</label>
-                    <input type="text" id="Description" name="Description" maxlength="50"{{ if not .IsNew }} value="{{ .Tournament.Description }}"{{ end }}>
+                    <input type="text" id="Description" name="Description" class="field-text" maxlength="50"{{ if not .IsNew }} value="{{ .Tournament.Description }}"{{ end }}>
                 </div>
 
                 <div class="form-group">
@@ -66,19 +66,19 @@
                 <div class="form-group">
                     <label title="Chips per buy-in, used for calculating total chips in play." for="ChipsPerBuyIn">Chips
                         Per Buy-In</label>
-                    <input type="text" id="ChipsPerBuyIn" name="ChipsPerBuyIn" maxlength="30" pattern="[0-9,]+"{{ if not .IsNew }}
+                    <input type="text" id="ChipsPerBuyIn" name="ChipsPerBuyIn" class="field-medium" maxlength="30" pattern="[0-9,]+"{{ if not .IsNew }}
                       value="{{ .Tournament.Structure.ChipsPerBuyIn }}"{{ end }}>
                 </div>
 
                 <div class="form-group">
                     <label for="ChipsPerAddOn">Chips Per Add-On</label>
-                    <input type="text" id="ChipsPerAddOn" name="ChipsPerAddOn" maxlength="30" pattern="[0-9,]+" 
+                    <input type="text" id="ChipsPerAddOn" name="ChipsPerAddOn" class="field-medium" maxlength="30" pattern="[0-9,]+" 
                     {{ if not .IsNew }}value="{{ .Tournament.Structure.ChipsPerAddOn }}"{{ end }}>
                 </div>
 
                 <div class="form-group">
                     <label for="TotalChipsOverride">Total Chips Override</label>
-                    <input type="text" id="TotalChipsOverride" name="TotalChipsOverride" maxlength="30"
+                    <input type="text" id="TotalChipsOverride" name="TotalChipsOverride" class="field-large" maxlength="30"
                         pattern="[0-9,]+" placeholder="0 to auto-compute"{{ if not .IsNew }}
                         value="{{ .Tournament.State.TotalChipsOverride }}"{{ end }}>
                 </div>
@@ -90,14 +90,14 @@
                 <div class="form-group">
                     <label title="Amount added to prize pool per buy-in (regular or re-buy)."
                     for="PrizePoolPerBuyIn">Prize Pool Per Buy-In</label>
-                    <input type="text" id="PrizePoolPerBuyIn" name="PrizePoolPerBuyIn" maxlength="7" pattern="[0-9,]+"
+                    <input type="text" id="PrizePoolPerBuyIn" name="PrizePoolPerBuyIn" class="field-medium" maxlength="7" pattern="[0-9,]+"
                         {{ if not .IsNew }} value="{{ .Tournament.PrizePoolPerBuyIn }}"{{ end }}>
                 </div>
 
                 <div class="form-group">
                     <label title="Amount added to prize pool per add-on."
                     for="PrizePoolPerAddOn">Prize Pool Per Add On</label>
-                    <input type="text" id="PrizePoolPerAddOn" name="PrizePoolPerAddOn" maxlength="7" pattern="[0-9,]+"
+                    <input type="text" id="PrizePoolPerAddOn" name="PrizePoolPerAddOn" class="field-medium" maxlength="7" pattern="[0-9,]+"
                         {{ if not .IsNew }} value="{{ .Tournament.PrizePoolPerAddOn }}"{{ end }}>
                 </div>
 
@@ -105,7 +105,7 @@
                     <label 
                     title="Set this to override the automatic computation of the prize pool."
                     for="TotalPrizePoolOverride">Total Prize Pool Override</label>
-                    <input type="text" id="TotalPrizePoolOverride" name="TotalPrizePoolOverride" maxlength="30"
+                    <input type="text" id="TotalPrizePoolOverride" name="TotalPrizePoolOverride" class="field-large" maxlength="30"
                         pattern="[0-9,]+" placeholder="0 to auto-compute"{{ if not .IsNew }}
                         value="{{ .Tournament.State.TotalPrizePoolOverride }}"{{ end }}>
                 </div>
@@ -135,13 +135,13 @@
 
                     <div class="form-group">
                         <label for="Saves">Saves</label>
-                        <input type="text" id="Saves" name="NumberOfSaves" maxlength="6" pattern="[0-9,]+"
+                        <input type="text" id="Saves" name="NumberOfSaves" class="field-small" maxlength="6" pattern="[0-9,]+"
                             value="{{ .Tournament.State.Saves }}">
                     </div>
 
                     <div class="form-group">
                         <label for="AmountPerSave">Amount per Save</label>
-                        <input type="text" id="AmountPerSave" name="AmountPerSave" maxlength="30" pattern="[0-9,]+"
+                        <input type="text" id="AmountPerSave" name="AmountPerSave" class="field-medium" maxlength="30" pattern="[0-9,]+"
                             value="{{ .Tournament.State.AmountPerSave }}">
                     </div>
                 </div>
@@ -153,7 +153,7 @@
                         based on
                         buy-ins,
                         add-ons, and selected paytable{{ else }}Free-form text. No HTML tags.{{ end }}</small>
-                    <textarea id="PrizePool" name="PrizePool" rows="12" cols="20" {{ if and (not .IsNew)
+                    <textarea id="PrizePool" name="PrizePool" class="field-full" rows="12" cols="20" {{ if and (not .IsNew)
                         .Tournament.State.AutoComputePrizePool }}readonly{{ end
                         }}>{{ if not .IsNew }}{{ .Tournament.State.PrizePool }}{{ end }}</textarea>
                 </div>
@@ -186,19 +186,19 @@
                 <div> Most of this can be edited live on the tournament view page. </div>
                 <div class="form-group">
                     <label for="CurrentPlayers">Current Players</label>
-                    <input type="text" id="CurrentPlayers" name="CurrentPlayers" maxlength="6" pattern="[0-9,]+"
+                    <input type="text" id="CurrentPlayers" name="CurrentPlayers" class="field-small" maxlength="6" pattern="[0-9,]+"
                         value="{{ .Tournament.State.CurrentPlayers }}">
                 </div>
 
                 <div class="form-group">
                     <label for="BuyIns">Buy-Ins</label>
-                    <input type="text" id="BuyIns" name="BuyIns" maxlength="6" pattern="[0-9,]+"
+                    <input type="text" id="BuyIns" name="BuyIns" class="field-small" maxlength="6" pattern="[0-9,]+"
                         value="{{ .Tournament.State.BuyIns }}">
                 </div>
 
                 <div class="form-group">
                     <label for="AddOns">Add-Ons</label>
-                    <input type="text" id="AddOns" name="AddOns" maxlength="6" pattern="[0-9,]+"
+                    <input type="text" id="AddOns" name="AddOns" class="field-small" maxlength="6" pattern="[0-9,]+"
                         value="{{ .Tournament.State.AddOns }}">
                 </div>
             </div>

@@ -104,6 +104,29 @@ input, select, textarea {
     padding: 0.5em;
     margin: 0.2em 0;
     border-radius: 4px;
+    box-sizing: border-box;
+    width: 100%;
+}
+
+/* Field sizing classes */
+.field-small {
+    max-width: 5ch;
+}
+
+.field-medium {
+    max-width: 8ch;
+}
+
+.field-large {
+    max-width: 12ch;
+}
+
+.field-text {
+    max-width: 40ch;
+}
+
+.field-full {
+    max-width: 100%;
 }
 
 input[type="submit"], button {
