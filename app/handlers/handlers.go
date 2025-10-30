@@ -1,11 +1,12 @@
 package handlers
 
 import (
+	"context"
 	"io"
 	"net/http"
 )
 
-func HandleRobotsTXT(w http.ResponseWriter, r *http.Request) {
+func HandleRobotsTXT(_ context.Context, w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain")
 	data := []string{
 		"User-agent: *",
@@ -13,6 +14,7 @@ func HandleRobotsTXT(w http.ResponseWriter, r *http.Request) {
 		"Disallow: /*",
 	}
 	for _, line := range data {
-		io.WriteString(w, line+"\r\n")
+		io.WriteString(w, line)
+		io.WriteString(w, "\r\n")
 	}
 }
