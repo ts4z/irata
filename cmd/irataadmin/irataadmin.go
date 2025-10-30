@@ -45,7 +45,7 @@ var (
 
 func newUserStorage(ctx context.Context) state.UserStorage {
 	config.Init()
-	storage, err := state.NewDBStorage(ctx, config.DBURL(), clock)
+	storage, err := state.NewDBStorage(ctx, config.DBURL(), nil)
 	if err != nil {
 		log.Fatalf("can't connect to database: %v", err)
 	}
@@ -53,7 +53,7 @@ func newUserStorage(ctx context.Context) state.UserStorage {
 }
 
 func newSiteStorage(ctx context.Context) state.SiteStorage {
-	storage, err := state.NewDBStorage(ctx, config.DBURL(), clock)
+	storage, err := state.NewDBStorage(ctx, config.DBURL(), nil)
 	if err != nil {
 		log.Fatalf("can't connect to database: %v", err)
 	}

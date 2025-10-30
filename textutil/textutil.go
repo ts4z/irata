@@ -2,6 +2,7 @@ package textutil
 
 import (
 	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -48,4 +49,20 @@ func ParseDuration(s string) (time.Duration, error) {
 	}
 
 	return time.Duration(hours)*time.Hour + time.Duration(mins)*time.Minute + time.Duration(secs)*time.Second, nil
+}
+
+// formatPlace converts a numeric place (1, 2, 3, ...) to a string ("1st", "2nd", "3rd", ...).
+func FormatPlace(place int) string {
+	suffix := "th"
+	if place%100 < 11 || place%100 > 13 {
+		switch place % 10 {
+		case 1:
+			suffix = "st"
+		case 2:
+			suffix = "nd"
+		case 3:
+			suffix = "rd"
+		}
+	}
+	return fmt.Sprintf("%d%s", place, suffix)
 }

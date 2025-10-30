@@ -1,4 +1,4 @@
-package action
+package form
 
 import (
 	"context"
@@ -12,21 +12,16 @@ import (
 	"github.com/ts4z/irata/model"
 	"github.com/ts4z/irata/state"
 	"github.com/ts4z/irata/textutil"
+	"github.com/ts4z/irata/tournament"
 )
 
-type Actor struct {
-	storage state.AppStorage
-	clock   model.Clock
+type FormProcessor struct {
+	storage           state.AppStorage
+	tournamentMutator *tournament.Mutator
 }
 
-func New(s state.AppStorage, clock model.Clock) *Actor {
-	return &Actor{storage: s, clock: clock}
-}
-
-func (a *Actor) modelDeps() *model.Deps {
-	return &model.Deps{
-		Clock: a.clock,
-	}
+func New(s state.AppStorage, tournamentMutator *tournament.Mutator) *FormProcessor {
+	return &FormProcessor{storage: s, tournamentMutator: tournamentMutator}
 }
 
 func maybeCopyString(form url.Values, dest *string, key string) {
@@ -62,12 +57,6 @@ func maybeCopyInt(form url.Values, dest *int, key string) {
 	}
 }
 
-func parseRequiredInt(form url.Values, key string) (int64, error) {
-	s := form.Get(key)
-	s = decomma(s)
-	return strconv.ParseInt(s, 10, 64)
-}
-
 func parseOptionalInt(form url.Values, key string) (*int64, error) {
 	s := form.Get(key)
 	if s == "" {
@@ -95,7 +84,7 @@ func parseClockState(s string) (bool, error) {
 // ApplyFormToTournament takes form values and applies them to a tournament,
 // returning the modified tournament and any error encountered.
 // This function may need to fetch additional data (like structures) from storage.
-func (a *Actor) ApplyFormToTournament(ctx context.Context, form url.Values, t *model.Tournament) error {
+func (a *FormProcessor) ApplyFormToTournament(ctx context.Context, form url.Values, t *model.Tournament) error {
 	maybeCopyInt64(form, &t.Version, "Version")
 
 	if lvlp, err := parseOptionalInt(form, "CurrentLevel"); err != nil {
@@ -117,9 +106,9 @@ func (a *Actor) ApplyFormToTournament(ctx context.Context, form url.Values, t *m
 	} else if runClock == t.State.IsClockRunning {
 		// no change, hooray
 	} else if runClock {
-		t.StartClock(a.modelDeps())
+		a.tournamentMutator.StartClock(t)
 	} else /* !runClock */ {
-		t.StopClock(a.modelDeps())
+		a.tournamentMutator.StopClock(t)
 	}
 
 	timeRemainingAsHHMMSS := form.Get("TimeRemaining")
@@ -128,7 +117,7 @@ func (a *Actor) ApplyFormToTournament(ctx context.Context, form url.Values, t *m
 	} else if duration, err := textutil.ParseDuration(timeRemainingAsHHMMSS); err != nil {
 		return err
 	} else {
-		t.SetLevelRemaining(a.modelDeps(), duration)
+		a.tournamentMutator.SetLevelRemaining(t, duration)
 	}
 
 	if form.Get("ChangeStructure") == "on" {
@@ -189,7 +178,7 @@ func (a *Actor) ApplyFormToTournament(ctx context.Context, form url.Values, t *m
 	return nil
 }
 
-func (a *Actor) EditTournament(ctx context.Context, id int64, form url.Values) error {
+func (a *FormProcessor) EditTournament(ctx context.Context, id int64, form url.Values) error {
 	log.Printf("edit path: %v", id)
 
 	t, err := a.storage.FetchTournament(ctx, id)
@@ -197,8 +186,7 @@ func (a *Actor) EditTournament(ctx context.Context, id int64, form url.Values) e
 		return he.HTTPCodedErrorf(404, "can't get tournament from database")
 	}
 
-	deps := &model.Deps{Clock: a.clock}
-	t.AdvanceLevel(deps)
+	a.tournamentMutator.AdvanceLevel(t)
 
 	err = a.ApplyFormToTournament(ctx, form, t)
 	if err != nil {
@@ -208,7 +196,7 @@ func (a *Actor) EditTournament(ctx context.Context, id int64, form url.Values) e
 	return a.storage.SaveTournament(ctx, t)
 }
 
-func (a *Actor) CreateTournament(ctx context.Context, form url.Values) (int64, error) {
+func (a *FormProcessor) CreateTournament(ctx context.Context, form url.Values) (int64, error) {
 	t := &model.Tournament{
 		State: &model.State{},
 	}

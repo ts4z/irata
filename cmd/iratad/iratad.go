@@ -19,10 +19,10 @@ import (
 	"github.com/jonboulle/clockwork"
 	"github.com/spf13/viper"
 
-	"github.com/ts4z/irata/action"
 	"github.com/ts4z/irata/app/handlers"
 	"github.com/ts4z/irata/assets"
 	"github.com/ts4z/irata/config"
+	"github.com/ts4z/irata/form"
 	"github.com/ts4z/irata/he"
 	"github.com/ts4z/irata/middleware"
 	"github.com/ts4z/irata/middleware/c2ctx"
@@ -33,6 +33,7 @@ import (
 	"github.com/ts4z/irata/permission"
 	"github.com/ts4z/irata/state"
 	"github.com/ts4z/irata/textutil"
+	"github.com/ts4z/irata/tournament"
 	"github.com/ts4z/irata/ts"
 	"github.com/ts4z/irata/urlpath"
 )
@@ -74,11 +75,11 @@ type irataApp struct {
 	siteStorage     state.SiteStorage
 	userStorage     state.UserStorage
 	paytableStorage state.PaytableStorage
-	mutator         *action.Actor
+	mutator         *form.FormProcessor
 	subFS           fs.FS
 	bakery          *permission.Bakery
 	clock           nower
-	modelDeps       *model.Deps
+	tm              *tournament.Mutator
 
 	keypressHandlers map[string]func(*model.Tournament, *modifiers) error
 
@@ -840,27 +841,23 @@ func if10min(b bool) time.Duration {
 	return ifb(b, 10*time.Minute, 1*time.Minute)
 }
 
-func makeKeyboardHandlers(clock ts.Clock, fetcher model.PaytableFetcher) map[string]func(*model.Tournament, *modifiers) error {
+func makeKeyboardHandlers(tm *tournament.Mutator) map[string]func(*model.Tournament, *modifiers) error {
 	// todo: it is bogus that these require a deps.  it would make more sense if these methods
 	// were moved outside the model, since they are not just data, but actual actions.
-	deps := &model.Deps{
-		Clock:           clock,
-		PaytableFetcher: fetcher,
-	}
 
 	return map[string]func(t *model.Tournament, bb *modifiers) error{
-		"PreviousLevel": func(t *model.Tournament, bb *modifiers) error { return t.PreviousLevel(deps) },
-		"SkipLevel":     func(t *model.Tournament, bb *modifiers) error { return t.AdvanceLevel(deps) },
-		"StopClock":     func(t *model.Tournament, bb *modifiers) error { return t.StopClock(deps) },
-		"StartClock":    func(t *model.Tournament, bb *modifiers) error { return t.StartClock(deps) },
-		"RemovePlayer":  func(t *model.Tournament, bb *modifiers) error { return t.ChangePlayers(deps, -if10(bb.Shift)) },
-		"AddPlayer":     func(t *model.Tournament, bb *modifiers) error { return t.ChangePlayers(deps, if10(bb.Shift)) },
-		"AddBuyIn":      func(t *model.Tournament, bb *modifiers) error { return t.ChangeBuyIns(deps, if10(bb.Shift)) },
-		"AddAddOn":      func(t *model.Tournament, bb *modifiers) error { return t.ChangeAddOns(deps, if10(bb.Shift)) },
-		"RemoveAddOn":   func(t *model.Tournament, bb *modifiers) error { return t.ChangeAddOns(deps, -if10(bb.Shift)) },
-		"RemoveBuyIn":   func(t *model.Tournament, bb *modifiers) error { return t.ChangeBuyIns(deps, -if10(bb.Shift)) },
-		"PlusMinute":    func(t *model.Tournament, bb *modifiers) error { return t.PlusTime(deps, if10min(bb.Shift)) },
-		"MinusMinute":   func(t *model.Tournament, bb *modifiers) error { return t.MinusTime(deps, if10min(bb.Shift)) },
+		"PreviousLevel": func(t *model.Tournament, bb *modifiers) error { return tm.PreviousLevel(t) },
+		"SkipLevel":     func(t *model.Tournament, bb *modifiers) error { return tm.AdvanceLevel(t) },
+		"StopClock":     func(t *model.Tournament, bb *modifiers) error { return tm.StopClock(t) },
+		"StartClock":    func(t *model.Tournament, bb *modifiers) error { return tm.StartClock(t) },
+		"RemovePlayer":  func(t *model.Tournament, bb *modifiers) error { return tm.ChangePlayers(t, -if10(bb.Shift)) },
+		"AddPlayer":     func(t *model.Tournament, bb *modifiers) error { return tm.ChangePlayers(t, if10(bb.Shift)) },
+		"AddBuyIn":      func(t *model.Tournament, bb *modifiers) error { return tm.ChangeBuyIns(t, if10(bb.Shift)) },
+		"AddAddOn":      func(t *model.Tournament, bb *modifiers) error { return tm.ChangeAddOns(t, if10(bb.Shift)) },
+		"RemoveAddOn":   func(t *model.Tournament, bb *modifiers) error { return tm.ChangeAddOns(t, -if10(bb.Shift)) },
+		"RemoveBuyIn":   func(t *model.Tournament, bb *modifiers) error { return tm.ChangeBuyIns(t, -if10(bb.Shift)) },
+		"PlusMinute":    func(t *model.Tournament, bb *modifiers) error { return tm.PlusTime(t, if10min(bb.Shift)) },
+		"MinusMinute":   func(t *model.Tournament, bb *modifiers) error { return tm.MinusTime(t, if10min(bb.Shift)) },
 	}
 }
 
@@ -938,6 +935,7 @@ func (app *irataApp) installKeyboardHandlers() {
 
 		// Create a temporary tournament with the parameters
 		tempTournament := &model.Tournament{
+			PaytableID:        req.PaytableID,
 			PrizePoolPerBuyIn: req.PrizePoolPerBuyIn,
 			PrizePoolPerAddOn: req.PrizePoolPerAddOn,
 			State: &model.State{
@@ -950,7 +948,7 @@ func (app *irataApp) installKeyboardHandlers() {
 		}
 
 		// Compute the prize pool text
-		prizePoolText, err := tempTournament.ComputePrizePoolText(app.paytableStorage)
+		prizePoolText, err := app.tm.ComputePrizePoolText(tempTournament)
 		if err != nil {
 			log.Printf("error computing prize pool: %v", err)
 			he.SendErrorToHTTPClient(w, "compute prize pool", err)
@@ -1031,7 +1029,9 @@ func main() {
 		log.Fatalf("fs.Sub: %v", err)
 	}
 
-	unprotectedStorage, err := state.NewDBStorage(context.Background(), viper.GetString("db_url"), clock)
+	tournamentMutator := tournament.NewMutator(clock, state.NewDefaultPaytableStorage())
+
+	unprotectedStorage, err := state.NewDBStorage(context.Background(), viper.GetString("db_url"), tournamentMutator)
 	if err != nil {
 		log.Fatalf("can't configure database: %v", err)
 	}
@@ -1048,7 +1048,7 @@ func main() {
 
 	storage := &permission.StoragePermissionFacade{Storage: unprotectedStorage}
 
-	mutator := action.New(storage, clock)
+	mutator := form.New(storage, tournamentMutator)
 
 	csp := http.NewCrossOriginProtection()
 
@@ -1063,7 +1063,7 @@ func main() {
 		subFS:           subFS,
 		bakery:          bakery,
 		clock:           clock,
-		modelDeps:       &model.Deps{Clock: clock, PaytableFetcher: paytableStorage},
+		tm:              tournament.NewMutator(clock, paytableStorage),
 	}
 
 	app.mux = http.NewServeMux()
@@ -1081,7 +1081,7 @@ func main() {
 		Next:  logger,
 	})
 	app.handler = tarpit
-	app.keypressHandlers = makeKeyboardHandlers(clock, paytableStorage)
+	app.keypressHandlers = makeKeyboardHandlers(app.tm)
 	app.listenAddress = viper.GetString("listen_address")
 
 	app.loadTemplates()

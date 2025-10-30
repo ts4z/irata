@@ -20,11 +20,8 @@ import (
 	"github.com/ts4z/irata/dbutil"
 	"github.com/ts4z/irata/he"
 	"github.com/ts4z/irata/model"
+	"github.com/ts4z/irata/tournament"
 )
-
-type Clock interface {
-	Now() time.Time
-}
 
 // DBStorage stores stuff in the associated database.
 //
@@ -32,8 +29,8 @@ type Clock interface {
 // interfaces are easily seperable.  (The database handle can
 // be shared.)
 type DBStorage struct {
-	db    *sql.DB
-	clock Clock
+	db                *sql.DB
+	tournamentMutator *tournament.Mutator
 	// Map from tournament id to slice of notification functions
 	tournamentListeners   map[int64][]chan<- *model.Tournament
 	tournamentListenersMu sync.Mutex
@@ -253,13 +250,13 @@ func dbConnect() (*sql.DB, error) {
 	return factory()
 }
 
-func NewDBStorage(ctx context.Context, url string, clock Clock) (*DBStorage, error) {
+func NewDBStorage(ctx context.Context, url string, tournamentMutator *tournament.Mutator) (*DBStorage, error) {
 	db, err := dbConnect()
 	if err != nil {
 		return nil, err
 	}
 	return &DBStorage{
-		clock:               clock,
+		tournamentMutator:   tournamentMutator,
 		db:                  db,
 		tournamentListeners: make(map[int64][]chan<- *model.Tournament),
 	}, nil
@@ -428,35 +425,35 @@ func (s *DBStorage) FetchTournament(ctx context.Context, id int64) (*model.Tourn
 		return nil, he.New(500, fmt.Errorf("querying tournament: %w", err))
 	}
 
-	tm := &model.Tournament{}
-	err = json.Unmarshal(bytes, tm)
+	t := &model.Tournament{}
+	err = json.Unmarshal(bytes, t)
 	if err != nil {
 		return nil, err
 	}
 
 	// These come from the database row, not the JSON.
-	tm.EventID = id
-	tm.Handle = handle
-	tm.Version = lock
+	t.EventID = id
+	t.Handle = handle
+	t.Version = lock
 	// These don't come from the database at all.
 	// TODO: This shouldn't be here, because the database has no business
 	// having a clock or paytable fetcher dependency.
-	tm.FillTransients(&model.Deps{Clock: s.clock, PaytableFetcher: nil})
+	s.tournamentMutator.FillTransients(t)
 
-	return tm, nil
+	return t, nil
 }
 
 func (s *DBStorage) CreateTournament(
 	ctx context.Context,
-	tm *model.Tournament) (int64, error) {
+	t *model.Tournament) (int64, error) {
 
-	if len(tm.Structure.Levels) == 0 {
+	if len(t.Structure.Levels) == 0 {
 		return 0, fmt.Errorf("cannot create tournament with no structure levels")
 	}
 
 	var id int64
 
-	cpy := *tm
+	cpy := *t
 	cpy.Transients = nil
 	cpy.State.BuyIns = 0
 	cpy.State.AddOns = 0
@@ -465,7 +462,7 @@ func (s *DBStorage) CreateTournament(
 
 	// Set level to full time.
 	// q.v. Tournament.restartLevel
-	millis := (time.Duration(tm.CurrentLevel().DurationMinutes) * time.Minute).Milliseconds()
+	millis := (time.Duration(t.CurrentLevel().DurationMinutes) * time.Minute).Milliseconds()
 	cpy.State.TimeRemainingMillis = &millis
 
 	bytes, err := json.Marshal(&cpy)
@@ -474,7 +471,7 @@ func (s *DBStorage) CreateTournament(
 	}
 
 	if err := s.db.QueryRowContext(ctx, `INSERT INTO tournaments (handle, model_data) VALUES ($1, $2) RETURNING tournament_id;`,
-		tm.Handle, bytes).Scan(&id); err != nil {
+		t.Handle, bytes).Scan(&id); err != nil {
 		return 0, err
 	}
 
@@ -527,7 +524,7 @@ func (s *DBStorage) SaveTournament(
 	//
 	// The right thing to do is to make raw storage unaware of the listener, and build that as
 	// a lookaside cache in a decorator of this API.
-	cpy.FillTransients(&model.Deps{Clock: s.clock, PaytableFetcher: nil})
+	s.tournamentMutator.FillTransients(&cpy)
 
 	// Notify listeners for this tournament id
 	listeners := s.resetTournamentListeners(tm.EventID)
