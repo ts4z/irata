@@ -47,7 +47,7 @@ func idPathValue(w http.ResponseWriter, r *http.Request) (int64, error) {
 	return urlpath.IDPathValue(w, r)
 }
 
-type nower interface {
+type clock interface {
 	Now() time.Time
 }
 
@@ -78,7 +78,7 @@ type irataApp struct {
 	mutator         *form.FormProcessor
 	subFS           fs.FS
 	bakery          *permission.Bakery
-	clock           nower
+	clock           clock
 	tm              *tournament.Mutator
 
 	keypressHandlers map[string]func(*model.Tournament, *modifiers) error
