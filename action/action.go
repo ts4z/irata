@@ -11,14 +11,22 @@ import (
 	"github.com/ts4z/irata/he"
 	"github.com/ts4z/irata/model"
 	"github.com/ts4z/irata/state"
+	"github.com/ts4z/irata/textutil"
 )
 
 type Actor struct {
 	storage state.AppStorage
+	clock   model.Clock
 }
 
-func New(s state.AppStorage) *Actor {
-	return &Actor{storage: s}
+func New(s state.AppStorage, clock model.Clock) *Actor {
+	return &Actor{storage: s, clock: clock}
+}
+
+func (a *Actor) modelDeps() *model.Deps {
+	return &model.Deps{
+		Clock: a.clock,
+	}
 }
 
 func maybeCopyString(form url.Values, dest *string, key string) {
@@ -54,21 +62,83 @@ func maybeCopyInt(form url.Values, dest *int, key string) {
 	}
 }
 
+func parseRequiredInt(form url.Values, key string) (int64, error) {
+	s := form.Get(key)
+	s = decomma(s)
+	return strconv.ParseInt(s, 10, 64)
+}
+
+func parseOptionalInt(form url.Values, key string) (*int64, error) {
+	s := form.Get(key)
+	if s == "" {
+		return nil, nil
+	}
+	s = decomma(s)
+	val, err := strconv.ParseInt(s, 10, 64)
+	if err != nil {
+		return nil, err
+	}
+	return &val, nil
+}
+
+func parseClockState(s string) (bool, error) {
+	switch s {
+	case "running":
+		return true, nil
+	case "paused":
+		return false, nil
+	default:
+		return false, he.HTTPCodedErrorf(400, "invalid clock state")
+	}
+}
+
 // ApplyFormToTournament takes form values and applies them to a tournament,
 // returning the modified tournament and any error encountered.
 // This function may need to fetch additional data (like structures) from storage.
-func ApplyFormToTournament(ctx context.Context, form url.Values, t *model.Tournament, storage state.AppStorage) error {
+func (a *Actor) ApplyFormToTournament(ctx context.Context, form url.Values, t *model.Tournament) error {
 	maybeCopyInt64(form, &t.Version, "Version")
 
-	changeStructure := form.Get("ChangeStructure") == "on"
-	if changeStructure {
+	if lvlp, err := parseOptionalInt(form, "CurrentLevel"); err != nil {
+		return err
+	} else if lvlp == nil {
+		// great
+	} else if lvl := *lvlp; lvl < 0 || lvl >= int64(len(t.Structure.Levels)) {
+		return he.HTTPCodedErrorf(400, "level out of range")
+	} else if lvl == int64(t.State.CurrentLevelNumber) {
+		// no change, hooray
+	} else {
+		t.State.CurrentLevelNumber = int(lvl)
+	}
+
+	if cs := form.Get("ClockState"); cs == "" {
+		// ok
+	} else if runClock, err := parseClockState(cs); err != nil {
+		return err
+	} else if runClock == t.State.IsClockRunning {
+		// no change, hooray
+	} else if runClock {
+		t.StartClock(a.modelDeps())
+	} else /* !runClock */ {
+		t.StopClock(a.modelDeps())
+	}
+
+	timeRemainingAsHHMMSS := form.Get("TimeRemaining")
+	if timeRemainingAsHHMMSS == "" {
+		// great
+	} else if duration, err := textutil.ParseDuration(timeRemainingAsHHMMSS); err != nil {
+		return err
+	} else {
+		t.SetLevelRemaining(a.modelDeps(), duration)
+	}
+
+	if form.Get("ChangeStructure") == "on" {
 		structureID, err := strconv.ParseInt(form.Get("StructureID"), 10, 64)
 		if err != nil || structureID == 0 {
 			return he.HTTPCodedErrorf(400, "invalid structure ID")
 		}
 
 		// Fetch the new structure
-		structure, err := storage.FetchStructure(ctx, structureID)
+		structure, err := a.storage.FetchStructure(ctx, structureID)
 		if err != nil {
 			return he.HTTPCodedErrorf(404, "can't fetch structure")
 		}
@@ -127,7 +197,10 @@ func (a *Actor) EditTournament(ctx context.Context, id int64, form url.Values) e
 		return he.HTTPCodedErrorf(404, "can't get tournament from database")
 	}
 
-	err = ApplyFormToTournament(ctx, form, t, a.storage)
+	deps := &model.Deps{Clock: a.clock}
+	t.AdvanceLevel(deps)
+
+	err = a.ApplyFormToTournament(ctx, form, t)
 	if err != nil {
 		return err
 	}
@@ -140,7 +213,7 @@ func (a *Actor) CreateTournament(ctx context.Context, form url.Values) (int64, e
 		State: &model.State{},
 	}
 
-	err := ApplyFormToTournament(ctx, form, t, a.storage)
+	err := a.ApplyFormToTournament(ctx, form, t)
 	if err != nil {
 		return 0, err
 	}

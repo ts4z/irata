@@ -1,3 +1,11 @@
+// package model represents wire-protocol and database-stored models.
+// (One of my previous employers says it's bad to write the same models
+// to the database and the wire, but for this application, it's not so bad.)
+//
+// However, we have a lot of methods with calls to
+// dependencies.  These should be moved elsewhere, as this class should
+// have no dependencies.
+
 package model
 
 import (
@@ -20,16 +28,19 @@ const (
 	ServerVersion = 10
 )
 
+// TODO: Relocate.
 type Clock interface {
 	Now() time.Time
 }
 
+// TODO: Relocate.
 type PaytableFetcher interface {
 	FetchPaytableByID(ctx context.Context, id int64) (*paytable.Paytable, error)
 }
 
-// Dependencies for model methods.  (This is something of a bug, and looks
-// like a dumping ground.)
+// Dependencies for model methods.
+//
+// TODO: Relocate.  This is a set of configs for a TournamentUpdater delegate.
 type Deps struct {
 	Clock           Clock
 	PaytableFetcher PaytableFetcher
@@ -348,6 +359,16 @@ func (m *Tournament) endOfTime() {
 	m.State.TimeRemainingMillis = &zero
 	m.State.CurrentLevelEndsAt = nil
 	m.State.IsClockRunning = false
+}
+
+func (m *Tournament) SetLevelRemaining(deps *Deps, d time.Duration) {
+	if m.State.IsClockRunning {
+		millis := deps.Clock.Now().Add(d).UnixMilli()
+		m.State.CurrentLevelEndsAt = &millis
+	} else {
+		remainingMillis := d.Milliseconds()
+		m.State.TimeRemainingMillis = &remainingMillis
+	}
 }
 
 func (m *Tournament) AdvanceLevel(deps *Deps) error {

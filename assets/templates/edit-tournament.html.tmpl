@@ -16,14 +16,16 @@
             {{ end }}
         </div>
 
-        <h1>{{ if .IsNew }}CREATE TOURNAMENT{{ else }}EDIT EVENT {{ .Tournament.EventID }}{{ end }}</h1>
+        <h1>{{ if .IsNew }}CREATE{{ else }}EDIT{{ end }}
+            TOURNAMENT
+            {{ if not .IsNew }}{{ .Tournament.EventID }}{{ end }}</h1>
 
         {{ if not .IsNew }}
         <div class="info-box">
             <p>Be sure to press Save.</p>
             <p>
-                Edits to a live tournament will behave weirdly. Any changes to a live tournament will
-                lock out this form, and you will have to hit reload before you can make additional edits.
+                Edits to a running tournament may be surprising. Changes to a live tournament will
+                lock out this form, and you will have to hit reload (due to conflicting writes).
             </p>
         </div>
         {{ end }}
@@ -32,29 +34,38 @@
             {{ if not .IsNew }}
             <input type="hidden" name="Version" value="{{ .Tournament.Version }}">
             {{ end }}
+            <input type="hidden" id="BuyIns" name="BuyIns" value="{{ .Tournament.State.BuyIns }}">
+            <input type="hidden" id="AddOns" name="AddOns" value="{{ .Tournament.State.AddOns }}">
 
             <div class="form-section">
-                <h2> Event Details </h2>
+                <h2> Tournament Details </h2>
                 <div class="form-group">
-                    <label for="EventName">Event Name</label>
-                    <input type="text" id="EventName" name="EventName" class="field-text" maxlength="30" required{{ if not .IsNew }} value="{{ .Tournament.EventName }}"{{ end }}>
+                    <label for="EventName">Name</label>
+                    <input type="text" id="EventName" name="EventName" class="field-text" maxlength="30" required{{ if
+                        not .IsNew }} value="{{ .Tournament.EventName }}" {{ end }}>
                 </div>
 
                 <div class="form-group">
                     <label for="Handle">Handle</label>
-                    <input type="text" id="Handle" name="Handle" class="field-large" maxlength="30" required{{ if not .IsNew }} value="{{ .Tournament.Handle }}"{{ end }}>
+                    <small>
+                        Used in URL. No spaces or special characters.
+                    </small>
+                    <input type="text" id="Handle" name="Handle" class="field-large" maxlength="30"
+                        pattern="[0-9a-zA-Z_-]+" required{{ if not .IsNew }} value="{{ .Tournament.Handle }}" {{ end }}>
                 </div>
 
                 <div class="form-group">
                     <label for="Description">Description</label>
-                    <input type="text" id="Description" name="Description" class="field-text" maxlength="50"{{ if not .IsNew }} value="{{ .Tournament.Description }}"{{ end }}>
+                    <input type="text" id="Description" name="Description" class="field-text" maxlength="50" {{ if not
+                        .IsNew }} value="{{ .Tournament.Description }}" {{ end }}>
                 </div>
 
                 <div class="form-group">
                     <label for="FooterPlugsID">Footer Plugs</label>
                     <select id="FooterPlugsID" name="FooterPlugsID" required>
                         {{ range .FooterSets }}
-                        <option value="{{ .FooterPlugsID }}"{{ if and (not $.IsNew) (eq .FooterPlugsID $.Tournament.FooterPlugsID) }} selected{{ end }}>{{ .Name }}</option>
+                        <option value="{{ .FooterPlugsID }}" {{ if and (not $.IsNew) (eq .FooterPlugsID
+                            $.Tournament.FooterPlugsID) }} selected{{ end }}>{{ .Name }}</option>
                         {{ end }}
                     </select>
                 </div>
@@ -64,27 +75,32 @@
                 <h2> Chip Setup </h2>
 
                 <div class="form-group">
-                    <label>Chip Calculator</label>
                     <table class="calc-table" style="border-collapse: collapse;">
                         <thead>
                             <tr>
                                 <th style="text-align: left;">Type</th>
                                 <th style="text-align: left;">Amount</th>
-                                <th style="text-align: center;">&numero;</th>
-                                <th style="text-align: right;">Subtotal</th>
+                                <th> </th>
+                                <th style="text-align: left;">&numero;</th>
+                                <th> </th>
+                                <th style="text-align: left;">Subtotal</th>
                             </tr>
                         </thead>
                         <tbody>
                             <tr>
                                 <td>Buy-Ins:</td>
                                 <td>
-                                    <input type="text" id="ChipsPerBuyIn" name="ChipsPerBuyIn" class="field-medium editable" maxlength="30" pattern="[0-9,]+"
-                                        placeholder="Chips/Buy-in"{{ if not .IsNew }} value="{{ .Tournament.Structure.ChipsPerBuyIn }}"{{ end }}> ×
+                                    <input type="text" id="ChipsPerBuyIn" name="ChipsPerBuyIn"
+                                        class="field-medium editable" maxlength="30" pattern="[0-9,]+"
+                                        placeholder="T/Buy-in" {{ if not .IsNew }}
+                                        value="{{ .Tournament.Structure.ChipsPerBuyIn }}" {{ end }}>
                                 </td>
+                                <td> × </td>
                                 <td>
-                                    <input type="text" id="ChipSetupBuyIns" class="field-small editable" maxlength="6" pattern="[0-9,]+"
-                                        placeholder="Count" value="{{ .Tournament.State.BuyIns }}"> =
+                                    <input type="text" id="ChipSetupBuyIns" class="field-small editable" maxlength="6"
+                                        pattern="[0-9,]+" placeholder="Count" value="{{ .Tournament.State.BuyIns }}">
                                 </td>
+                                <td> = </td>
                                 <td>
                                     <input type="text" id="ChipsBuyInSubtotal" class="field-large uneditable" readonly>
                                 </td>
@@ -92,21 +108,25 @@
                             <tr>
                                 <td>Add-Ons:</td>
                                 <td>
-                                    <input type="text" id="ChipsPerAddOn" name="ChipsPerAddOn" class="field-medium editable" maxlength="30" pattern="[0-9,]+"
-                                        placeholder="Chips/Add-on"{{ if not .IsNew }} value="{{ .Tournament.Structure.ChipsPerAddOn }}"{{ end }}> ×
-                                </td>
+                                    <input type="text" id="ChipsPerAddOn" name="ChipsPerAddOn"
+                                        class="field-medium editable" maxlength="30" pattern="[0-9,]+"
+                                        placeholder="T/Add-on" {{ if not .IsNew }}
+                                        value="{{ .Tournament.Structure.ChipsPerAddOn }}" {{ end }}> </td>
+                                <td> × </td>
                                 <td>
-                                    <input type="text" id="ChipSetupAddOns" class="field-small editable" maxlength="6" pattern="[0-9,]+"
-                                        placeholder="Count" value="{{ .Tournament.State.AddOns }}"> =
+                                    <input type="text" id="ChipSetupAddOns" class="field-small editable" maxlength="6"
+                                        pattern="[0-9,]+" placeholder="Count" value="{{ .Tournament.State.AddOns }}"> 
                                 </td>
+                                <td> = </td>
                                 <td>
                                     <input type="text" id="ChipsAddOnSubtotal" class="field-large uneditable" readonly>
                                 </td>
                             </tr>
                             <tr>
-                                <td colspan="3" style="text-align: right; font-weight: bold;">Total:</td>
+                                <td colspan="5" style="text-align: right; font-weight: bold;">Total:</td>
                                 <td>
-                                    <input type="text" id="ChipsTotal" class="field-large uneditable" readonly style="font-weight: bold;">
+                                    <input type="text" id="ChipsTotal" class="field-large uneditable" readonly
+                                        style="font-weight: bold;">
                                 </td>
                             </tr>
                         </tbody>
@@ -115,9 +135,9 @@
 
                 <div class="form-group">
                     <label for="TotalChipsOverride">Total Chips Override</label>
-                    <input type="text" id="TotalChipsOverride" name="TotalChipsOverride" class="field-large" maxlength="30"
-                        pattern="[0-9,]+" placeholder="0 to auto-compute"{{ if not .IsNew }}
-                        value="{{ .Tournament.State.TotalChipsOverride }}"{{ end }}>
+                    <input type="text" id="TotalChipsOverride" name="TotalChipsOverride" class="field-large"
+                        maxlength="30" pattern="[0-9,]+" placeholder="0 to auto-compute" {{ if not .IsNew }}
+                        value="{{ .Tournament.State.TotalChipsOverride }}" {{ end }}>
                     <small>Leave at 0 to use calculated value above</small>
                 </div>
             </div>
@@ -126,47 +146,56 @@
                 <h2> Prize Pool </h2>
 
                 <div class="form-group">
-                    <label>Prize Pool Calculator</label>
                     <table class="calc-table" style="border-collapse: collapse;">
                         <thead>
                             <tr>
                                 <th style="text-align: left;">Type</th>
                                 <th style="text-align: left;">Amount</th>
+                                <th> </th>
                                 <th style="text-align: left;">&numero;</th>
-                                <th style="text-align: right;">Subtotal</th>
+                                <th> </th>
+                                <th style="text-align: left;">Subtotal</th>
                             </tr>
                         </thead>
                         <tbody>
                             <tr>
                                 <td>Buy-Ins:</td>
                                 <td>
-                                    <input type="text" id="PrizePoolPerBuyIn" name="PrizePoolPerBuyIn" class="field-medium editable" maxlength="7" pattern="[0-9,]+"
-                                        placeholder="$/Buy-in"{{ if not .IsNew }} value="{{ .Tournament.PrizePoolPerBuyIn }}"{{ end }}> ×
-                                </td>
+                                    <input type="text" id="PrizePoolPerBuyIn" name="PrizePoolPerBuyIn"
+                                        class="field-medium editable" maxlength="7" pattern="[0-9,]+"
+                                        placeholder="$/Buy-in" {{ if not .IsNew }}
+                                        value="{{ .Tournament.PrizePoolPerBuyIn }}" {{ end }}> 
+                                <td> × </td>
                                 <td>
-                                     <input type="text" id="PrizePoolBuyIns" class="field-small editable" maxlength="6" pattern="[0-9,]+"
-                                        placeholder="Count" value="{{ .Tournament.State.BuyIns }}"> =
-                                </td>
+                                    <input type="text" id="PrizePoolBuyIns" class="field-small editable" maxlength="6"
+                                        pattern="[0-9,]+" placeholder="Count" value="{{ .Tournament.State.BuyIns }}">
+                                <td> = </td>
                                 <td>
-                                    <input type="text" id="PrizePoolBuyInSubtotal" class="field-large uneditable" readonly>
+                                    <input type="text" id="PrizePoolBuyInSubtotal" class="field-large uneditable"
+                                        readonly>
                                 </td>
                             </tr>
                             <tr>
                                 <td>Add-Ons:</td>
                                 <td>
-                                    <input type="text" id="PrizePoolPerAddOn" name="PrizePoolPerAddOn" class="field-medium editable" maxlength="7" pattern="[0-9,]+"
-                                        placeholder="$/Add-on"{{ if not .IsNew }} value="{{ .Tournament.PrizePoolPerAddOn }}"{{ end }}> × 
+                                    <input type="text" id="PrizePoolPerAddOn" name="PrizePoolPerAddOn"
+                                        class="field-medium editable" maxlength="7" pattern="[0-9,]+"
+                                        placeholder="$/Add-on" {{ if not .IsNew }}
+                                        value="{{ .Tournament.PrizePoolPerAddOn }}" {{ end }}>
                                 </td>
+                                <td> × </td>
                                 <td>
-                                    <input type="text" id="PrizePoolAddOns" class="field-small editable" maxlength="6" pattern="[0-9,]+"
-                                        placeholder="Count" value="{{ .Tournament.State.AddOns }}"> =
+                                    <input type="text" id="PrizePoolAddOns" class="field-small editable" maxlength="6"
+                                        pattern="[0-9,]+" placeholder="Count" value="{{ .Tournament.State.AddOns }}">
                                 </td>
+                                <td> = </td>
                                 <td>
-                                    <input type="text" id="PrizePoolAddOnSubtotal" class="field-large uneditable" readonly>
+                                    <input type="text" id="PrizePoolAddOnSubtotal" class="field-large uneditable"
+                                        readonly>
                                 </td>
                             </tr>
                             <tr>
-                                <td colspan="3" style="text-align: right;">Contributions:</td>
+                                <td colspan="5" style="text-align: right;">Contributions:</td>
                                 <td>
                                     <input type="text" id="PrizePoolSubtotal" class="field-large uneditable" readonly>
                                 </td>
@@ -174,19 +203,22 @@
                             <tr>
                                 <td>Saves:</td>
                                 <td>
-                                    <input type="text" id="AmountPerSave" name="AmountPerSave" class="field-medium editable" maxlength="30" pattern="[0-9,]+"
-                                        placeholder="$/Save" value="{{ .Tournament.State.AmountPerSave }}"> × 
-                                </td>
+                                    <input type="text" id="AmountPerSave" name="AmountPerSave"
+                                        class="field-medium editable" maxlength="30" pattern="[0-9,]+"
+                                        placeholder="$/Save" value="{{ .Tournament.State.AmountPerSave }}"> </td>
+                                <td> × </td>
                                 <td>
-                                    <input type="text" id="Saves" name="NumberOfSaves" class="field-small editable" maxlength="6" pattern="[0-9,]+"
-                                        placeholder="Count" value="{{ .Tournament.State.Saves }}"> =
-                                </td>
+                                    <input type="text" id="Saves" name="NumberOfSaves" class="field-small editable"
+                                        maxlength="6" pattern="[0-9,]+" placeholder="Count"
+                                        value="{{ .Tournament.State.Saves }}"> </td>
+                                <td> = </td>
                                 <td>
-                                    <input type="text" id="PrizePoolSavesSubtotal" class="field-large uneditable" readonly>
+                                    <input type="text" id="PrizePoolSavesSubtotal" class="field-large uneditable"
+                                        readonly>
                                 </td>
                             </tr>
                             <tr>
-                                <td colspan="3" style="text-align: right; font-weight: bold;">Total:</td>
+                                <td colspan="5" style="text-align: right; font-weight: bold;">Total:</td>
                                 <td>
                                     <input type="text" id="PrizePoolTotal" class="field-large uneditable" readonly>
                                 </td>
@@ -197,10 +229,10 @@
 
                 <div class="form-group">
                     <label title="Set this to override the automatic computation of the prize pool."
-                    for="TotalPrizePoolOverride">Total Prize Pool Override</label>
-                    <input type="text" id="TotalPrizePoolOverride" name="TotalPrizePoolOverride" class="field-large" maxlength="30"
-                        pattern="[0-9,]+" placeholder="0 to auto-compute"{{ if not .IsNew }}
-                        value="{{ .Tournament.State.TotalPrizePoolOverride }}"{{ end }}>
+                        for="TotalPrizePoolOverride">Total Prize Pool Override</label>
+                    <input type="text" id="TotalPrizePoolOverride" name="TotalPrizePoolOverride" class="field-large"
+                        maxlength="30" pattern="[0-9,]+" placeholder="0 to auto-compute" {{ if not .IsNew }}
+                        value="{{ .Tournament.State.TotalPrizePoolOverride }}" {{ end }}>
                     <small>Leave at 0 to use calculated value above</small>
                 </div>
 
@@ -231,12 +263,13 @@
                 <div class="form-group">
                     <label title="Prize pool displayed on right rail of tourney view page." for="PrizePool">Prize
                         Pool</label>
-                    <small id="PrizePoolHelp">{{ if and (not .IsNew) .Tournament.State.AutoComputePrizePool }}Automatically calculated
+                    <small id="PrizePoolHelp">{{ if and (not .IsNew) .Tournament.State.AutoComputePrizePool
+                        }}Automatically calculated
                         based on
                         buy-ins,
                         add-ons, and selected paytable{{ else }}Free-form text. No HTML tags.{{ end }}</small>
-                    <textarea id="PrizePool" name="PrizePool" rows="12" cols="20" style="width: auto;" {{ if and (not .IsNew)
-                        .Tournament.State.AutoComputePrizePool }}readonly{{ end
+                    <textarea id="PrizePool" name="PrizePool" rows="12" cols="20" style="width: auto;" {{ if and (not
+                        .IsNew) .Tournament.State.AutoComputePrizePool }}readonly{{ end
                         }}>{{ if not .IsNew }}{{ .Tournament.State.PrizePool }}{{ end }}</textarea>
                 </div>
             </div>
@@ -251,13 +284,14 @@
                         <input type="checkbox" id="ChangeStructure" name="ChangeStructure"
                             onchange="toggleStructureSelect()" style="display: inline; margin: 0; width: auto;">
                         <label for="ChangeStructure" style="display: inline; margin: 0;">
-                            Change Structure (+ Re-Start Tournament)
+                            Change Structure (+ re-start)
                         </label>
                     </div>
                     {{ end }}
                     <select id="StructureID" name="StructureID" {{ if .IsNew }}required{{ else }}disabled{{ end }}>
                         {{ range $.Structures }}
-                        <option value="{{ .ID }}" {{ if and (not $.IsNew) (eq .ID $.Tournament.FromStructureID) }}selected{{ end }}>{{ .Name }}
+                        <option value="{{ .ID }}" {{ if and (not $.IsNew) (eq .ID $.Tournament.FromStructureID)
+                            }}selected{{ end }}>{{ .Name }}
                         </option>
                         {{ end }}
                     </select>
@@ -266,24 +300,53 @@
 
             <div class="form-section">
                 <h2> Tournament State </h2>
-                <div> Most of this can be edited live on the tournament view page. </div>
+                <small>
+                    Note the tournament may have changed out from under you
+                    if the clock is already running. These are easier to
+                    edit from the tournament view page, but not as precise.
+                </small>
                 <div class="form-group">
                     <label for="CurrentPlayers">Current Players</label>
-                    <input type="text" id="CurrentPlayers" name="CurrentPlayers" class="field-small" maxlength="6" pattern="[0-9,]+"
-                        value="{{ .Tournament.State.CurrentPlayers }}">
+                    <input type="text" id="CurrentPlayers" name="CurrentPlayers" class="field-small" maxlength="6"
+                        pattern="[0-9,]+" value="{{ .Tournament.State.CurrentPlayers }}">
                 </div>
 
+                {{ if not .IsNew }}
                 <div class="form-group">
-                    <label for="BuyIns">Buy-Ins</label>
-                    <input type="text" id="BuyIns" name="BuyIns" class="field-small" maxlength="6" pattern="[0-9,]+"
-                        value="{{ .Tournament.State.BuyIns }}">
+                    <label for="CurrentLevel">Current Level (changes will re-start level)</label>
+                    <select id="CurrentLevel" name="CurrentLevel">
+                        {{ range $index, $level := .Tournament.Structure.Levels }}
+                        {{ $isCurrent := eq $index $.Tournament.State.CurrentLevelNumber }}
+                        <option value="{{ $index }}" {{ if $isCurrent}}selected{{ end }}>
+                            {{ $level.Banner }} &mdash; {{ $level.Description }}
+                            {{ if $level.IsBreak }} [BREAK]{{ end }}
+                            {{ if $isCurrent }}*{{end}}
+                        </option>
+                        {{ end }}
+                    </select>
                 </div>
+                {{ end }}
 
+                {{ if not .IsNew }}
                 <div class="form-group">
-                    <label for="AddOns">Add-Ons</label>
-                    <input type="text" id="AddOns" name="AddOns" class="field-small" maxlength="6" pattern="[0-9,]+"
-                        value="{{ .Tournament.State.AddOns }}">
+                    <label for="ClockState">Clock State</label>
+                    <select id="ClockState" name="ClockState">
+                        <option value="paused" {{ if not .Tournament.State.IsClockRunning }}selected{{ end }}>Clock
+                            Paused</option>
+                        <option value="running" {{ if .Tournament.State.IsClockRunning }}selected{{ end }}>Clock Running
+                        </option>
+                    </select>
                 </div>
+                {{ end }}
+
+                {{ if not .IsNew }}
+                <div class="form-group">
+                    <label for="TimeRemaining">Time Remaining in Level (MM:SS or HH:MM:SS)</label>
+                    <input type="text" id="TimeRemaining" name="TimeRemaining" class="field-medium" maxlength="8"
+                        pattern="[0-9:]+" title="time remaining in level -- leave blank for no change"
+                        placeholder="HH:MM:SS" value="">
+                </div>
+                {{ end }}
             </div>
 
             <script>
@@ -307,7 +370,7 @@
                     buyInsFields.forEach(fieldId => {
                         const field = document.getElementById(fieldId);
                         if (field) {
-                            field.addEventListener('input', function(e) {
+                            field.addEventListener('input', function (e) {
                                 const value = e.target.value;
                                 buyInsFields.forEach(otherId => {
                                     if (otherId !== fieldId) {
@@ -327,7 +390,7 @@
                     addOnsFields.forEach(fieldId => {
                         const field = document.getElementById(fieldId);
                         if (field) {
-                            field.addEventListener('input', function(e) {
+                            field.addEventListener('input', function (e) {
                                 const value = e.target.value;
                                 addOnsFields.forEach(otherId => {
                                     if (otherId !== fieldId) {
@@ -359,7 +422,7 @@
 
                     snf('ChipsBuyInSubtotal', buyInChips);
                     snf('ChipsAddOnSubtotal', addOnChips);
-                    snf('ChipsTotal',  buyInChips + addOnChips);
+                    snf('ChipsTotal', buyInChips + addOnChips);
                 }
 
                 function calculatePrizePoolAmount() {
@@ -505,7 +568,7 @@
 
                     // Initialize calculations on load
                     calculateChips();
-                    calculatePrizePoolAmount();                    
+                    calculatePrizePoolAmount();
                 });
             </script>
 

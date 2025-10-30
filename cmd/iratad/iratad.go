@@ -208,6 +208,7 @@ func (app *irataApp) installHandlers() {
 		var flash string
 		if r.Method == http.MethodPost {
 			if err := r.ParseForm(); err != nil {
+				log.Printf("error parsing form: %v", err)
 				flash = "Error parsing form"
 			} else if id, err := app.mutator.CreateTournament(ctx, r.Form); err != nil {
 				log.Printf("error parsing form: %v", err)
@@ -260,6 +261,7 @@ func (app *irataApp) installHandlers() {
 		var flash string
 		if r.Method == http.MethodPost {
 			if err := r.ParseForm(); err != nil {
+				log.Printf("error parsing form: %v", err)
 				flash = "Error parsing form"
 			} else {
 				name := r.FormValue("Name")
@@ -326,6 +328,7 @@ func (app *irataApp) installHandlers() {
 		var flash string
 		if r.Method == http.MethodPost {
 			if err := r.ParseForm(); err != nil {
+				log.Printf("error parsing form: %v", err)
 				flash = "Error parsing form"
 			} else {
 				name := r.FormValue("Name")
@@ -373,6 +376,7 @@ func (app *irataApp) installHandlers() {
 		// For POST, handle the form submission
 		if r.Method == http.MethodPost {
 			if err := r.ParseForm(); err != nil {
+				log.Printf("error parsing form: %v", err)
 				flash = "Error parsing form"
 			} else {
 				name := r.FormValue("Name")
@@ -477,6 +481,7 @@ func (app *irataApp) installHandlers() {
 		var flash string
 		if r.Method == http.MethodPost {
 			if err := r.ParseForm(); err != nil {
+				log.Printf("error parsing form: %v", err)
 				flash = "Error parsing form"
 			} else {
 				name := r.FormValue("Name")
@@ -580,7 +585,7 @@ func (app *irataApp) installHandlers() {
 		if len(r.Form) != 0 {
 			err := app.mutator.EditTournament(ctx, id64, r.Form)
 			if err != nil {
-				he.SendErrorToHTTPClient(w, "parsing form", err)
+				he.SendErrorToHTTPClient(w, "parse form", err)
 				return
 			}
 			http.Redirect(w, r, fmt.Sprintf("/t/%d", id64), http.StatusSeeOther)
@@ -787,6 +792,7 @@ func (app *irataApp) installHandlers() {
 
 		if r.Method == http.MethodPost {
 			if err := r.ParseForm(); err != nil {
+				log.Printf("error parsing form: %v", err)
 				flash = "Error parsing form"
 			} else {
 				name := r.FormValue("Name")
@@ -1042,7 +1048,7 @@ func main() {
 
 	storage := &permission.StoragePermissionFacade{Storage: unprotectedStorage}
 
-	mutator := action.New(storage)
+	mutator := action.New(storage, clock)
 
 	csp := http.NewCrossOriginProtection()
 
