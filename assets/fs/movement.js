@@ -656,12 +656,12 @@ function install_keyboard_handlers() {
   // clicking in the browser re-syncs the model (becasue it jacks
   // up the player counter).
   document.addEventListener('click', (event) => {
-    smwa('RemovePlayer')(false);
+    toggle_pause();
   }, false);
 
   document.addEventListener('contextmenu', (event) => {
     event.preventDefault();
-    smwa('AddPlayer')(false);
+    send_modify('RemovePlayer', event.shiftKey);
   }, false);
 }
 
