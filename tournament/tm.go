@@ -176,7 +176,7 @@ func (tm *Mutator) adjustStateForElapsedTime(m *model.Tournament) {
 		if m.State.TimeRemainingMillis == nil {
 			if m.CurrentLevel() != nil {
 				log.Printf("BUG: clock is not running but TimeRemainingMillis is nil, resetting to full time")
-				tm.restartLevel(m)
+				tm.startLevelFromBeginning(m)
 			} else {
 				log.Printf("BUG: clock running, no time remaining, no level?")
 				tm.RestartLastLevel(m)
@@ -224,15 +224,17 @@ func (tm *Mutator) adjustStateForElapsedTime(m *model.Tournament) {
 			break
 		}
 
-		levelDuration := time.Duration(newLevel.DurationMinutes) * time.Minute
-		newEndsAt := endsAt.Add(levelDuration).UnixMilli()
-		asInt64 := int64(newEndsAt)
-		m.State.CurrentLevelEndsAt = &asInt64
-
 		if newLevel.AutoPause {
-			tm.StopClock(m)
+			m.State.IsClockRunning = false
+			tm.startLevelFromBeginning(m)
 			break
 		}
+
+		levelDuration := time.Duration(newLevel.DurationMinutes) * time.Minute
+		newEndsAt := endsAt.Add(levelDuration).UnixMilli()
+
+		asInt64 := int64(newEndsAt)
+		m.State.CurrentLevelEndsAt = &asInt64
 	}
 }
 
@@ -259,13 +261,13 @@ func (tm *Mutator) AdvanceLevel(m *model.Tournament) error {
 	}
 
 	m.State.CurrentLevelNumber++
-	tm.restartLevel(m)
+	tm.startLevelFromBeginning(m)
 	return nil
 }
 
 func (tm *Mutator) RestartLastLevel(m *model.Tournament) {
 	m.State.CurrentLevelNumber = len(m.Structure.Levels) - 1
-	tm.restartLevel(m)
+	tm.startLevelFromBeginning(m)
 }
 
 // FillTransients fills out computed fields.  (These shouldn't be serialized to
@@ -311,13 +313,13 @@ func (tm *Mutator) PreviousLevel(m *model.Tournament) error {
 		return errors.New("already at min level")
 	}
 	m.State.CurrentLevelNumber--
-	tm.restartLevel(m)
+	tm.startLevelFromBeginning(m)
 	return nil
 }
 
-// restartLevel resets the current level's clocks after a manual level change.
+// startLevelFromBeginning resets the current level's clocks after a manual level change.
 // (It doesn't make sense to call this externally.)
-func (tm *Mutator) restartLevel(m *model.Tournament) {
+func (tm *Mutator) startLevelFromBeginning(m *model.Tournament) {
 	if m.CurrentLevel() == nil {
 		log.Printf("debug: can't restart level: no current level")
 	}
@@ -344,16 +346,16 @@ func (tm *Mutator) UnmuteSound(m *model.Tournament) error {
 	return nil
 }
 
-func (tm *Mutator) RestartLevel(m *model.Tournament) error {
+func (tm *Mutator) PauseAndRestartLevel(m *model.Tournament) error {
 	tm.StopClock(m)
-	tm.restartLevel(m)
+	tm.startLevelFromBeginning(m)
 	return nil
 }
 
-func (tm *Mutator) RestartTournament(m *model.Tournament) error {
+func (tm *Mutator) PauseAndRestartTournament(m *model.Tournament) error {
 	m.State.CurrentLevelNumber = 0
 	tm.StopClock(m)
-	tm.restartLevel(m)
+	tm.startLevelFromBeginning(m)
 	return nil
 }
 

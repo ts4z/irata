@@ -240,7 +240,7 @@ function update_next_level_and_break_fields() {
 
 // Server sent a whole new model.  Update all the fields.
 function import_new_model_from_server(model) {
-  console.log(`import new model from server ${model.Transients.ProtocolVersion}, version ${model.Version}`)
+  console.log(`new model protocol=${model.Transients.ProtocolVersion} model.Version=${model.Version}`)
 
   if (model.NextLevelSoundID !== last_model.NextLevelSoundID) {
     if (model.Transients.NextLevelSoundPath) {
@@ -265,13 +265,11 @@ function import_new_model_from_server(model) {
   set_text("current-players", model.State.CurrentPlayers)
   set_text("buyins", model.State.BuyIns)
   set_text("addons", model.State.AddOns)
-  console.log("start " + Date.now());
   if (model.State.AddOns > 0) {
     show_els_by_ids(["addons-container"]);
   } else {
     hide_els_by_ids(["addons-container"]);
   }
-  console.log("end " + Date.now());
   set_text("avg-chips", model.Transients.AverageChips)
   setNextDescription();
 }
@@ -549,8 +547,6 @@ function install_keyboard_handlers() {
     return function (shift) {
       if (!clock_controls_locked) {
         send_modify(arg, shift);
-      } else {
-        console.log(`clock_controls_locked=${clock_controls_locked} and running=$(last_model.State.IsClockRunning}`)
       }
     }
   }
@@ -651,10 +647,14 @@ function install_keyboard_handlers() {
       // console.log(`Key pressed ${event} ${code} => ${handler}`);
       handler(event.shiftKey);
     } else {
-      console.log(`drop key ${code}`)
+      // console.log(`drop key ${code}`)
     }
   }, false);
 
+  // mouse left/right = -/+ player
+  // TODO: Make this optional, it makes debugging weird because
+  // clicking in the browser re-syncs the model (becasue it jacks
+  // up the player counter).
   document.addEventListener('click', (event) => {
     smwa('RemovePlayer')(false);
   }, false);

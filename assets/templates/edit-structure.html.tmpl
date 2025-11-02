@@ -18,14 +18,15 @@
     const banner = level.Banner || '';
     const description = level.Description || '';
     const isBreak = level.IsBreak || false;
-    const autoPause = level.AutoPause || false;
+    const autoPause = level.AutoPause || idx === 0 || false;
 
     const autoPauseLabelText = autoPause ? '&#x23f8;' : '&#x23f5;';
     const isBreakLabelText = isBreak ? 'Break' : 'Level';
+    const aptitle = (idx===0? 'First level always starts paused.' : 'Run (default) or Auto-Pause at the start of this level.');
     return `
-      <label title="Run (default) or Auto-Pause at start of this level."
+      <label title="${aptitle}"
       id="Level${idx}AutoPauseLabel" class="level-${autoPause?'autopause':'run'}"><input class="level-autopause-cb" type="checkbox" style="display:none;" name="Level${idx}AutoPause" id="Level${idx}AutoPause" 
-               ${autoPause ? 'checked' : ''} onchange="onAutoPauseToggle(this)">${autoPauseLabelText}</label>
+               ${autoPause ? 'checked' : ''} ${idx===0? '' : 'onchange="onAutoPauseToggle(this)'}">${autoPauseLabelText}</label>
       <input type="number" name="Level${idx}Duration" min="1" required 
              title="Duration in minutes"
              placeholder="Minutes" value="${duration}" class="level-duration-input">
@@ -214,9 +215,6 @@
   window.addEventListener('DOMContentLoaded', function() {
     const levelsDiv = document.getElementById('levels');
     let levelData = {{ .LevelsJSON }};
-    
-    console.log('LevelsJSON type:', typeof levelData);
-    console.log('LevelsJSON value:', levelData);
     
     // Ensure levelData is always an array
     if (!levelData || !Array.isArray(levelData)) {

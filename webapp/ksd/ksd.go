@@ -74,9 +74,9 @@ func NewKeyboardShortcutDispatcher(tm *tournament.Mutator, ts state.AppStorage) 
 		"UnmuteSound": func(ctx context.Context, t *model.Tournament, bb *modifiers) error { return tm.UnmuteSound(t) },
 		"Restart": func(ctx context.Context, t *model.Tournament, bb *modifiers) error {
 			if bb.Shift {
-				return tm.RestartTournament(t)
+				return tm.PauseAndRestartTournament(t)
 			} else {
-				return tm.RestartLevel(t)
+				return tm.PauseAndRestartLevel(t)
 			}
 		},
 	}
