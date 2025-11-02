@@ -16,8 +16,8 @@
             {{ end }}
         </div>
 
-        <h1>{{ if .IsNew }}CREATE{{ else }}EDIT{{ end }}
-            TOURNAMENT
+        <h1>{{ if .IsNew }}Create{{ else }}Edit{{ end }}
+            Tournament
             {{ if not .IsNew }}{{ .Tournament.EventID }}{{ end }}</h1>
 
         {{ if not .IsNew }}

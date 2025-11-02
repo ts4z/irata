@@ -197,6 +197,11 @@ input[type="submit"]:hover, button:hover {
     flex: 0 0 auto;
 }
 
+/* Level row input field classes */
+.level-duration-input {
+    max-width: 5em;
+}
+
 .admin-bar {
     background: #222;
     padding: 1em;

@@ -13,6 +13,22 @@
     return match ? parseInt(match[1], 10) : null;
   }
 
+  function createLevelRowHTML(idx, duration = '', banner = '', description = '', isBreak = false) {
+    return `
+      <input type="number" name="Level${idx}Duration" min="1" required 
+             placeholder="Minutes" value="${duration}" class="level-duration-input">
+      <input type="text" name="Level${idx}Banner" required 
+             placeholder="Banner Text" value="${banner}" class="level-banner-input">
+      <input type="text" name="Level${idx}Description" required 
+             placeholder="Description" value="${description}" class="level-description-input">
+      <label class="level-break-label">
+        <input type="checkbox" name="Level${idx}IsBreak" id="Level${idx}IsBreak" 
+               ${isBreak ? 'checked' : ''} onchange="onBreakToggle(this)">Break
+      </label>
+      <button type="button" class="delete-btn" onclick="tryDelete(this)">&#x274c;</button>
+    `;
+  }
+
   function updateBannerNumber(banner, newNumber) {
     const match = banner.match(/^(\D*[Ll][Ee][Vv][Ee][Ll].*\D)?(\d+)$/);
     if (match) {
@@ -133,45 +149,36 @@
     
     const row = document.createElement('div');
     row.className = 'level-row';
-    row.innerHTML = `
-      <input type="number" name="Level${idx}Duration" min="1" required placeholder="Minutes" value="${prevDuration}" style="max-width: 5em;">
-      <input type="text" name="Level${idx}Banner" required placeholder="Banner Text" value="${nextBanner}">
-      <input type="text" name="Level${idx}Description" required placeholder="Description">
-      <label><input type="checkbox" name="Level${idx}IsBreak" id="Level${idx}IsBreak" onchange="onBreakToggle(this)"> Break</label>
-      <button type="button" class="delete-btn" onclick="tryDelete(this)">Delete</button>
-    `;
+    row.innerHTML = createLevelRowHTML(idx, prevDuration, nextBanner, '', false);
     levelsDiv.appendChild(row);
   }
+</script>
 
-  // Initialize default levels for new structure
+<script id="level-data" type="application/json">
+{{ if .Structure.Levels }}
+  {{ range $i, $lvl := .Structure.Levels }}
+    {{ if $i }},{{ end }}
+    {"idx": {{ $i }}, "duration": {{ $lvl.DurationMinutes }}, "banner": {{ $lvl.Banner | js }}, "description": {{ $lvl.Description | js }}, "isBreak": {{ $lvl.IsBreak }}}
+  {{ end }}
+{{ else }}
+  {"idx": 0, "duration": 15, "banner": "TOURNAMENT STARTING", "description": "PLEASE TAKE YOUR SEATS", "isBreak": false},
+  {"idx": 1, "duration": 20, "banner": "LEVEL 1", "description": "BLINDS 25-50 + 50", "isBreak": false}
+{{ end }}
+</script>
+
+<script>
+  // Render all levels from data on page load
   window.addEventListener('DOMContentLoaded', function() {
     const levelsDiv = document.getElementById('levels');
-    if (levelsDiv.children.length === 0 && document.querySelector('h1').textContent.includes('Create')) {
-          
-      // Add initial level
-      const row1 = document.createElement('div');
-      row1.className = 'level-row';
-      row1.innerHTML = `
-        <input type="number" name="Level0Duration" min="1" required placeholder="Minutes" value="15" style="max-width: 5em;">
-        <input type="text" name="Level0Banner" required placeholder="Banner Text" value="TOURNAMENT STARTING">
-        <input type="text" name="Level0Description" required placeholder="Description" value="PLEASE TAKE YOUR SEATS">
-        <label><input type="checkbox" name="Level0IsBreak" id="Level0IsBreak" onchange="onBreakToggle(this)"> Break</label>
-        <button type="button" class="delete-btn" onclick="tryDelete(this)">Delete</button>
-      `;
-      levelsDiv.appendChild(row1);
-
-      // Add first real level
-      const row2 = document.createElement('div');
-      row2.className = 'level-row';
-      row2.innerHTML = `
-        <input type="number" name="Level1Duration" min="1" required placeholder="Minutes" value="20" style="max-width: 5em;">
-        <input type="text" name="Level1Banner" required placeholder="Banner Text" value="LEVEL 1">
-        <input type="text" name="Level1Description" required placeholder="Description" value="BLINDS 25-50 + 50">
-        <label><input type="checkbox" name="Level1IsBreak" name="Level1IsBreak" onchange="onBreakToggle(this)"> Break</label>
-        <button type="button" class="delete-btn" onclick="tryDelete(this)">Delete</button>
-      `;
-      levelsDiv.appendChild(row2);
-    }
+    const dataElement = document.getElementById('level-data');
+    const levelData = JSON.parse('[' + dataElement.textContent.trim() + ']');
+    
+    levelData.forEach(level => {
+      const row = document.createElement('div');
+      row.className = 'level-row';
+      row.innerHTML = createLevelRowHTML(level.idx, level.duration, level.banner, level.description, level.isBreak);
+      levelsDiv.appendChild(row);
+    });
   });
 </script>
 
@@ -184,7 +191,8 @@
             {{ end }}
         </div>
 
-        <h1>{{ if .IsNew }}Create{{ else }}Edit{{ end }} Structure</h1>
+        <h1>{{ if .IsNew }}Create{{ else }}Edit{{ end }} Structure {{ if not .IsNew }}{{ .Structure.ID }}{{ end }} </h1>
+
         <form method="POST">
             <div class="form-group">
                 <label for="Name">Structure Name</label>
@@ -199,15 +207,7 @@
             </div>
 
             <div id="levels">
-                {{ range $i, $lvl := .Structure.Levels }}
-                <div class="level-row">
-                    <input type="number" name="Level{{ $i }}Duration" min="1" required value="{{ $lvl.DurationMinutes }}" placeholder="Minutes" style="max-width: 5em;">
-                    <input type="text" name="Level{{ $i }}Banner" required value="{{ $lvl.Banner }}" placeholder="Banner Text (above clock)">
-                    <input type="text" name="Level{{ $i }}Description" required value="{{ $lvl.Description }}" placeholder="Description (below clock)">
-                    <label><input type="checkbox" name="Level{{ $i }}IsBreak" id="Level{{ $i }}IsBreak" {{ if $lvl.IsBreak }}checked{{ end }} onchange="onBreakToggle(this)"> Break</label>
-                    <button type="button" class="delete-btn" onclick="tryDelete(this)">Delete</button>
-                </div>
-                {{ end }}
+                <!-- Levels will be rendered by JavaScript -->
             </div>
             
             <div class="actions">
