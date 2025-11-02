@@ -365,16 +365,15 @@ input[type="submit"]:hover, button:hover {
 }
 
 .clock-time {
+    font-family: rhmono, monospace;
     font-size: 17vi;
     font-weight: bolder;
     line-height: 100%;
 }
 
-/*
 .clock-time.clock-has-hours {
-    font-size: 17vi !important;
+    font-size: 15vi !important;
 }
-*/
 
 .clock-td-running {
     color: #22ff22;
