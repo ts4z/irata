@@ -63,16 +63,19 @@
 
                 <div class="form-group">
                     <label for="NextLevelSoundID">Next Level Sound</label>
-                    <select id="NextLevelSoundID" name="NextLevelSoundID">
-                        <option value="-1">Silent</option>
-                        {{ range .Sounds }}
-                        <option value="{{ .ID }}"
-                            {{- if and (not $.IsNew) (eq .ID $.Tournament.NextLevelSoundID)}} selected {{ end -}}
-                            {{- if and $.IsNew (eq .ID 1 $.SiteConfig.DefaultNextLevelSoundID 1) }} selected {{ end -}}>
-                        {{ .Name }} ({{ .Description }})
-                        </option>
-                        {{ end }}
-                    </select>
+                    <div class="sound-select-container">
+                        <select id="NextLevelSoundID" name="NextLevelSoundID">
+                            <option value="-1" data-path="">Silent</option>
+                            {{ range .Sounds }}
+                            <option value="{{ .ID }}" data-path="{{ .Path }}"
+                                {{- if and (not $.IsNew) (eq .ID $.Tournament.NextLevelSoundID)}} selected {{ end -}}
+                                {{- if and $.IsNew (eq .ID 1 $.SiteConfig.DefaultNextLevelSoundID 1) }} selected {{ end -}}>
+                            {{ .Name }} ({{ .Description }})
+                            </option>
+                            {{ end }}
+                        </select>
+                        <button type="button" id="PlaySoundBtn" class="sound-play-btn" title="Play selected sound">▶</button>
+                    </div>
                 </div>
             </div>
 
@@ -533,6 +536,33 @@
                     }
                 }
 
+                // Sound preview functionality
+                let currentAudio = null;
+
+                function playSelectedSound() {
+                    const select = document.getElementById('NextLevelSoundID');
+                    const selectedOption = select.options[select.selectedIndex];
+                    const soundPath = selectedOption.getAttribute('data-path');
+                    
+                    // Stop any currently playing sound
+                    if (currentAudio) {
+                        currentAudio.pause();
+                        currentAudio = null;
+                    }
+
+                    // Don't play if silent is selected or no path
+                    if (!soundPath || soundPath === '') {
+                        return;
+                    }
+
+                    // Create and play new audio
+                    currentAudio = new Audio(soundPath);
+                    currentAudio.play().catch(error => {
+                        console.error('Error playing sound:', error);
+                        alert('Failed to play sound: ' + error.message);
+                    });
+                }
+
                 // Add event listeners for recalculation on field changes
                 document.addEventListener('DOMContentLoaded', function () {
                     // Sync buy-ins and add-ons fields first
@@ -541,17 +571,13 @@
                     // Watch chip-related fields - add listeners to all fields that affect chip calculation
                     ['ChipsPerBuyIn', 'ChipsPerAddOn', 'ChipSetupBuyIns', 'ChipSetupAddOns'].forEach(fieldId => {
                         const field = document.getElementById(fieldId);
-                        if (field) {
-                            field.addEventListener('input', calculateChips);
-                        }
+                        if (field) {/* Lines 545-546 omitted */}
                     });
 
                     // Watch prize pool amount fields - add listeners to all fields that affect prize pool calculation
                     ['PrizePoolPerBuyIn', 'PrizePoolPerAddOn', 'PrizePoolBuyIns', 'PrizePoolAddOns', 'Saves', 'AmountPerSave'].forEach(fieldId => {
                         const field = document.getElementById(fieldId);
-                        if (field) {
-                            field.addEventListener('input', calculatePrizePoolAmount);
-                        }
+                        if (field) {/* Lines 553-554 omitted */}
                     });
 
                     // Watch fields for prize pool text calculation
@@ -562,18 +588,18 @@
 
                     fieldsToWatch.forEach(fieldId => {
                         const field = document.getElementById(fieldId);
-                        if (field) {
-                            field.addEventListener('input', () => {
-                                if (document.getElementById('PrizePoolMode').value === 'calculated') {
-                                    recalculatePrizePool();
-                                }
-                            });
-                        }
+                        if (field) {/* Lines 566-571 omitted */}
                     });
 
                     // Initialize calculations on load
                     calculateChips();
                     calculatePrizePoolAmount();
+
+                    // Set up sound play button
+                    const playBtn = document.getElementById('PlaySoundBtn');
+                    if (playBtn) {
+                        playBtn.addEventListener('click', playSelectedSound);
+                    }
                 });
             </script>
 

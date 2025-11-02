@@ -32,13 +32,16 @@
             <input type="text" id="Theme" name="Theme" value="{{ .Config.Theme }}" required>
 
             <label for="DefaultNextLevelSoundID">Default Next Level Sound</label>
-            <select id="DefaultNextLevelSoundID" name="DefaultNextLevelSoundID">
-                {{- range $_, $se := .Sounds }}
-                <option value="{{ .ID }}" 
-                  {{- if eq .ID $.Config.DefaultNextLevelSoundID }} selected {{ end -}}
-                  >{{ $se.Name }} ({{- $se.Description -}})</option>
-                {{- end }}
-            </select>
+            <div class="sound-select-container">
+                <select id="DefaultNextLevelSoundID" name="DefaultNextLevelSoundID">
+                    {{- range $_, $se := .Sounds }}
+                    <option value="{{ .ID }}" data-path="{{ $se.Path }}"
+                      {{- if eq .ID $.Config.DefaultNextLevelSoundID }} selected {{ end -}}
+                      >{{ $se.Name }} ({{- $se.Description -}})</option>
+                    {{- end }}
+                </select>
+                <button type="button" id="PlaySoundBtn" class="sound-play-btn" title="Play selected sound">▶</button>
+            </div>
 
             <div class="actions">
                 <button type="submit">Save</button>
@@ -46,5 +49,42 @@
         </form>
         {{ if .Flash }}<div class="flash">{{ .Flash }}</div>{{ end }}
     </div>
+
+    <script>
+        // Sound preview functionality
+        let currentAudio = null;
+
+        function playSelectedSound() {
+            const select = document.getElementById('DefaultNextLevelSoundID');
+            const selectedOption = select.options[select.selectedIndex];
+            const soundPath = selectedOption.getAttribute('data-path');
+            
+            // Stop any currently playing sound
+            if (currentAudio) {
+                currentAudio.pause();
+                currentAudio = null;
+            }
+
+            // Don't play if no path
+            if (!soundPath || soundPath === '') {
+                return;
+            }
+
+            // Create and play new audio
+            currentAudio = new Audio(soundPath);
+            currentAudio.play().catch(error => {
+                console.error('Error playing sound:', error);
+                alert('Failed to play sound: ' + error.message);
+            });
+        }
+
+        // Set up sound play button
+        document.addEventListener('DOMContentLoaded', function() {
+            const playBtn = document.getElementById('PlaySoundBtn');
+            if (playBtn) {
+                playBtn.addEventListener('click', playSelectedSound);
+            }
+        });
+    </script>
 </body>
 </html>
