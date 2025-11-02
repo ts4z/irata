@@ -627,6 +627,7 @@ function install_keyboard_handlers() {
     'F1': show_help_dialog,
     'Insert': smwa('AddAddOn'),
     'Delete': smwa('RemoveAddOn'),
+    'KeyR': smwa('Restart'),
   }
 
   document.addEventListener('keydown', (event) => {
@@ -636,7 +637,7 @@ function install_keyboard_handlers() {
   }, false);
 
   document.addEventListener('keyup', (event) => {
-    let code = event.code, shift = event.shiftKey;
+    let code = event.code;
     if (event.key === 'F1') {
       event.preventDefault();
     }
@@ -647,6 +648,15 @@ function install_keyboard_handlers() {
     } else {
       console.log(`drop key ${code}`)
     }
+  }, false);
+
+  document.addEventListener('click', (event) => {
+    smwa('RemovePlayer')(false);
+  }, false);
+
+  document.addEventListener('contextmenu', (event) => {
+    event.preventDefault();
+    smwa('AddPlayer')(false);
   }, false);
 }
 

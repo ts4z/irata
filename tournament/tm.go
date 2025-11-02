@@ -122,51 +122,50 @@ func (tm *Mutator) ComputePrizePoolText(m *model.Tournament) (string, error) {
 	return strings.Join(lines, "\n"), nil
 }
 
+func (tm *Mutator) CurrentLevel(m *model.Tournament) *model.Level {
+	var lvl int = m.State.CurrentLevelNumber
+	if lvl < 0 {
+		lvl = 0
+	} else if lvl >= len(m.Structure.Levels) {
+		lvl = len(m.Structure.Levels) - 1
+	}
+	if len(m.Structure.Levels) == 0 {
+		return nil
+	}
+	return m.Structure.Levels[lvl]
+}
+
+// Deduct time from the running level.
 func (tm *Mutator) MinusTime(ctx context.Context, m *model.Tournament, d time.Duration) error {
 	if d < 0 {
 		log.Fatalf("can't happen: MinusTime with negative duration %v", d)
 	}
 
-	tm.adjustStateForElapsedTime(m)
-
 	if m.CurrentLevel() == nil {
 		return errors.New("can't add a minute: no current level")
 	}
 
-	if m.State.IsClockRunning {
-		newEndsAt := m.CurrentLevelEndsAtAsTime().Add(-d)
-		asInt64 := newEndsAt.UnixMilli()
-		m.State.CurrentLevelEndsAt = &asInt64
-		m.State.TimeRemainingMillis = nil
+	// Step clock forward to be consistent with wall-clock.
+	tm.adjustStateForElapsedTime(m)
 
-		// special case: if there was less than a minute left and we just
-		// bumped to the next level, we just start the next level as normal.
-		if newEndsAt.Before(tm.clock.Now()) {
-			// Skip to next level, which should reset it (or end the tournamment).
-			tm.AdvanceLevel(m)
-			return nil
-		}
-	} else {
-		var remaining time.Duration
-		if m.State.TimeRemainingMillis != nil {
-			remaining = time.Duration(*m.State.TimeRemainingMillis) * time.Millisecond
-		} else {
-			log.Printf("debug: when adding a minute, no TimeRemainingMillis, using full level duration")
-			remaining = *m.CurrentLevelDuration()
-		}
+	// Stop clock if running.  Now we can easily manipulate time remaining.
+	isRunning := m.State.IsClockRunning
+	tm.StopClock(m)
 
-		remaining -= d
+	remainingInLevel := time.Duration(*m.State.TimeRemainingMillis) * time.Millisecond
 
-		if int64(remaining) < 0 {
-			// special case: if we just exhausted this level, go to the next level
-			// and give it a full time allotment.
-			tm.AdvanceLevel(m)
-			return nil
-		} else {
-			newRemainingMillis := remaining.Milliseconds()
-			m.State.TimeRemainingMillis = &newRemainingMillis
-			m.State.CurrentLevelEndsAt = nil
-		}
+	remainingInLevel -= d
+
+	for remainingInLevel <= 0 {
+		tm.AdvanceLevel(m)
+		remainingInLevel += time.Duration(m.CurrentLevel().DurationMinutes) * time.Minute
+	}
+
+	*m.State.TimeRemainingMillis = remainingInLevel.Milliseconds()
+
+	// If clock was running, start it again.
+	if isRunning {
+		tm.StartClock(m)
 	}
 
 	tm.FillTransients(ctx, m)
@@ -241,6 +240,12 @@ func (tm *Mutator) adjustStateForElapsedTime(m *model.Tournament) {
 }
 
 func (tm *Mutator) SetLevelRemaining(m *model.Tournament, d time.Duration) {
+	if d < 0 {
+		d = 0
+	}
+	if d > time.Duration(m.CurrentLevel().DurationMinutes)*time.Minute {
+		d = time.Duration(m.CurrentLevel().DurationMinutes) * time.Minute
+	}
 	if m.State.IsClockRunning {
 		millis := tm.clock.Now().Add(d).UnixMilli()
 		m.State.CurrentLevelEndsAt = &millis
@@ -339,6 +344,19 @@ func (tm *Mutator) MuteSound(m *model.Tournament) error {
 
 func (tm *Mutator) UnmuteSound(m *model.Tournament) error {
 	m.State.SoundMuted = false
+	return nil
+}
+
+func (tm *Mutator) RestartLevel(m *model.Tournament) error {
+	tm.StopClock(m)
+	tm.restartLevel(m)
+	return nil
+}
+
+func (tm *Mutator) RestartTournament(m *model.Tournament) error {
+	m.State.CurrentLevelNumber = 0
+	tm.StopClock(m)
+	tm.restartLevel(m)
 	return nil
 }
 
