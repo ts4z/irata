@@ -361,6 +361,7 @@ func (app *App) handleEditStructure(ctx context.Context, id int64, w http.Respon
 			name := r.FormValue("Name")
 			levels := []*model.Level{}
 			for i := 0; ; i++ {
+				ap := r.FormValue(fmt.Sprintf("Level%dAutoPause", i)) == "on"
 				durStr := r.FormValue(fmt.Sprintf("Level%dDuration", i))
 				desc := r.FormValue(fmt.Sprintf("Level%dDescription", i))
 				banner := r.FormValue(fmt.Sprintf("Level%dBanner", i))
@@ -377,6 +378,7 @@ func (app *App) handleEditStructure(ctx context.Context, id int64, w http.Respon
 					continue
 				}
 				levels = append(levels, &model.Level{
+					AutoPause:       ap,
 					DurationMinutes: dur,
 					Description:     desc,
 					IsBreak:         isBreak,
@@ -408,11 +410,17 @@ func (app *App) handleEditStructure(ctx context.Context, id int64, w http.Respon
 		he.SendErrorToHTTPClient(w, "fetch structure", err)
 		return
 	}
+	levelsJSON, err := json.Marshal(st.Levels)
+	if err != nil {
+		log.Printf("error marshaling levels to JSON: %v", err)
+		levelsJSON = []byte("[]")
+	}
 	data := struct {
-		Structure *model.Structure
-		Flash     string
-		IsNew     bool
-	}{Structure: st, Flash: flash, IsNew: false}
+		Structure  *model.Structure
+		LevelsJSON template.JS
+		Flash      string
+		IsNew      bool
+	}{Structure: st, LevelsJSON: template.JS(levelsJSON), Flash: flash, IsNew: false}
 	if err := app.templates.ExecuteTemplate(w, "edit-structure.html.tmpl", data); err != nil {
 		log.Printf("can't render edit-structure template: %v", err)
 	}
@@ -547,14 +555,21 @@ func (app *App) handleCreateStructure(ctx context.Context, w http.ResponseWriter
 		}
 	}
 
+	levelsJSON, err := json.Marshal(structure.Levels)
+	if err != nil {
+		log.Printf("error marshaling levels to JSON: %v", err)
+		levelsJSON = []byte("[]")
+	}
 	data := struct {
-		Structure *model.Structure
-		Flash     string
-		IsNew     bool
+		Structure  *model.Structure
+		LevelsJSON template.JS
+		Flash      string
+		IsNew      bool
 	}{
-		Structure: structure,
-		Flash:     flash,
-		IsNew:     true,
+		Structure:  structure,
+		LevelsJSON: template.JS(levelsJSON),
+		Flash:      flash,
+		IsNew:      true,
 	}
 
 	if err := app.templates.ExecuteTemplate(w, "edit-structure.html.tmpl", data); err != nil {

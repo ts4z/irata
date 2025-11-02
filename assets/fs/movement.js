@@ -273,7 +273,7 @@ function import_new_model_from_server(model) {
   }
   console.log("end " + Date.now());
   set_text("avg-chips", model.Transients.AverageChips)
-  set_next_description();
+  setNextDescription();
 }
 
 function next_break_level_number() {
@@ -317,7 +317,7 @@ function next_non_break_level() {
   return null;
 }
 
-function set_next_description() {
+function setNextDescription() {
   let nnb = next_non_break_level();
   if (nnb !== null) {
       set_text("next-description", abridgeDescription(nnb.Description));
@@ -460,12 +460,17 @@ function advance_clock_from_wall_clock() {
       last_model.State.CurrentLevelNumber = last_model.Structure.Levels.length - 1;
       last_model.State.IsClockRunning = false;
     } else {
-      let nextDurationMinutes = last_model.Structure.Levels[last_model.State.CurrentLevelNumber].DurationMinutes;
+      let newLevel = last_model.Structure.Levels[last_model.State.CurrentLevelNumber];
+      let nextDurationMinutes = newLevel.DurationMinutes;
       let oldMinutes = oldEndsAt.getMinutes();
       last_model.State.CurrentLevelEndsAt = new Date(oldEndsAt.setMinutes(oldMinutes + nextDurationMinutes)); // gross
       
       playNextLevelSound();
-      set_next_description();
+      if (newLevel.AutoPause) {
+        // Trigger auto-pause.
+        last_model.State.IsClockRunning = false;
+      }
+      setNextDescription();
     }
 
     update_time_fields();

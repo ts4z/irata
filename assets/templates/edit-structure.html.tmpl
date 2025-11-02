@@ -13,19 +13,33 @@
     return match ? parseInt(match[1], 10) : null;
   }
 
-  function createLevelRowHTML(idx, duration = '', banner = '', description = '', isBreak = false) {
+  function createLevelRowHTML(idx, level) {
+    const duration = level.DurationMinutes || '1';
+    const banner = level.Banner || '';
+    const description = level.Description || '';
+    const isBreak = level.IsBreak || false;
+    const autoPause = level.AutoPause || false;
+
+    const autoPauseLabelText = autoPause ? '&#x23f8;' : '&#x23f5;';
+    const isBreakLabelText = isBreak ? 'Break' : 'Level';
     return `
+      <label title="Run (default) or Auto-Pause at start of this level."
+      id="Level${idx}AutoPauseLabel" class="level-${autoPause?'autopause':'run'}"><input class="level-autopause-cb" type="checkbox" style="display:none;" name="Level${idx}AutoPause" id="Level${idx}AutoPause" 
+               ${autoPause ? 'checked' : ''} onchange="onAutoPauseToggle(this)">${autoPauseLabelText}</label>
       <input type="number" name="Level${idx}Duration" min="1" required 
+             title="Duration in minutes"
              placeholder="Minutes" value="${duration}" class="level-duration-input">
       <input type="text" name="Level${idx}Banner" required 
+             title="Banner text appears above the clock"
              placeholder="Banner Text" value="${banner}" class="level-banner-input">
       <input type="text" name="Level${idx}Description" required 
+             title="Description of level (blinds) appears under the clock"
              placeholder="Description" value="${description}" class="level-description-input">
-      <label class="level-break-label">
-        <input type="checkbox" name="Level${idx}IsBreak" id="Level${idx}IsBreak" 
-               ${isBreak ? 'checked' : ''} onchange="onBreakToggle(this)">Break
-      </label>
-      <button type="button" class="delete-btn" onclick="tryDelete(this)">&#x274c;</button>
+      <label
+       title="Mark this level as a break."
+       id="Level${idx}IsBreakLabel" class="level-${isBreak?'break':'level'}"><input class="level-break-cb" type="checkbox" style="display:none;" name="Level${idx}IsBreak" id="Level${idx}IsBreak" 
+               ${isBreak ? 'checked' : ''} onchange="onBreakToggle(this)">${isBreakLabelText}</label>
+      <button title="Delete this level" type="button" class="delete-btn" onclick="tryDelete(this)">&#x274c;</button>
     `;
   }
 
@@ -45,7 +59,7 @@
    
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
-      const isBreakCheckbox = row.querySelector('input[type="checkbox"]');
+      const isBreakCheckbox = row.querySelector('input[name^="Level"][name$="IsBreak"]');
       const bannerInput = row.querySelector('input[name^="Level"][name$="Banner"]');
       
       if (!isBreakCheckbox || !bannerInput) {
@@ -83,7 +97,42 @@
     }
   }
 
+  function onAutoPauseToggle(checkbox) {
+    // Update the label class and text based on checkbox state
+    const label = checkbox.parentElement;
+    if (checkbox.checked) {
+      label.classList.remove('level-run');
+      label.classList.add('level-autopause');
+      // Update just the text node, preserving the checkbox
+      const textNode = Array.from(label.childNodes).find(node => node.nodeType === Node.TEXT_NODE);
+      if (textNode) textNode.textContent = '⏸';
+
+    } else {
+      label.classList.remove('level-level-autopause');
+      label.classList.add('level-run');
+      // Update just the text node, preserving the checkbox
+      const textNode = Array.from(label.childNodes).find(node => node.nodeType === Node.TEXT_NODE);
+      if (textNode) textNode.textContent = '⏵';
+    }
+    renumberLevels();
+  }
+
   function onBreakToggle(checkbox) {
+    // Update the label class and text based on checkbox state
+    const label = checkbox.parentElement;
+    if (checkbox.checked) {
+      label.classList.remove('level-level');
+      label.classList.add('level-break');
+      // Update just the text node, preserving the checkbox
+      const textNode = Array.from(label.childNodes).find(node => node.nodeType === Node.TEXT_NODE);
+      if (textNode) textNode.textContent = 'Break';
+    } else {
+      label.classList.remove('level-break');
+      label.classList.add('level-level');
+      // Update just the text node, preserving the checkbox
+      const textNode = Array.from(label.childNodes).find(node => node.nodeType === Node.TEXT_NODE);
+      if (textNode) textNode.textContent = 'Level';
+    }
     renumberLevels();
   }
 
@@ -149,34 +198,44 @@
     
     const row = document.createElement('div');
     row.className = 'level-row';
-    row.innerHTML = createLevelRowHTML(idx, prevDuration, nextBanner, '', false);
+    row.innerHTML = createLevelRowHTML(idx, {
+      DurationMinutes: prevDuration,
+      Banner: nextBanner,
+      Description: '',
+      IsBreak: false,
+      AutoPause: false
+    });
     levelsDiv.appendChild(row);
   }
-</script>
-
-<script id="level-data" type="application/json">
-{{ if .Structure.Levels }}
-  {{ range $i, $lvl := .Structure.Levels }}
-    {{ if $i }},{{ end }}
-    {"idx": {{ $i }}, "duration": {{ $lvl.DurationMinutes }}, "banner": {{ $lvl.Banner | js }}, "description": {{ $lvl.Description | js }}, "isBreak": {{ $lvl.IsBreak }}}
-  {{ end }}
-{{ else }}
-  {"idx": 0, "duration": 15, "banner": "TOURNAMENT STARTING", "description": "PLEASE TAKE YOUR SEATS", "isBreak": false},
-  {"idx": 1, "duration": 20, "banner": "LEVEL 1", "description": "BLINDS 25-50 + 50", "isBreak": false}
-{{ end }}
 </script>
 
 <script>
   // Render all levels from data on page load
   window.addEventListener('DOMContentLoaded', function() {
     const levelsDiv = document.getElementById('levels');
-    const dataElement = document.getElementById('level-data');
-    const levelData = JSON.parse('[' + dataElement.textContent.trim() + ']');
+    let levelData = {{ .LevelsJSON }};
     
-    levelData.forEach(level => {
+    console.log('LevelsJSON type:', typeof levelData);
+    console.log('LevelsJSON value:', levelData);
+    
+    // Ensure levelData is always an array
+    if (!levelData || !Array.isArray(levelData)) {
+      console.log('levelData is not an array, resetting to []');
+      levelData = [];
+    }
+    
+    // If no levels exist, add default levels for new structures
+    if (levelData.length === 0) {
+      levelData = [
+        {Banner: "WELCOME", Description: "PLEASE TAKE YOUR SEATS", DurationMinutes: 15, IsBreak: true},
+        {Banner: "LEVEL 1", Description: "BLINDS 25-50 + 50", DurationMinutes: 20, IsBreak: false}
+      ];
+    }
+    
+    levelData.forEach((level, idx) => {
       const row = document.createElement('div');
       row.className = 'level-row';
-      row.innerHTML = createLevelRowHTML(level.idx, level.duration, level.banner, level.description, level.isBreak);
+      row.innerHTML = createLevelRowHTML(idx, level);
       levelsDiv.appendChild(row);
     });
   });

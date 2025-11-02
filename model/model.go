@@ -57,6 +57,7 @@ type SiteConfig struct {
 }
 
 type Level struct {
+	AutoPause       bool
 	Banner          string
 	Description     string
 	DurationMinutes int // TODO: convert this to a string?

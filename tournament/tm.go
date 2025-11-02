@@ -228,6 +228,11 @@ func (tm *Mutator) adjustStateForElapsedTime(m *model.Tournament) {
 		newEndsAt := endsAt.Add(levelDuration).UnixMilli()
 		asInt64 := int64(newEndsAt)
 		m.State.CurrentLevelEndsAt = &asInt64
+
+		if newLevel.AutoPause {
+			tm.StopClock(m)
+			break
+		}
 	}
 }
 

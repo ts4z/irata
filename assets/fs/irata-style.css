@@ -172,9 +172,9 @@ input[type="submit"]:hover, button:hover {
 .level-row {
     display: flex;
     align-items: center;
-    gap: 0.5em;
-    margin-bottom: 1em;
-    padding: 0.5em;
+    gap: 0.3em;
+    margin-bottom: 0.5em;
+    padding: 0.1em 0.2em;
     border: 1px solid #333;
     border-radius: 4px;
 }
@@ -200,6 +200,14 @@ input[type="submit"]:hover, button:hover {
 /* Level row input field classes */
 .level-duration-input {
     max-width: 5em;
+}
+
+.level-banner-input {
+    min-width: 10em;
+}
+
+.level-description-input {
+    min-width: 14em;
 }
 
 .admin-bar {
@@ -562,4 +570,43 @@ input[type="submit"]:hover, button:hover {
     white-space: nowrap;
     letter-spacing: 0.1em;
     font-weight: bold;
+}
+
+.level-break-cb {
+    display: none;
+}
+
+.level-break {
+    display: flex;
+    max-width: 5em;
+    background-color: #700;
+    border: 1px solid #a00;
+    padding: 0.3em 0.6em;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.level-level {
+    border: 1px solid #000;
+    padding: 0.3em 0.6em;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.level-autopause {
+    display: flex;
+    max-width: 5em;
+    background-color: #700;
+    border: 1px solid #a00;
+    padding: 0.3em 0.6em;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.level-run {
+    border: 1px solid #0d0;
+    background-color: #070;
+    padding: 0.3em 0.6em;
+    border-radius: 4px;
+    cursor: pointer;
 }
