@@ -80,7 +80,6 @@ type Tournament struct {
 	Version int64
 
 	EventName        string
-	Handle           string // datbase unique key
 	Description      string
 	FooterPlugsID    int64
 	NextLevelSoundID int64

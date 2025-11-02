@@ -46,16 +46,6 @@
                 </div>
 
                 <div class="form-group">
-                    <label for="Handle">Handle</label>
-                    <small>
-                        Used in URL. No spaces or special characters.
-                    </small>
-                    <input type="text" id="Handle" name="Handle" class="field-large" maxlength="30"
-                        pattern="[0-9a-zA-Z]+" required
-                        {{ if not .IsNew }} value="{{ .Tournament.Handle }}" {{ end }}>
-                </div>
-
-                <div class="form-group">
                     <label for="Description">Description</label>
                     <input type="text" id="Description" name="Description" class="field-text" maxlength="50" {{ if not
                         .IsNew }} value="{{ .Tournament.Description }}" {{ end }}>

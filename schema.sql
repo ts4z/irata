@@ -52,7 +52,6 @@ CREATE TABLE site_info (
  
 CREATE TABLE tournaments (
        tournament_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-       handle VARCHAR(30) UNIQUE NOT NULL,
        version BIGINT DEFAULT 0 NOT NULL,
        model_data JSONB NOT NULL
 );

@@ -414,10 +414,9 @@ func (s *DBStorage) FetchOverview(ctx context.Context, offset, limit int) (*mode
 
 func (s *DBStorage) FetchTournament(ctx context.Context, id int64) (*model.Tournament, error) {
 	var lock int64
-	var handle string
 	var bytes []byte
 
-	err := s.db.QueryRowContext(ctx, `SELECT version, handle, model_data FROM tournaments where tournament_id=$1`, id).Scan(&lock, &handle, &bytes)
+	err := s.db.QueryRowContext(ctx, `SELECT version, model_data FROM tournaments where tournament_id=$1`, id).Scan(&lock, &bytes)
 
 	if err == sql.ErrNoRows {
 		return nil, he.New(404, fmt.Errorf("no such tournament id %d", id))
@@ -433,7 +432,6 @@ func (s *DBStorage) FetchTournament(ctx context.Context, id int64) (*model.Tourn
 
 	// These come from the database row, not the JSON.
 	t.EventID = id
-	t.Handle = handle
 	t.Version = lock
 	// These don't come from the database at all.
 	// TODO: This shouldn't be here, because the database has no business
@@ -470,8 +468,8 @@ func (s *DBStorage) CreateTournament(
 		return 0, err
 	}
 
-	if err := s.db.QueryRowContext(ctx, `INSERT INTO tournaments (handle, model_data) VALUES ($1, $2) RETURNING tournament_id;`,
-		t.Handle, bytes).Scan(&id); err != nil {
+	if err := s.db.QueryRowContext(ctx, `INSERT INTO tournaments (model_data) VALUES ($1) RETURNING tournament_id;`,
+		bytes).Scan(&id); err != nil {
 		return 0, err
 	}
 
@@ -498,12 +496,11 @@ func (s *DBStorage) SaveTournament(
 	}
 	newVersion := tm.Version + 1
 	if result, err := s.db.ExecContext(ctx,
-		`UPDATE tournaments SET version=$4, handle=$5, model_data=$2 WHERE tournament_id=$3 AND version=$1;`,
+		`UPDATE tournaments SET version=$4, model_data=$2 WHERE tournament_id=$3 AND version=$1;`,
 		tm.Version,
 		bytes,
 		tm.EventID,
-		newVersion,
-		tm.Handle); err != nil {
+		newVersion); err != nil {
 		log.Printf("update failed: %v", err)
 		return err
 	} else {

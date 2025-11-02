@@ -153,7 +153,6 @@ func (a *FormProcessor) ApplyFormToTournament(ctx context.Context, form url.Valu
 	maybeCopyString(form, &t.EventName, "EventName")
 	maybeCopyString(form, &t.State.PrizePool, "PrizePool")
 	maybeCopyString(form, &t.Description, "Description")
-	maybeCopyString(form, &t.Handle, "Handle")
 
 	maybeCopyInt(form, &t.State.AddOns, "AddOns")
 	maybeCopyInt(form, &t.State.AmountPerSave, "AmountPerSave")
