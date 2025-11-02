@@ -28,6 +28,8 @@ import (
 	"github.com/ts4z/irata/password"
 	"github.com/ts4z/irata/paytable"
 	"github.com/ts4z/irata/permission"
+	"github.com/ts4z/irata/protocol"
+	"github.com/ts4z/irata/soundmodel"
 	"github.com/ts4z/irata/state"
 	"github.com/ts4z/irata/textutil"
 	"github.com/ts4z/irata/tournament"
@@ -57,6 +59,7 @@ type editTournamentArgs struct {
 	IsAdmin    bool
 	IsNew      bool
 	SiteConfig *model.SiteConfig
+	Sounds     []*soundmodel.SoundEffectSlug
 }
 
 // Config holds the configuration for creating a new IrataApp.
@@ -65,15 +68,16 @@ type Config struct {
 	SiteStorage       state.SiteStorage
 	UserStorage       state.UserStorage
 	PaytableStorage   state.PaytableStorage
-	Mutator           *form.FormProcessor
+	SoundStorage      state.SoundEffectStorage
+	FormProcessor     *form.FormProcessor
 	SubFS             fs.FS
 	Bakery            *permission.Bakery
 	Clock             nower
 	TournamentMutator *tournament.Mutator
 }
 
-// IrataApp is the main web application.
-type IrataApp struct {
+// App is the main web application.
+type App struct {
 	// storage
 	templates *template.Template
 	subFS     fs.FS
@@ -83,6 +87,7 @@ type IrataApp struct {
 	siteStorage     state.SiteStorage
 	userStorage     state.UserStorage
 	paytableStorage state.PaytableStorage
+	soundStorage    state.SoundEffectStorage
 	formProcessor   *form.FormProcessor
 	bakery          *permission.Bakery
 	clock           nower
@@ -94,13 +99,14 @@ type IrataApp struct {
 }
 
 // New creates a new IrataApp with the given configuration.
-func New(config *Config) *IrataApp {
-	app := &IrataApp{
+func New(config *Config) *App {
+	app := &App{
 		appStorage:      config.AppStorage,
 		siteStorage:     config.SiteStorage,
 		userStorage:     config.UserStorage,
 		paytableStorage: config.PaytableStorage,
-		formProcessor:   config.Mutator,
+		soundStorage:    config.SoundStorage,
+		formProcessor:   config.FormProcessor,
 		subFS:           config.SubFS,
 		bakery:          config.Bakery,
 		clock:           config.Clock,
@@ -130,11 +136,11 @@ func New(config *Config) *IrataApp {
 }
 
 // Handler returns the configured HTTP handler.
-func (app *IrataApp) Handler() http.Handler {
+func (app *App) Handler() http.Handler {
 	return app.handler
 }
 
-func (app *IrataApp) fetchTournament(ctx context.Context, id int64) (*model.Tournament, error) {
+func (app *App) fetchTournament(ctx context.Context, id int64) (*model.Tournament, error) {
 	return app.appStorage.FetchTournament(ctx, id)
 }
 
@@ -152,14 +158,14 @@ func parseFooterPlugsBox(plugsRaw string) []string {
 	return plugs
 }
 
-func (app *IrataApp) handleFunc(pattern string, handler func(context.Context, http.ResponseWriter, *http.Request)) {
+func (app *App) handleFunc(pattern string, handler func(context.Context, http.ResponseWriter, *http.Request)) {
 	app.mux.HandleFunc(pattern, func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 		handler(ctx, w, r)
 	})
 }
 
-func (app *IrataApp) handleFuncTakingID(pattern string, handler func(context.Context, int64, http.ResponseWriter, *http.Request)) {
+func (app *App) handleFuncTakingID(pattern string, handler func(context.Context, int64, http.ResponseWriter, *http.Request)) {
 	app.handleFunc(pattern, func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		id, err := idPathValue(w, r)
 		if err != nil {
@@ -169,7 +175,7 @@ func (app *IrataApp) handleFuncTakingID(pattern string, handler func(context.Con
 	})
 }
 
-func (app *IrataApp) requiringAdminHandleFunc(pattern string, handler func(context.Context, http.ResponseWriter, *http.Request)) {
+func (app *App) requiringAdminHandleFunc(pattern string, handler func(context.Context, http.ResponseWriter, *http.Request)) {
 	app.handleFunc(pattern, func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		if !permission.IsAdmin(ctx) {
 			he.SendErrorToHTTPClient(w, "authorize", he.HTTPCodedErrorf(http.StatusUnauthorized, "permission denied"))
@@ -179,7 +185,7 @@ func (app *IrataApp) requiringAdminHandleFunc(pattern string, handler func(conte
 	})
 }
 
-func (app *IrataApp) requiringAdminTakingIDHandleFunc(pattern string, handler func(context.Context, int64, http.ResponseWriter, *http.Request)) {
+func (app *App) requiringAdminTakingIDHandleFunc(pattern string, handler func(context.Context, int64, http.ResponseWriter, *http.Request)) {
 	app.mux.HandleFunc(pattern, func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 		if !permission.IsAdmin(ctx) {
@@ -194,7 +200,7 @@ func (app *IrataApp) requiringAdminTakingIDHandleFunc(pattern string, handler fu
 	})
 }
 
-func (app *IrataApp) renderTournament(ctx context.Context, id int64, w http.ResponseWriter, _ *http.Request) {
+func (app *App) renderTournament(ctx context.Context, id int64, w http.ResponseWriter, _ *http.Request) {
 	sc, err := app.siteStorage.FetchSiteConfig(ctx)
 	if err != nil {
 		he.SendErrorToHTTPClient(w, "fetch site config", err)
@@ -222,7 +228,7 @@ func (app *IrataApp) renderTournament(ctx context.Context, id int64, w http.Resp
 	}
 }
 
-func (app *IrataApp) handleManageStructure(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+func (app *App) handleManageStructure(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	// Fetch all structures
 	slugs, err := app.appStorage.FetchStructureSlugs(ctx, 0, 100)
 	if err != nil {
@@ -244,7 +250,7 @@ func (app *IrataApp) handleManageStructure(ctx context.Context, w http.ResponseW
 	}
 }
 
-func (app *IrataApp) handleCreateTournament(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+func (app *App) handleCreateTournament(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	var flash string
 	if r.Method == http.MethodPost {
 		if err := r.ParseForm(); err != nil {
@@ -280,6 +286,11 @@ func (app *IrataApp) handleCreateTournament(ctx context.Context, w http.Response
 		he.SendErrorToHTTPClient(w, "fetch paytable slugs", err)
 		return
 	}
+	sounds, err := app.soundStorage.FetchSoundEffectSlugs(ctx)
+	if err != nil {
+		he.SendErrorToHTTPClient(w, "fetch sound slugs", err)
+		return
+	}
 	data := &editTournamentArgs{
 		Structures: structures,
 		FooterSets: footers,
@@ -291,13 +302,14 @@ func (app *IrataApp) handleCreateTournament(ctx context.Context, w http.Response
 			AutoComputePrizePool: true,
 		}},
 		Paytables: paytables,
+		Sounds:    sounds,
 	}
 	if err := app.templates.ExecuteTemplate(w, "edit-tournament.html.tmpl", data); err != nil {
 		log.Printf("can't render edit-tournament template: %v", err)
 	}
 }
 
-func (app *IrataApp) handleEditStructure(ctx context.Context, id int64, w http.ResponseWriter, r *http.Request) {
+func (app *App) handleEditStructure(ctx context.Context, id int64, w http.ResponseWriter, r *http.Request) {
 	var flash string
 	if r.Method == http.MethodPost {
 		if err := r.ParseForm(); err != nil {
@@ -364,7 +376,7 @@ func (app *IrataApp) handleEditStructure(ctx context.Context, id int64, w http.R
 	}
 }
 
-func (app *IrataApp) handleEditFooterSet(ctx context.Context, id int64, w http.ResponseWriter, r *http.Request) {
+func (app *App) handleEditFooterSet(ctx context.Context, id int64, w http.ResponseWriter, r *http.Request) {
 	var flash string
 	if r.Method == http.MethodPost {
 		if err := r.ParseForm(); err != nil {
@@ -410,7 +422,7 @@ func (app *IrataApp) handleEditFooterSet(ctx context.Context, id int64, w http.R
 	}
 }
 
-func (app *IrataApp) handleCreateStructure(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+func (app *App) handleCreateStructure(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	var flash string
 
 	// For POST, handle the form submission
@@ -508,7 +520,7 @@ func (app *IrataApp) handleCreateStructure(ctx context.Context, w http.ResponseW
 	}
 }
 
-func (app *IrataApp) handleCreateFooterSet(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+func (app *App) handleCreateFooterSet(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	var flash string
 	if r.Method == http.MethodPost {
 		if err := r.ParseForm(); err != nil {
@@ -538,7 +550,7 @@ func (app *IrataApp) handleCreateFooterSet(ctx context.Context, w http.ResponseW
 	}
 }
 
-func (app *IrataApp) handleManageFooterSets(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+func (app *App) handleManageFooterSets(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	sets, err := app.appStorage.ListFooterPlugSets(ctx)
 	if err != nil {
 		he.SendErrorToHTTPClient(w, "fetch footer plug sets", err)
@@ -553,7 +565,7 @@ func (app *IrataApp) handleManageFooterSets(ctx context.Context, w http.Response
 	}
 }
 
-func (app *IrataApp) handleIndex(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+func (app *App) handleIndex(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	sc, err := app.siteStorage.FetchSiteConfig(ctx)
 	if err != nil {
 		he.SendErrorToHTTPClient(w, "fetch site config", err)
@@ -578,7 +590,7 @@ func (app *IrataApp) handleIndex(ctx context.Context, w http.ResponseWriter, r *
 	}
 }
 
-func (app *IrataApp) handleEditTournament(ctx context.Context, id64 int64, w http.ResponseWriter, r *http.Request) {
+func (app *App) handleEditTournament(ctx context.Context, id64 int64, w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	if len(r.Form) != 0 {
 		err := app.formProcessor.EditTournament(ctx, id64, r.Form)
@@ -612,6 +624,11 @@ func (app *IrataApp) handleEditTournament(ctx context.Context, id64 int64, w htt
 		he.SendErrorToHTTPClient(w, "fetch paytable slugs", err)
 		return
 	}
+	sounds, err := app.soundStorage.FetchSoundEffectSlugs(ctx)
+	if err != nil {
+		he.SendErrorToHTTPClient(w, "fetch sound slugs", err)
+		return
+	}
 
 	sc, err := app.siteStorage.FetchSiteConfig(ctx)
 	if err != nil {
@@ -626,6 +643,7 @@ func (app *IrataApp) handleEditTournament(ctx context.Context, id64 int64, w htt
 		IsAdmin:    permission.IsAdmin(ctx),
 		IsNew:      false,
 		SiteConfig: sc,
+		Sounds:     sounds,
 	}
 
 	if err := app.templates.ExecuteTemplate(w, "edit-tournament.html.tmpl", args); err != nil {
@@ -634,7 +652,7 @@ func (app *IrataApp) handleEditTournament(ctx context.Context, id64 int64, w htt
 	}
 }
 
-func (app *IrataApp) handleAPIFooterPlugs(ctx context.Context, id int64, w http.ResponseWriter, r *http.Request) {
+func (app *App) handleAPIFooterPlugs(ctx context.Context, id int64, w http.ResponseWriter, r *http.Request) {
 	fp, err := app.appStorage.FetchPlugs(ctx, id)
 	if err != nil {
 		he.SendErrorToHTTPClient(w, "get plugs from db", err)
@@ -658,7 +676,7 @@ func (app *IrataApp) handleAPIFooterPlugs(ctx context.Context, id int64, w http.
 	}
 }
 
-func (app *IrataApp) handleAPIModel(ctx context.Context, id64 int64, w http.ResponseWriter, r *http.Request) {
+func (app *App) handleAPIModel(ctx context.Context, id64 int64, w http.ResponseWriter, r *http.Request) {
 	t, err := app.fetchTournament(ctx, id64)
 	if err != nil {
 		he.SendErrorToHTTPClient(w, "get tourney from db", err)
@@ -677,7 +695,7 @@ func (app *IrataApp) handleAPIModel(ctx context.Context, id64 int64, w http.Resp
 	}
 }
 
-func (app *IrataApp) handleLogin(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+func (app *App) handleLogin(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	default:
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -734,11 +752,11 @@ func (app *IrataApp) handleLogin(ctx context.Context, w http.ResponseWriter, r *
 	}
 }
 
-func (app *IrataApp) handleAPITournamentListen(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+func (app *App) handleAPITournamentListen(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	type reqBody struct {
-		TournamentID  int64
-		Version       int64
-		ServerVersion int64
+		TournamentID    int64
+		Version         int64
+		ProtocolVersion int64
 	}
 	var req reqBody
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -750,7 +768,7 @@ func (app *IrataApp) handleAPITournamentListen(ctx context.Context, w http.Respo
 	tournamentCh := make(chan *model.Tournament, 1)
 	timeoutCh := time.After(time.Hour)
 	version := req.Version
-	if req.ServerVersion != model.ServerVersion {
+	if req.ProtocolVersion != protocol.Version {
 		// trash the version number, we will need an update immediately and the client will
 		// have to reload
 		version = -1
@@ -776,7 +794,7 @@ func (app *IrataApp) handleAPITournamentListen(ctx context.Context, w http.Respo
 	}
 }
 
-func (app *IrataApp) handleManageSite(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+func (app *App) handleManageSite(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	var flash string
 	// Fetch config
 	config, err := app.siteStorage.FetchSiteConfig(ctx)
@@ -810,16 +828,23 @@ func (app *IrataApp) handleManageSite(ctx context.Context, w http.ResponseWriter
 		}
 	}
 
+	soundSlugs, err := app.soundStorage.FetchSoundEffectSlugs(ctx)
+	if err != nil {
+		he.SendErrorToHTTPClient(w, "fetch sound slugs", err)
+		return
+	}
+
 	data := struct {
 		Config *model.SiteConfig
+		Sounds []*soundmodel.SoundEffectSlug
 		Flash  string
-	}{Config: config, Flash: flash}
+	}{Config: config, Flash: flash, Sounds: soundSlugs}
 	if err := app.templates.ExecuteTemplate(w, "manage-site.html.tmpl", data); err != nil {
 		log.Printf("can't render manage-site template: %v", err)
 	}
 }
 
-func (app *IrataApp) handleKeyboardControl(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+func (app *App) handleKeyboardControl(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	handler := ksd.NewKeyboardShortcutDispatcher(app.tm, app.appStorage)
 	err := handler.HandleKeypress(ctx, r)
 	if err != nil {
@@ -828,7 +853,7 @@ func (app *IrataApp) handleKeyboardControl(ctx context.Context, w http.ResponseW
 	}
 }
 
-func (app *IrataApp) handlePrizePoolCalculator(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+func (app *App) handlePrizePoolCalculator(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		he.SendErrorToHTTPClient(w, "method not allowed", he.HTTPCodedErrorf(http.StatusMethodNotAllowed, "only POST allowed"))
 		return
@@ -887,7 +912,7 @@ func (app *IrataApp) handlePrizePoolCalculator(ctx context.Context, w http.Respo
 }
 
 // InstallHandlers registers all HTTP routes.
-func (app *IrataApp) InstallHandlers() {
+func (app *App) InstallHandlers() {
 
 	app.handleFunc("/", app.handleIndex)
 
@@ -964,7 +989,7 @@ func (app *IrataApp) InstallHandlers() {
 	app.requiringAdminHandleFunc("/manage/site", app.handleManageSite)
 }
 
-func (app *IrataApp) loadTemplates() {
+func (app *App) loadTemplates() {
 	var err error
 	if app.templates, err = template.New("root").Funcs(templateFuncs).ParseFS(assets.Templates, "templates/*[^~]"); err != nil {
 		log.Fatalf("error loading embedded templates: %v", err)
@@ -975,7 +1000,7 @@ func (app *IrataApp) loadTemplates() {
 }
 
 // Serve starts the HTTP server on the given listen address.
-func (app *IrataApp) Serve(listenAddress string) error {
+func (app *App) Serve(listenAddress string) error {
 	wg := sync.WaitGroup{}
 
 	type result struct {

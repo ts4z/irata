@@ -29,6 +29,8 @@ import (
 
 	"github.com/ts4z/irata/model"
 	"github.com/ts4z/irata/paytable"
+	"github.com/ts4z/irata/protocol"
+	"github.com/ts4z/irata/soundmodel"
 	"github.com/ts4z/irata/textutil"
 )
 
@@ -43,15 +45,21 @@ type PaytableFetcher interface {
 	FetchPaytableByID(ctx context.Context, id int64) (*paytable.Paytable, error)
 }
 
+type SoundEffectFetcher interface {
+	FetchSoundEffectByID(ctx context.Context, id int64) (*soundmodel.SoundEffect, error)
+}
+
 type Mutator struct {
 	clock Clock
 	ptf   PaytableFetcher
+	sef   SoundEffectFetcher
 }
 
-func NewMutator(clock Clock, paytableFetcher PaytableFetcher) *Mutator {
+func NewMutator(clock Clock, paytableFetcher PaytableFetcher, soundEffectFetcher SoundEffectFetcher) *Mutator {
 	return &Mutator{
 		clock: clock,
 		ptf:   paytableFetcher,
+		sef:   soundEffectFetcher,
 	}
 }
 
@@ -114,7 +122,7 @@ func (tm *Mutator) ComputePrizePoolText(m *model.Tournament) (string, error) {
 	return strings.Join(lines, "\n"), nil
 }
 
-func (tm *Mutator) MinusTime(m *model.Tournament, d time.Duration) error {
+func (tm *Mutator) MinusTime(ctx context.Context, m *model.Tournament, d time.Duration) error {
 	if d < 0 {
 		log.Fatalf("can't happen: MinusTime with negative duration %v", d)
 	}
@@ -161,7 +169,7 @@ func (tm *Mutator) MinusTime(m *model.Tournament, d time.Duration) error {
 		}
 	}
 
-	tm.FillTransients(m)
+	tm.FillTransients(ctx, m)
 
 	return nil
 }
@@ -261,9 +269,18 @@ func (tm *Mutator) RestartLastLevel(m *model.Tournament) {
 // FillTransients fills out computed fields.  (These shouldn't be serialized to
 // the database as they're redundant, but they are very convenient for access
 // from templates and maybe JS.)
-func (tm *Mutator) FillTransients(m *model.Tournament) {
+func (tm *Mutator) FillTransients(ctx context.Context, m *model.Tournament) {
 	m.Transients = &model.Transients{
-		ServerVersion: model.ServerVersion,
+		ProtocolVersion: protocol.Version,
+	}
+
+	if m.NextLevelSoundID >= 0 {
+		soundEffect, err := tm.sef.FetchSoundEffectByID(ctx, m.NextLevelSoundID)
+		if err != nil {
+			log.Printf("warning: could not fetch sound effect ID %d: %v", m.NextLevelSoundID, err)
+		} else {
+			m.Transients.NextLevelSoundPath = soundEffect.Path
+		}
 	}
 
 	if m.State.TotalChipsOverride > 0 {
@@ -313,6 +330,16 @@ func (tm *Mutator) restartLevel(m *model.Tournament) {
 		m.State.TimeRemainingMillis = &remainingMillis
 		m.State.CurrentLevelEndsAt = nil
 	}
+}
+
+func (tm *Mutator) MuteSound(m *model.Tournament) error {
+	m.State.SoundMuted = true
+	return nil
+}
+
+func (tm *Mutator) UnmuteSound(m *model.Tournament) error {
+	m.State.SoundMuted = false
+	return nil
 }
 
 func (tm *Mutator) StopClock(m *model.Tournament) error {
@@ -365,35 +392,34 @@ func (tm *Mutator) StartClock(m *model.Tournament) error {
 	return nil
 }
 
-func (tm *Mutator) ChangePlayers(m *model.Tournament, n int) error {
+func (tm *Mutator) ChangePlayers(ctx context.Context, m *model.Tournament, n int) error {
 	m.State.CurrentPlayers += n
 	if m.State.CurrentPlayers < 1 {
 		m.State.CurrentPlayers = 1
 	}
-	tm.FillTransients(m)
+	tm.FillTransients(ctx, m)
 	return nil
 }
 
-func (tm *Mutator) ChangeBuyIns(m *model.Tournament, n int) error {
+func (tm *Mutator) ChangeBuyIns(ctx context.Context, m *model.Tournament, n int) error {
 	m.State.BuyIns += n
 	if m.State.BuyIns < 1 {
 		m.State.BuyIns = 1
 	}
-	tm.FillTransients(m)
+	tm.FillTransients(ctx, m)
 	return nil
 }
 
-func (tm *Mutator) ChangeAddOns(m *model.Tournament, n int) error {
+func (tm *Mutator) ChangeAddOns(ctx context.Context, m *model.Tournament, n int) error {
 	m.State.AddOns += n
 	if m.State.AddOns < 1 {
 		m.State.AddOns = 0
 	}
-	tm.FillTransients(m)
-	tm.FillTransients(m)
+	tm.FillTransients(ctx, m)
 	return nil
 }
 
-func (tm *Mutator) PlusTime(m *model.Tournament, d time.Duration) error {
+func (tm *Mutator) PlusTime(ctx context.Context, m *model.Tournament, d time.Duration) error {
 
 	tm.adjustStateForElapsedTime(m)
 
@@ -422,7 +448,7 @@ func (tm *Mutator) PlusTime(m *model.Tournament, d time.Duration) error {
 		m.State.CurrentLevelEndsAt = nil
 	}
 
-	tm.FillTransients(m)
+	tm.FillTransients(ctx, m)
 
 	return nil
 }

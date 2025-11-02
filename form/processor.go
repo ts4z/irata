@@ -143,28 +143,27 @@ func (a *FormProcessor) ApplyFormToTournament(ctx context.Context, form url.Valu
 		log.Printf("Structure changed to %d, reset to level 0 and paused", structureID)
 	}
 
-	if footerPlugsID := form.Get("FooterPlugsID"); footerPlugsID != "" {
-		if id, err := strconv.ParseInt(footerPlugsID, 10, 64); err == nil && id > 0 {
-			t.FooterPlugsID = id
-		}
-	}
+	maybeCopyInt64(form, &t.FooterPlugsID, "FooterPlugsID")
+	maybeCopyInt64(form, &t.NextLevelSoundID, "NextLevelSoundID")
+
+	maybeCopyInt(form, &t.PrizePoolPerBuyIn, "PrizePoolPerBuyIn")
+	maybeCopyInt(form, &t.PrizePoolPerAddOn, "PrizePoolPerAddOn")
 
 	maybeCopyInt(form, &t.Structure.ChipsPerBuyIn, "ChipsPerBuyIn")
 	maybeCopyInt(form, &t.Structure.ChipsPerAddOn, "ChipsPerAddOn")
-	maybeCopyInt(form, &t.State.TotalChipsOverride, "TotalChipsOverride")
 
 	maybeCopyString(form, &t.EventName, "EventName")
 	maybeCopyString(form, &t.State.PrizePool, "PrizePool")
 	maybeCopyString(form, &t.Description, "Description")
+	maybeCopyString(form, &t.Handle, "Handle")
 
-	maybeCopyInt(form, &t.State.CurrentPlayers, "CurrentPlayers")
-	maybeCopyInt(form, &t.State.BuyIns, "BuyIns")
 	maybeCopyInt(form, &t.State.AddOns, "AddOns")
-	maybeCopyInt(form, &t.State.Saves, "NumberOfSaves")
 	maybeCopyInt(form, &t.State.AmountPerSave, "AmountPerSave")
+	maybeCopyInt(form, &t.State.BuyIns, "BuyIns")
+	maybeCopyInt(form, &t.State.CurrentPlayers, "CurrentPlayers")
+	maybeCopyInt(form, &t.State.Saves, "NumberOfSaves")
+	maybeCopyInt(form, &t.State.TotalChipsOverride, "TotalChipsOverride")
 	maybeCopyInt(form, &t.State.TotalPrizePoolOverride, "TotalPrizePoolOverride")
-	maybeCopyInt(form, &t.PrizePoolPerBuyIn, "PrizePoolPerBuyIn")
-	maybeCopyInt(form, &t.PrizePoolPerAddOn, "PrizePoolPerAddOn")
 
 	// Handle prize pool mode
 	prizePoolMode := form.Get("PrizePoolMode")

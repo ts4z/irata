@@ -1,4 +1,4 @@
-package defaults
+package builtins
 
 import (
 	"github.com/ts4z/irata/paytable"

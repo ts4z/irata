@@ -2,22 +2,13 @@
 // (One of my previous employers says it's bad to write the same models
 // to the database and the wire, but for this application, it's not so bad.)
 //
-// However, we have a lot of methods with calls to
-// dependencies.  These should be moved elsewhere, as this class should
-// have no dependencies.
+// Methods in here should probably be relocated, generally to a package like
+// `tournament`.
 
 package model
 
 import (
 	"time"
-)
-
-const (
-	// ServerVersion indicates an incompatible change to the client/server interaction.
-	// If the client gets a different number than it originally got here, it should reload
-	// to get a new copy of all server files.  This does not indicate any particular
-	// compatibility problem.
-	ServerVersion = 10
 )
 
 type AuthCookieData struct {
@@ -55,10 +46,11 @@ type CookieKeyPair struct {
 }
 
 type SiteConfig struct {
-	Name       string
-	Site       string
-	Theme      string
-	CookieKeys []CookieKeyPair
+	Name                    string
+	Site                    string
+	Theme                   string
+	DefaultNextLevelSoundID int64
+	CookieKeys              []CookieKeyPair
 }
 
 type Level struct {
@@ -84,10 +76,11 @@ type Tournament struct {
 	EventID int64 // TODO: rename to TournamentID
 	Version int64
 
-	EventName     string
-	Handle        string // datbase unique key
-	Description   string
-	FooterPlugsID int64
+	EventName        string
+	Handle           string // datbase unique key
+	Description      string
+	FooterPlugsID    int64
+	NextLevelSoundID int64
 
 	PrizePoolPerBuyIn int // amount to prize pool per buy-in
 	PrizePoolPerAddOn int // amount to prize pool per add-on
@@ -148,6 +141,7 @@ type StructureSlug struct {
 // This is distinct from Transients, which are computed from State and Structure.
 // This is serialized to the database but changes frequently.
 type State struct {
+	SoundMuted         bool
 	IsClockRunning     bool
 	CurrentLevelNumber int
 	CurrentPlayers     int
@@ -178,25 +172,21 @@ func (s *State) Clone() *State {
 }
 
 // Transients are computed from State and Structure, and are not serialized to the database.
+// (Transients should be split out of Tournament entirely.  When we fetch a model.Tournament,
+// these should arrive with it, but shouldn't be stored in that model.)
 type Transients struct {
-	ServerVersion int
-	TotalChips    int
-	AverageChips  int
+	ProtocolVersion int
+	ServerVersion   int
+	TotalChips      int
+	AverageChips    int
+
+	// Semi-stopgap.  We want the URL path to the sound file, but we store only the
+	// sound ID in the model, which is useless to the client.  So we'll fetch it as
+	// part of transients, which is currently quite cheap.
+	NextLevelSoundPath string
 }
 
-func (m *Tournament) PrizePoolAmount() int {
-	if m.State.TotalPrizePoolOverride > 0 {
-		return m.State.TotalPrizePoolOverride
-	}
-
-	buyIns := m.PrizePoolPerBuyIn * m.State.BuyIns
-	addOns := m.PrizePoolPerAddOn * m.State.AddOns
-	saves := m.State.AmountPerSave * m.State.Saves
-
-	return buyIns + addOns - saves
-}
-
-// Current level returns the current level, or if the tourn
+// TODO: Move to tournament/tm.go.
 func (m *Tournament) CurrentLevel() *Level {
 	var lvl int = m.State.CurrentLevelNumber
 	if lvl < 0 {

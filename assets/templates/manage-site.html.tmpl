@@ -22,6 +22,15 @@
             <label for="Theme">Theme</label>
             <input type="text" id="Theme" name="Theme" value="{{ .Config.Theme }}" required>
 
+            <label for="DefaultNextLevelSoundID">Default Next Level Sound</label>
+            <select id="DefaultNextLevelSoundID" name="DefaultNextLevelSoundID">
+                {{- range $_, $se := .Sounds }}
+                <option value="{{ .ID }}" 
+                  {{- if eq .ID $.Config.DefaultNextLevelSoundID }} selected {{ end -}}
+                  >{{ $se.Name }} ({{- $se.Description -}})</option>
+                {{- end }}
+            </select>
+
             <div class="actions">
                 <button type="submit">Save</button>
             </div>

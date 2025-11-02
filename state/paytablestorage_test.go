@@ -3,11 +3,11 @@ package state
 import (
 	"testing"
 
-	"github.com/ts4z/irata/defaults"
+	"github.com/ts4z/irata/builtins"
 )
 
 func TestSumTo10000(t *testing.T) {
-	for i, row := range defaults.BARGEPaytable().Rows {
+	for i, row := range builtins.BARGEPaytable().Rows {
 		sum := 0
 		for _, p := range row.Percentages {
 			sum += p
@@ -59,7 +59,7 @@ func TestPayout(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			prizes, err := defaults.BARGEPaytable().Payout(tt.prizePool, tt.numPlayers)
+			prizes, err := builtins.BARGEPaytable().Payout(tt.prizePool, tt.numPlayers)
 			if err != nil {
 				t.Fatalf("Payout() returned error: %v", err)
 			}
@@ -96,7 +96,7 @@ func TestPayout(t *testing.T) {
 }
 
 func TestPayoutZeroPlayers(t *testing.T) {
-	prizes, err := defaults.BARGEPaytable().Payout(1_000_000, 0)
+	prizes, err := builtins.BARGEPaytable().Payout(1_000_000, 0)
 	if err == nil {
 		t.Fatalf("expected error for 0 players, got nil")
 	}
@@ -107,7 +107,7 @@ func TestPayoutZeroPlayers(t *testing.T) {
 
 func TestPayoutSmallAmounts(t *testing.T) {
 	// Test with small prize pool to ensure rounding works
-	prizes, err := defaults.BARGEPaytable().Payout(100, 5)
+	prizes, err := builtins.BARGEPaytable().Payout(100, 5)
 	if err != nil {
 		t.Fatalf("Payout() returned error: %v", err)
 	}

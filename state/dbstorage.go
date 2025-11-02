@@ -438,7 +438,7 @@ func (s *DBStorage) FetchTournament(ctx context.Context, id int64) (*model.Tourn
 	// These don't come from the database at all.
 	// TODO: This shouldn't be here, because the database has no business
 	// having a clock or paytable fetcher dependency.
-	s.tournamentMutator.FillTransients(t)
+	s.tournamentMutator.FillTransients(ctx, t)
 
 	return t, nil
 }
@@ -498,11 +498,12 @@ func (s *DBStorage) SaveTournament(
 	}
 	newVersion := tm.Version + 1
 	if result, err := s.db.ExecContext(ctx,
-		`UPDATE tournaments SET version=$4, model_data=$2 WHERE tournament_id=$3 AND version=$1;`,
+		`UPDATE tournaments SET version=$4, handle=$5, model_data=$2 WHERE tournament_id=$3 AND version=$1;`,
 		tm.Version,
 		bytes,
 		tm.EventID,
-		newVersion); err != nil {
+		newVersion,
+		tm.Handle); err != nil {
 		log.Printf("update failed: %v", err)
 		return err
 	} else {
@@ -524,7 +525,7 @@ func (s *DBStorage) SaveTournament(
 	//
 	// The right thing to do is to make raw storage unaware of the listener, and build that as
 	// a lookaside cache in a decorator of this API.
-	s.tournamentMutator.FillTransients(&cpy)
+	s.tournamentMutator.FillTransients(ctx, &cpy)
 
 	// Notify listeners for this tournament id
 	listeners := s.resetTournamentListeners(tm.EventID)

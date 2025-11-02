@@ -51,7 +51,8 @@
                         Used in URL. No spaces or special characters.
                     </small>
                     <input type="text" id="Handle" name="Handle" class="field-large" maxlength="30"
-                        pattern="[0-9a-zA-Z_-]+" required{{ if not .IsNew }} value="{{ .Tournament.Handle }}" {{ end }}>
+                        pattern="[0-9a-zA-Z]+" required
+                        {{ if not .IsNew }} value="{{ .Tournament.Handle }}" {{ end }}>
                 </div>
 
                 <div class="form-group">
@@ -66,6 +67,20 @@
                         {{ range .FooterSets }}
                         <option value="{{ .FooterPlugsID }}" {{ if and (not $.IsNew) (eq .FooterPlugsID
                             $.Tournament.FooterPlugsID) }} selected{{ end }}>{{ .Name }}</option>
+                        {{ end }}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="NextLevelSoundID">Next Level Sound</label>
+                    <select id="NextLevelSoundID" name="NextLevelSoundID">
+                        <option value="-1">Silent</option>
+                        {{ range .Sounds }}
+                        <option value="{{ .ID }}"
+                            {{- if and (not $.IsNew) (eq .ID $.Tournament.NextLevelSoundID)}} selected {{ end -}}
+                            {{- if and $.IsNew (eq .ID 1 $.SiteConfig.DefaultNextLevelSoundID 1) }} selected {{ end -}}>
+                        {{ .Name }} ({{ .Description }})
+                        </option>
                         {{ end }}
                     </select>
                 </div>

@@ -35,25 +35,43 @@ func if10min(b bool) time.Duration {
 }
 
 type KeyboardShortcutDispatcher struct {
-	keyToMutation     map[string]func(*model.Tournament, *modifiers) error
+	keyToMutation     map[string]func(context.Context, *model.Tournament, *modifiers) error
 	tournamentStorage state.AppStorage
 	tm                *tournament.Mutator
 }
 
 func NewKeyboardShortcutDispatcher(tm *tournament.Mutator, ts state.AppStorage) *KeyboardShortcutDispatcher {
-	k2m := map[string]func(t *model.Tournament, bb *modifiers) error{
-		"PreviousLevel": func(t *model.Tournament, bb *modifiers) error { return tm.PreviousLevel(t) },
-		"SkipLevel":     func(t *model.Tournament, bb *modifiers) error { return tm.AdvanceLevel(t) },
-		"StopClock":     func(t *model.Tournament, bb *modifiers) error { return tm.StopClock(t) },
-		"StartClock":    func(t *model.Tournament, bb *modifiers) error { return tm.StartClock(t) },
-		"RemovePlayer":  func(t *model.Tournament, bb *modifiers) error { return tm.ChangePlayers(t, -if10(bb.Shift)) },
-		"AddPlayer":     func(t *model.Tournament, bb *modifiers) error { return tm.ChangePlayers(t, if10(bb.Shift)) },
-		"AddBuyIn":      func(t *model.Tournament, bb *modifiers) error { return tm.ChangeBuyIns(t, if10(bb.Shift)) },
-		"AddAddOn":      func(t *model.Tournament, bb *modifiers) error { return tm.ChangeAddOns(t, if10(bb.Shift)) },
-		"RemoveAddOn":   func(t *model.Tournament, bb *modifiers) error { return tm.ChangeAddOns(t, -if10(bb.Shift)) },
-		"RemoveBuyIn":   func(t *model.Tournament, bb *modifiers) error { return tm.ChangeBuyIns(t, -if10(bb.Shift)) },
-		"PlusMinute":    func(t *model.Tournament, bb *modifiers) error { return tm.PlusTime(t, if10min(bb.Shift)) },
-		"MinusMinute":   func(t *model.Tournament, bb *modifiers) error { return tm.MinusTime(t, if10min(bb.Shift)) },
+	k2m := map[string]func(ctx context.Context, t *model.Tournament, bb *modifiers) error{
+		"PreviousLevel": func(ctx context.Context, t *model.Tournament, bb *modifiers) error { return tm.PreviousLevel(t) },
+		"SkipLevel":     func(ctx context.Context, t *model.Tournament, bb *modifiers) error { return tm.AdvanceLevel(t) },
+		"StopClock":     func(ctx context.Context, t *model.Tournament, bb *modifiers) error { return tm.StopClock(t) },
+		"StartClock":    func(ctx context.Context, t *model.Tournament, bb *modifiers) error { return tm.StartClock(t) },
+		"RemovePlayer": func(ctx context.Context, t *model.Tournament, bb *modifiers) error {
+			return tm.ChangePlayers(ctx, t, -if10(bb.Shift))
+		},
+		"AddPlayer": func(ctx context.Context, t *model.Tournament, bb *modifiers) error {
+			return tm.ChangePlayers(ctx, t, if10(bb.Shift))
+		},
+		"AddBuyIn": func(ctx context.Context, t *model.Tournament, bb *modifiers) error {
+			return tm.ChangeBuyIns(ctx, t, if10(bb.Shift))
+		},
+		"AddAddOn": func(ctx context.Context, t *model.Tournament, bb *modifiers) error {
+			return tm.ChangeAddOns(ctx, t, if10(bb.Shift))
+		},
+		"RemoveAddOn": func(ctx context.Context, t *model.Tournament, bb *modifiers) error {
+			return tm.ChangeAddOns(ctx, t, -if10(bb.Shift))
+		},
+		"RemoveBuyIn": func(ctx context.Context, t *model.Tournament, bb *modifiers) error {
+			return tm.ChangeBuyIns(ctx, t, -if10(bb.Shift))
+		},
+		"PlusMinute": func(ctx context.Context, t *model.Tournament, bb *modifiers) error {
+			return tm.PlusTime(ctx, t, if10min(bb.Shift))
+		},
+		"MinusMinute": func(ctx context.Context, t *model.Tournament, bb *modifiers) error {
+			return tm.MinusTime(ctx, t, if10min(bb.Shift))
+		},
+		"MuteSound":   func(ctx context.Context, t *model.Tournament, bb *modifiers) error { return tm.MuteSound(t) },
+		"UnmuteSound": func(ctx context.Context, t *model.Tournament, bb *modifiers) error { return tm.UnmuteSound(t) },
 	}
 
 	return &KeyboardShortcutDispatcher{
@@ -93,7 +111,7 @@ func (app *KeyboardShortcutDispatcher) HandleKeypress(ctx context.Context, r *ht
 			return he.HTTPCodedErrorf(404, "tournament not found: %w", err)
 		}
 
-		if err := h(t, &modifiers{Shift: event.Shift}); err != nil {
+		if err := h(ctx, t, &modifiers{Shift: event.Shift}); err != nil {
 			return he.HTTPCodedErrorf(500, "while applying keyboard event: %w", err)
 		}
 

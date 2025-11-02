@@ -2,8 +2,7 @@
 
 "use strict";
 
-// const next_level_sound = new Audio('/fs/alto-sax-a-d-fanfare.mp3');
-const next_level_sound = new Audio('/fs/inchy.mp3');
+var next_level_sound = null;
 
 async function sleep(ms) {
   await new Promise(resolve => setTimeout(resolve, ms));
@@ -16,8 +15,10 @@ function tournament_id() {
 
 function randN(n) { return Math.floor(Math.random() * n); }
 
-function play_fanfare(_ = undefined) {
-  next_level_sound.play();
+function playNextLevelSound(_ = undefined) {
+  if (next_level_sound && last_model.State.SoundMuted !== true) {
+      next_level_sound.play();
+  }
 }
 
 // t is in milliseconds
@@ -73,6 +74,7 @@ let next_level_complete_at = undefined, clock_controls_locked = true;
 var last_model = {
   // State is things that are written to the database.
   "Version": -1,
+  "NextLevelSound": undefined,
   "State": {
     "CurrentLevelNumber": 0,
     "IsClockRunning": false,
@@ -95,7 +97,7 @@ var last_model = {
   "Transients": {
     "NextBreakAt": undefined,
     "EndsAt": undefined,
-    "ServerVersion": undefined,
+    "ProtocolVersion": undefined,
   }
 }
 var footers = [
@@ -166,10 +168,6 @@ const next_footer = (function () {
   var next_footer_offset = 99999;
 
   return function () {
-    if (!clock_controls_locked) {
-      return
-    }
-
     next_footer_offset++;
     if (next_footer_offset > footers.length) {
       next_footer_offset = 0;
@@ -186,11 +184,13 @@ function start_rotating_footers() {
   }
 }
 
-function stop_rotating_footers() {
-  if (typeof footer_interval_id !== 'undefined') {
-    clearInterval(footer_interval_id);
-    footer_interval_id = undefined;
+function reset_footer_interval() {
+  if (typeof footer_interval_id !== 'number') {
+    throw new Error("footer_interval_id not a number?");
   }
+  clearInterval(footer_interval_id);
+  footer_interval_id = undefined;
+  start_rotating_footers();
 }
 
 async function listen_and_consume_model_changes(abortSignal) {
@@ -200,7 +200,7 @@ async function listen_and_consume_model_changes(abortSignal) {
     return Promise.reject("no tournament id");
   }
   const version = last_model?.Version ?? 0;
-  const server_version = last_model?.Transients?.ServerVersion ?? 0;
+  const protocol_version = last_model?.Transients?.ProtocolVersion ?? 0;
 
   const response = await fetch("/api/tournament-listen", {
     signal: abortSignal,
@@ -209,7 +209,7 @@ async function listen_and_consume_model_changes(abortSignal) {
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ TournamentID: tid, Version: version, ServerVersion: server_version }),
+    body: JSON.stringify({ TournamentID: tid, Version: version, ProtocolVersion: protocol_version }),
   });
   const model = await response.json();
   import_new_model_from_server(model);
@@ -240,17 +240,21 @@ function update_next_level_and_break_fields() {
 
 // Server sent a whole new model.  Update all the fields.
 function import_new_model_from_server(model) {
-  console.log(`import new model from server ${model.Transients.ServerVersion}, version ${model.Version}`)
+  console.log(`import new model from server ${model.Transients.ProtocolVersion}, version ${model.Version}`)
 
-  if (last_model.Transients.ServerVersion &&
-    model.Transients.ServerVersion != last_model.Transients.ServerVersion) {
-    // new model changed the ServerVersion
+  if (model.NextLevelSoundID !== last_model.NextLevelSoundID) {
+    if (model.Transients.NextLevelSoundPath) {
+        next_level_sound = new Audio(model.Transients.NextLevelSoundPath);
+    }
+  } else {
+    model.NextLevelSound = null;
+  }
+
+  if (last_model.Transients.ProtocolVersion &&
+    model.Transients.ProtocolVersion != last_model.Transients.ProtocolVersion) {
+    // new model changed the ProtocolVersion
     // this is tagged as an incompatible change
     window.location.reload();
-  } else {
-    console.log(`last_model.Transients.ServerVersion= ${!! last_model.Transients.ServerVersion}`);
-    console.log(`model.Transients.ServerVersion= ${model.Transients.ServerVersion}`);
-    console.log(`model.Transients.ServerVersion != last_model.Transients.ServerVersion)= ${model.Transients.ServerVersion != last_model.Transients.ServerVersion}`);
   }
 
   last_model = model;
@@ -460,7 +464,7 @@ function advance_clock_from_wall_clock() {
       let oldMinutes = oldEndsAt.getMinutes();
       last_model.State.CurrentLevelEndsAt = new Date(oldEndsAt.setMinutes(oldMinutes + nextDurationMinutes)); // gross
       
-      play_fanfare();
+      playNextLevelSound();
       set_next_description();
     }
 
@@ -493,20 +497,20 @@ function update_big_clock() {
   }
 }
 
+function footer_message(message_html) {
+  reset_footer_interval();
+  set_html("footer", message_html);
+}
 
 function install_keyboard_handlers() {
   console.log("installing keyboard handlers");
 
   function toggle_clock_controls_lock(_) {
     clock_controls_locked = !clock_controls_locked;
-    if (clock_controls_locked) {
-      console.log("clock controls locked");
-      set_text("footer", "level/clock controls re-locked");
-      start_rotating_footers();
+  if (clock_controls_locked) {
+      footer_message("level/clock controls re-locked");
     } else {
-      console.log("clock unlocked");
-      stop_rotating_footers();
-      set_html("footer", "<nobr>level/clock controls</nobr> unlocked");
+      footer_message("level/clock controls unlocked");
     }
   }
 
@@ -553,6 +557,18 @@ function install_keyboard_handlers() {
       send_modify('StopClock')
     } else {
       send_modify('StartClock')
+    }
+  }
+
+  function toggle_mute(_) {
+    if (!last_model && !last_model.State) {
+      console.log("last_model or last_model.State undefined");
+      return;
+    }
+    if (last_model.State.SoundMuted) {
+      send_modify('UnmuteSound')
+    } else {
+      send_modify('MuteSound')
     }
   }
 
@@ -603,7 +619,8 @@ function install_keyboard_handlers() {
     'Period': smwa('AddBuyIn'),
     'KeyE': redirect_to_edit,
     'KeyF': next_footer_key,
-    'KeyG': play_fanfare,
+    'KeyG': playNextLevelSound,
+    'KeyM': toggle_mute,
     'Backspace': toggle_clock_controls_lock,
     'Escape': handle_escape,
     'Slash': show_help_dialog,

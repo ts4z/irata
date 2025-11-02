@@ -19,7 +19,6 @@ import (
 
 func main() {
 	ctx := context.Background()
-
 	config.Init()
 
 	clock := ts.NewRealClock()
@@ -28,7 +27,9 @@ func main() {
 		log.Fatalf("fs.Sub: %v", err)
 	}
 
-	tournamentMutator := tournament.NewMutator(clock, state.NewDefaultPaytableStorage())
+	sefs := state.NewBuiltInSoundStorage()
+
+	tournamentMutator := tournament.NewMutator(clock, state.NewDefaultPaytableStorage(), sefs)
 
 	unprotectedStorage, err := state.NewDBStorage(context.Background(), viper.GetString("db_url"), tournamentMutator)
 	if err != nil {
@@ -51,16 +52,19 @@ func main() {
 
 	paytableStorage := state.NewDefaultPaytableStorage()
 
+	soundStorage := state.NewBuiltInSoundStorage()
+
 	app := webapp.New(&webapp.Config{
 		AppStorage:        storage,
 		SiteStorage:       unprotectedStorage,
 		PaytableStorage:   paytableStorage,
+		SoundStorage:      soundStorage,
 		UserStorage:       unprotectedStorage,
-		Mutator:           mutator,
+		FormProcessor:     mutator,
 		SubFS:             subFS,
 		Bakery:            bakery,
 		Clock:             clock,
-		TournamentMutator: tournament.NewMutator(clock, paytableStorage),
+		TournamentMutator: tournamentMutator,
 	})
 
 	if err := app.Serve(viper.GetString("listen_address")); err != nil {

@@ -3,19 +3,19 @@ package state
 import (
 	"context"
 
-	"github.com/ts4z/irata/defaults"
+	"github.com/ts4z/irata/builtins"
 	"github.com/ts4z/irata/he"
 	"github.com/ts4z/irata/paytable"
 )
 
-var _ PaytableStorage = (*DefaultPaytableStorage)(nil)
+var _ PaytableStorage = (*BuiltinPaytableStorage)(nil)
 
-type DefaultPaytableStorage struct {
+type BuiltinPaytableStorage struct {
 	paytables map[string]*paytable.Paytable
 }
 
 // FetchPayoutTableByID implements PaytableStorage.
-func (d *DefaultPaytableStorage) FetchPaytableByID(ctx context.Context, id int64) (*paytable.Paytable, error) {
+func (d *BuiltinPaytableStorage) FetchPaytableByID(ctx context.Context, id int64) (*paytable.Paytable, error) {
 	for _, pt := range d.paytables {
 		if pt.ID == id {
 			return pt, nil
@@ -25,7 +25,7 @@ func (d *DefaultPaytableStorage) FetchPaytableByID(ctx context.Context, id int64
 }
 
 // FetchPayoutTableSlugs implements PaytableStorage.
-func (d *DefaultPaytableStorage) FetchPaytableSlugs(ctx context.Context) ([]*paytable.PaytableSlug, error) {
+func (d *BuiltinPaytableStorage) FetchPaytableSlugs(ctx context.Context) ([]*paytable.PaytableSlug, error) {
 	slugs := []*paytable.PaytableSlug{}
 	for name, pt := range d.paytables {
 		slugs = append(slugs, &paytable.PaytableSlug{
@@ -36,19 +36,19 @@ func (d *DefaultPaytableStorage) FetchPaytableSlugs(ctx context.Context) ([]*pay
 	return slugs, nil
 }
 
-func NewDefaultPaytableStorage() *DefaultPaytableStorage {
-	return &DefaultPaytableStorage{
+func NewDefaultPaytableStorage() *BuiltinPaytableStorage {
+	return &BuiltinPaytableStorage{
 		paytables: map[string]*paytable.Paytable{
-			"BARGE Unified Poker Payouts": defaults.BARGEPaytable(),
+			"BARGE Unified Poker Payouts": builtins.BARGEPaytable(),
 		},
 	}
 }
 
-func (d *DefaultPaytableStorage) Close() {
+func (d *BuiltinPaytableStorage) Close() {
 	// No resources to clean up
 }
 
-func (d *DefaultPaytableStorage) FetchPaytableByName(name string) (*paytable.Paytable, error) {
+func (d *BuiltinPaytableStorage) FetchPaytableByName(name string) (*paytable.Paytable, error) {
 	if pt, ok := d.paytables[name]; ok {
 		return pt, nil
 	} else {

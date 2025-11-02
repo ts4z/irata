@@ -8,6 +8,7 @@ import (
 
 	"github.com/ts4z/irata/model"
 	"github.com/ts4z/irata/paytable"
+	"github.com/ts4z/irata/soundmodel"
 )
 
 type Closer interface {
@@ -73,4 +74,11 @@ type PaytableStorage interface {
 
 	FetchPaytableByID(ctx context.Context, id int64) (*paytable.Paytable, error)
 	FetchPaytableSlugs(ctx context.Context) ([]*paytable.PaytableSlug, error)
+}
+
+type SoundEffectStorage interface {
+	Closer
+
+	FetchSoundEffectByID(ctx context.Context, id int64) (*soundmodel.SoundEffect, error)
+	FetchSoundEffectSlugs(ctx context.Context) ([]*soundmodel.SoundEffectSlug, error)
 }

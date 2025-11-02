@@ -140,7 +140,6 @@ To Do
   this is not currently a problem.
 * Pagination isn't supported.  Since we have only a trivial number of users,
   this isn't a problem.
-* iratad.go is way too long and needs to have the controller methods relocated.
 * Changing anything in site config means restarting the server, but this
   could be detected automatically.
 * Database doesn't notify for changes, so we can really only have a single
@@ -150,3 +149,8 @@ To Do
   one of our URLs.
 * Theme support is *very* poor, and limited to selecting a CSS file.
   Only the "irata" theme is allegedly well tested.
+* Sound effect select on the site config screen should allow testing sound.
+* Sound effect select on the edit tournanament screen should allow testing sound.
+* Sounds should be in the database, I guess.
+* There should be more than one pay table, and the pay table should scale to at least 500
+  players.
