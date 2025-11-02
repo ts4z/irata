@@ -47,7 +47,10 @@ type CookieKeyPair struct {
 
 type SiteConfig struct {
 	Name                    string
-	Site                    string
+	CookieDomain            string
+	AllowedOriginDomains    []string
+	BonusHTTPPorts          []int
+	BonusHTTPSPorts         []int
 	Theme                   string
 	DefaultNextLevelSoundID int64
 	CookieKeys              []CookieKeyPair

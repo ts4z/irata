@@ -90,11 +90,9 @@ func (a *FormProcessor) ApplyFormToTournament(ctx context.Context, form url.Valu
 	if lvlp, err := parseOptionalInt(form, "CurrentLevel"); err != nil {
 		return err
 	} else if lvlp == nil {
-		// great
+		// no form parameter, no change
 	} else if lvl := *lvlp; lvl < 0 || lvl >= int64(len(t.Structure.Levels)) {
 		return he.HTTPCodedErrorf(400, "level out of range")
-	} else if lvl == int64(t.State.CurrentLevelNumber) {
-		// no change, hooray
 	} else {
 		t.State.CurrentLevelNumber = int(lvl)
 	}
@@ -185,7 +183,7 @@ func (a *FormProcessor) EditTournament(ctx context.Context, id int64, form url.V
 		return he.HTTPCodedErrorf(404, "can't get tournament from database")
 	}
 
-	a.tournamentMutator.AdvanceLevel(t)
+	// a.tournamentMutator.AdvanceLevel(t)
 
 	err = a.ApplyFormToTournament(ctx, form, t)
 	if err != nil {

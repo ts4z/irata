@@ -8,6 +8,7 @@ import (
 	"html/template"
 	"io/fs"
 	"log"
+	"net"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -16,6 +17,7 @@ import (
 	"time"
 
 	"github.com/jonboulle/clockwork"
+	"github.com/rs/cors"
 
 	"github.com/ts4z/irata/app/handlers"
 	"github.com/ts4z/irata/assets"
@@ -40,6 +42,8 @@ import (
 var templateFuncs template.FuncMap = template.FuncMap{
 	"wrapLinesInNOBR": textutil.WrapLinesInNOBR,
 	"joinNLNL":        textutil.JoinNLNL,
+	"join":            textutil.Join,
+	"joinInts":        textutil.JoinInts,
 }
 
 func idPathValue(w http.ResponseWriter, r *http.Request) (int64, error) {
@@ -98,8 +102,35 @@ type App struct {
 	handler http.Handler
 }
 
+func allowedOrigins(sc *model.SiteConfig) []string {
+	r := []string{}
+	add := func(origin string) {
+		r = append(r, origin)
+	}
+	for _, origin := range sc.AllowedOriginDomains {
+		add(fmt.Sprintf("https://%s", origin))
+		add(fmt.Sprintf("http://%s", origin))
+		for _, port := range sc.BonusHTTPPorts {
+			if port == 80 {
+				continue
+			}
+			add(fmt.Sprintf("http://%s:%d", origin, port))
+		}
+		for _, port := range sc.BonusHTTPSPorts {
+			if port == 443 {
+				continue
+			}
+			add(fmt.Sprintf("https://%s:%d", origin, port))
+		}
+	}
+	for _, origin := range r {
+		log.Printf("CORS allowing origin %s", origin)
+	}
+	return r
+}
+
 // New creates a new IrataApp with the given configuration.
-func New(config *Config) *App {
+func New(ctx context.Context, config *Config) *App {
 	app := &App{
 		appStorage:      config.AppStorage,
 		siteStorage:     config.SiteStorage,
@@ -112,6 +143,11 @@ func New(config *Config) *App {
 		clock:           config.Clock,
 		tm:              config.TournamentMutator,
 		mux:             http.NewServeMux(),
+	}
+
+	sc, err := app.siteStorage.FetchSiteConfig(ctx)
+	if err != nil {
+		log.Fatalf("can't get SiteConfig: %v", err)
 	}
 
 	// Stack the handlers together.
@@ -127,7 +163,13 @@ func New(config *Config) *App {
 		Clock: clockwork.NewRealClock(),
 		Next:  logger,
 	})
-	app.handler = tarpit
+	corsMW := cors.New(cors.Options{
+		AllowedOrigins:   allowedOrigins(sc),
+		AllowedMethods:   []string{http.MethodGet, http.MethodPost, http.MethodDelete},
+		AllowCredentials: true,
+		// Debug: true,
+	})
+	app.handler = corsMW.Handler(tarpit)
 
 	app.loadTemplates()
 	app.InstallHandlers()
@@ -228,7 +270,7 @@ func (app *App) renderTournament(ctx context.Context, id int64, w http.ResponseW
 	}
 }
 
-func (app *App) handleManageStructure(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+func (app *App) handleManageStructures(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	// Fetch all structures
 	slugs, err := app.appStorage.FetchStructureSlugs(ctx, 0, 100)
 	if err != nil {
@@ -245,7 +287,7 @@ func (app *App) handleManageStructure(ctx context.Context, w http.ResponseWriter
 	data := struct {
 		Structures []*model.Structure
 	}{Structures: structures}
-	if err := app.templates.ExecuteTemplate(w, "manage-structure.html.tmpl", data); err != nil {
+	if err := app.templates.ExecuteTemplate(w, "manage-structures.html.tmpl", data); err != nil {
 		log.Printf("can't render manage-structure template: %v", err)
 	}
 }
@@ -794,6 +836,32 @@ func (app *App) handleAPITournamentListen(ctx context.Context, w http.ResponseWr
 	}
 }
 
+func parsePorts(portsRaw string) []int {
+	ports := []int{}
+	for _, portStr := range strings.Split(portsRaw, ",") {
+		portStr = strings.TrimSpace(portStr)
+		if portStr == "" {
+			continue
+		}
+		port, err := strconv.Atoi(portStr)
+		if err == nil && port > 0 && port < 65536 {
+			ports = append(ports, port)
+		}
+	}
+	return ports
+}
+
+func parseAllowedOrigins(originsRaw string) []string {
+	origins := []string{}
+	for _, origin := range strings.Split(originsRaw, ",") {
+		origin = strings.TrimSpace(origin)
+		if origin != "" {
+			origins = append(origins, origin)
+		}
+	}
+	return origins
+}
+
 func (app *App) handleManageSite(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	var flash string
 	// Fetch config
@@ -809,14 +877,17 @@ func (app *App) handleManageSite(ctx context.Context, w http.ResponseWriter, r *
 			flash = "Error parsing form"
 		} else {
 			name := r.FormValue("Name")
-			site := r.FormValue("Site")
 			theme := r.FormValue("Theme")
-			if name == "" || site == "" || theme == "" {
-				flash = "All fields required"
+			cookieDomain := r.FormValue("CookieDomain")
+			allowedOriginDomains := r.FormValue("AllowedOriginDomains")
+			if name == "" || theme == "" || cookieDomain == "" || allowedOriginDomains == "" {
+				flash = "Required field missing"
 			} else {
 				// Update config
 				config.Name = name
-				config.Site = site
+				config.CookieDomain = cookieDomain
+				config.BonusHTTPPorts = parsePorts(r.FormValue("BonusHTTPPorts"))
+				config.AllowedOriginDomains = parseAllowedOrigins(allowedOriginDomains)
 				config.Theme = theme
 				err := app.siteStorage.SaveSiteConfig(ctx, config)
 				if err != nil {
@@ -932,7 +1003,7 @@ func (app *App) InstallHandlers() {
 
 	app.requiringAdminHandleFunc("/api/keyboard-control", app.handleKeyboardControl)
 
-	app.requiringAdminHandleFunc("/manage/structure", app.handleManageStructure)
+	app.requiringAdminHandleFunc("/manage/structure", app.handleManageStructures)
 
 	app.requiringAdminHandleFunc("/create/tournament", app.handleCreateTournament)
 
@@ -942,6 +1013,7 @@ func (app *App) InstallHandlers() {
 
 	app.requiringAdminHandleFunc("/create/structure", app.handleCreateStructure)
 
+	// TODO: This should be a DELETE method?
 	app.requiringAdminTakingIDHandleFunc("/manage/structure/{id}/delete", func(ctx context.Context, id int64, w http.ResponseWriter, r *http.Request) {
 		err := app.appStorage.DeleteStructure(ctx, id)
 		if err != nil {
@@ -953,6 +1025,7 @@ func (app *App) InstallHandlers() {
 
 	app.requiringAdminHandleFunc("/create/footer-set", app.handleCreateFooterSet)
 
+	// TODO: This should be a DELETE method?
 	app.requiringAdminTakingIDHandleFunc("/manage/footer-set/{id}/delete", func(ctx context.Context, id int64, w http.ResponseWriter, r *http.Request) {
 		err := app.appStorage.DeleteFooterPlugSet(ctx, id)
 		if err != nil {
@@ -966,6 +1039,7 @@ func (app *App) InstallHandlers() {
 
 	app.handleFuncTakingID("/t/{id}", app.renderTournament)
 
+	// TODO: This should be a DELETE method?
 	app.requiringAdminTakingIDHandleFunc("/t/{id}/delete", func(ctx context.Context, id64 int64, w http.ResponseWriter, r *http.Request) {
 		if err := app.appStorage.DeleteTournament(ctx, id64); err != nil {
 			he.SendErrorToHTTPClient(w, "delete tournament", err)
@@ -999,8 +1073,15 @@ func (app *App) loadTemplates() {
 	}
 }
 
+// Wrapper to just return the input context.
+func contextualizer(ctx context.Context) func(net.Listener) context.Context {
+	return func(_ net.Listener) context.Context {
+		return ctx
+	}
+}
+
 // Serve starts the HTTP server on the given listen address.
-func (app *App) Serve(listenAddress string) error {
+func (app *App) Serve(ctx context.Context, listenAddress string) error {
 	wg := sync.WaitGroup{}
 
 	type result struct {
@@ -1012,7 +1093,8 @@ func (app *App) Serve(listenAddress string) error {
 
 	wg.Add(1)
 	go func() {
-		ch <- &result{"http", http.ListenAndServe(listenAddress, app.handler)}
+		server := &http.Server{Addr: listenAddress, Handler: app.handler, BaseContext: contextualizer(ctx)}
+		ch <- &result{"http", server.ListenAndServe()}
 		wg.Done()
 	}()
 

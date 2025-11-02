@@ -147,28 +147,20 @@ func (tm *Mutator) MinusTime(ctx context.Context, m *model.Tournament, d time.Du
 
 	// Step clock forward to be consistent with wall-clock.
 	tm.adjustStateForElapsedTime(m)
+	defer tm.FillTransients(ctx, m)
 
 	// Stop clock if running.  Now we can easily manipulate time remaining.
-	isRunning := m.State.IsClockRunning
-	tm.StopClock(m)
+	if m.State.IsClockRunning {
+		tm.StopClock(m)
+		defer tm.StartClock(m)
+	}
 
 	remainingInLevel := time.Duration(*m.State.TimeRemainingMillis) * time.Millisecond
-
-	remainingInLevel -= d
-
-	for remainingInLevel <= 0 {
-		tm.AdvanceLevel(m)
-		remainingInLevel += time.Duration(m.CurrentLevel().DurationMinutes) * time.Minute
+	if remainingInLevel > d {
+		remainingInLevel -= d
 	}
 
 	*m.State.TimeRemainingMillis = remainingInLevel.Milliseconds()
-
-	// If clock was running, start it again.
-	if isRunning {
-		tm.StartClock(m)
-	}
-
-	tm.FillTransients(ctx, m)
 
 	return nil
 }
@@ -361,7 +353,6 @@ func (tm *Mutator) RestartTournament(m *model.Tournament) error {
 }
 
 func (tm *Mutator) StopClock(m *model.Tournament) error {
-	log.Printf("stop clock request for tournament %d", m.EventID)
 	tm.adjustStateForElapsedTime(m)
 
 	if !m.State.IsClockRunning {
@@ -445,26 +436,30 @@ func (tm *Mutator) PlusTime(ctx context.Context, m *model.Tournament, d time.Dur
 		return errors.New("can't add a minute: no current level")
 	}
 
-	if m.State.IsClockRunning {
-		newEndsAt := m.CurrentLevelEndsAtAsTime().Add(d)
-		asInt64 := newEndsAt.UnixMilli()
-		m.State.CurrentLevelEndsAt = &asInt64
-		m.State.TimeRemainingMillis = nil
-	} else {
-		var remaining time.Duration
-		if m.State.TimeRemainingMillis != nil {
-			remaining = time.Duration(*m.State.TimeRemainingMillis) * time.Millisecond
-		} else {
-			log.Printf("debug: when adding a minute, no TimeRemainingMillis, using full level duration")
-			remaining = *m.CurrentLevelDuration()
-		}
+	tm.FillTransients(ctx, m)
 
-		remaining += d
-		remainingMillis := remaining.Milliseconds()
-
-		m.State.TimeRemainingMillis = &remainingMillis
-		m.State.CurrentLevelEndsAt = nil
+	clockRunning := m.State.IsClockRunning
+	if clockRunning {
+		tm.StopClock(m)
+		defer tm.StartClock(m)
 	}
+
+	if m.State.TimeRemainingMillis == nil {
+		// can't happen?
+		log.Printf("debug: when adding a minute, no TimeRemainingMillis, using full level duration")
+		return nil
+	}
+
+	plus := time.Duration(*m.State.TimeRemainingMillis)*time.Millisecond + d
+	levelDuration := time.Duration(m.CurrentLevel().DurationMinutes) * time.Minute
+
+	if plus > levelDuration {
+		// Can't overflow level.  We could set this to max, but we're going to ignore it.
+		return nil
+	}
+
+	millis := plus.Milliseconds()
+	m.State.TimeRemainingMillis = &millis
 
 	tm.FillTransients(ctx, m)
 

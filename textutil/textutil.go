@@ -66,3 +66,17 @@ func FormatPlace(place int) string {
 	}
 	return fmt.Sprintf("%d%s", place, suffix)
 }
+
+// Join concatenates the elements of a string slice with a separator.
+func Join(elems []string, sep string) string {
+	return strings.Join(elems, sep)
+}
+
+// JoinInts concatenates the elements of an int slice with a separator.
+func JoinInts(elems []int, sep string) string {
+	strs := make([]string, len(elems))
+	for i, v := range elems {
+		strs[i] = strconv.Itoa(v)
+	}
+	return strings.Join(strs, sep)
+}

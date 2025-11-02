@@ -26,7 +26,7 @@ func Init() {
 	viper.BindEnv("sql_connector", "IRATA_SQL_CONNECTOR")
 	viper.SetDefault("db_url", "")
 	viper.SetDefault("listen_address", ":8080")
-	viper.SetDefault("sql_connector", "cloudsqlconn")
+	viper.SetDefault("sql_connector", "dbx")
 	err = viper.ReadInConfig() // ignore error if config file missing
 	if err != nil {
 		log.Printf("viper can't read config file: %v", err)

@@ -10,9 +10,10 @@ too tempting.
 This is pre-release
 -------------------
 
-This is not really ready for wide distribution, and setup requires a number of
-poorly documented manual steps.  There are also a lot of rough corners and even
-the occasional outright bug.
+Setup requires a number of poorly documented manual steps.  There are also a
+lot of rough corners and even the occasional outright bug.
+
+But, it does kind of work.
 
 
 Getting Started
@@ -98,7 +99,8 @@ My friend Patrick Milligan wrote a clock known as the Oakleaf Tournament Timer.
 It was used by a few proper poker rooms in the '00s, notably Bay 101 and
 Bellagio.  Much of this clock is inspired by Patrick's work, in particular, the
 key bindings are very familiar.  (Patrick's clock is no longer maintained and has
-some limitations I didn't want to live with.)
+some limitations I didn't want to live with.)  Patrick has also contributed
+several usability suggestions, some of which I even implemented.
 
 There are quite a few inside jokes in the current state of the code.
 
@@ -120,6 +122,10 @@ have that very 1981 look.  This is used in the default `irata` theme.
 To Do
 -----
 
+* CORS configuration requires the app to be working already.  That's probably
+  not going to end well.
+* Cookie secrets can be rotated, but nothing makes this happen automatically.
+  Cookie secrets are never reloaded, but they do expire.
 * A lot of inconsistency in data model names and variable names.  The whole
   of `movement.js` is pretty bad.
   * Gratuitious use of LLMs has not helped code consistency.  I regret nothing.
@@ -137,9 +143,10 @@ To Do
   tabs up at the same clock, eventually the browser will starve for
   connections.  This looks like a server bug but isn't.
 * SSL isn't supported.  Since I am running this in a Cloud Run instance,
-  this is not currently a problem.
-* Pagination isn't supported.  Since we have only a trivial number of users,
-  this isn't a problem.
+  this is not currently a problem.  Also, Let's Encrypt should be supported.
+* Pagination isn't supported in many places where it should be.
+  Since we have only a trivial number of users, this isn't a problem that
+  has risen to the top of the stack yet.
 * Changing anything in site config means restarting the server, but this
   could be detected automatically.
 * Database doesn't notify for changes, so we can really only have a single
@@ -152,5 +159,7 @@ To Do
 * Sound effect select on the site config screen should allow testing sound.
 * Sound effect select on the edit tournanament screen should allow testing sound.
 * Sounds should be in the database, I guess.
-* There should be more than one pay table, and the pay table should scale to at least 500
-  players.
+* There should be more than one pay table, and some pay table should scale to 
+  at least 500 players.
+* Errors (particularly pay table errors) aren't reported well.
+* This list keeps getting longer.

@@ -1,6 +1,14 @@
 package permission
 
+/*
+Package permission knows who you are and what you're allowed to do.
+
+TODO: Cookies aren't automatically rotated.  Site config is set at server
+boot time, which is wrong, but not wrong very often.
+*/
+
 import (
+	"context"
 	"encoding/base64"
 	"fmt"
 	"log"
@@ -22,8 +30,9 @@ type BakeryClock interface {
 }
 
 type cookieBaker struct {
-	v  model.CookieKeyValidity
-	sc *securecookie.SecureCookie
+	cookieDomain string
+	v            model.CookieKeyValidity
+	sc           *securecookie.SecureCookie
 }
 
 func (cb *cookieBaker) honorable(now time.Time) bool {
@@ -34,8 +43,13 @@ func (cb *cookieBaker) mintable(now time.Time) bool {
 	return now.After(cb.v.MintFrom) && now.Before(cb.v.MintUntil)
 }
 
+type SiteConfigFetcher interface {
+	FetchSiteConfig(ctx context.Context) (*model.SiteConfig, error)
+}
+
 type Bakery struct {
-	bakers []cookieBaker
+	cookieDomain string
+	bakers       []cookieBaker
 }
 
 // New creates a new Bakery instance.
@@ -59,8 +73,9 @@ func New(clock BakeryClock, conf *model.SiteConfig) (*Bakery, error) {
 		}
 		keys = append(keys,
 			cookieBaker{
-				sc: securecookie.New(hashKey, blockKey),
-				v:  inputKey.Validity,
+				cookieDomain: conf.CookieDomain,
+				sc:           securecookie.New(hashKey, blockKey),
+				v:            inputKey.Validity,
 			})
 	}
 
@@ -143,6 +158,7 @@ func (b *Bakery) BakeCookie(w http.ResponseWriter, lc *model.AuthCookieData) err
 		Name:     AuthCookieName,
 		Value:    encrypted,
 		Path:     "/",
+		Domain:   b.cookieDomain,
 		Secure:   config.SecureCookies(),
 		HttpOnly: true,
 		SameSite: http.SameSiteStrictMode,

@@ -54,7 +54,7 @@ func main() {
 
 	soundStorage := state.NewBuiltInSoundStorage()
 
-	app := webapp.New(&webapp.Config{
+	app := webapp.New(ctx, &webapp.Config{
 		AppStorage:        storage,
 		SiteStorage:       unprotectedStorage,
 		PaytableStorage:   paytableStorage,
@@ -67,7 +67,7 @@ func main() {
 		TournamentMutator: tournamentMutator,
 	})
 
-	if err := app.Serve(viper.GetString("listen_address")); err != nil {
+	if err := app.Serve(ctx, viper.GetString("listen_address")); err != nil {
 		log.Fatalf("can't serve: %v", err)
 	}
 }
