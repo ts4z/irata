@@ -40,10 +40,8 @@ import (
 )
 
 var templateFuncs template.FuncMap = template.FuncMap{
-	"wrapLinesInNOBR": textutil.WrapLinesInNOBR,
-	"joinNLNL":        textutil.JoinNLNL,
-	"join":            textutil.Join,
-	"joinInts":        textutil.JoinInts,
+	"join":     textutil.Join,
+	"joinInts": textutil.JoinInts,
 }
 
 func idPathValue(w http.ResponseWriter, r *http.Request) (int64, error) {
@@ -717,7 +715,8 @@ func (app *App) handleAPIFooterPlugs(ctx context.Context, id int64, w http.Respo
 	}
 
 	for i, s := range fp.TextPlugs {
-		fp.TextPlugs[i] = textutil.WrapLinesInNOBR(html.EscapeString(s))
+		escaped := html.EscapeString(s)
+		fp.TextPlugs[i] = textutil.WrapAttributionInNobr(escaped)
 	}
 
 	bytes, err := json.Marshal(fp)

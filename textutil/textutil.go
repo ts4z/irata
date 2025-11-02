@@ -3,24 +3,37 @@ package textutil
 import (
 	"errors"
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
 )
 
-func WrapLinesInNOBR(input string) string {
-	sb := strings.Builder{}
-	lines := strings.Split(input, "\n")
-	for _, line := range lines {
-		sb.WriteString("<nobr>")
-		sb.WriteString(line)
-		sb.WriteString("</nobr> ")
-	}
-	return sb.String()
-}
+var nobrAttributionRE = regexp.MustCompile(
+	// must start with some leading space
+	`(?:\s|\n|\r)+` +
+		// need some kind of hyphen-looking thing
+		`((?:-|—|~)` +
+		// need a leading uppercase character or something quotey
+		`(?:\p{Lu}|"|&#34;)` +
+		// Now we need a bunch of nickname/name characters.  This is a little problematic
+		// because names can have dots and commas, and we aren't currently handling
+		// that case.  Sorry, Rev. Dr. Martin Luther King, Jr.  This is complicated
+		// by quotes that have additional phrases for context (like mentioning
+		// the movie the quote came from).  We could probably mitigate this by looking
+		// for repeated capitalized words (until you think about e.e. cummings but I think
+		// that's a special case even I can let go).
+		`(?:\pL|\pN|"|&#34;|'| |-)*)` +
+		// must be at end of string
+		`$`)
 
-func JoinNLNL(input []string) string {
-	return strings.Join(input, "\n\n")
+// WrapAttributionInNobr wraps quote attributions at the end of strings in a <nobr> tag.
+// This prevents line breaks in attributions like "Quote text. -Winston Churchill"
+//
+// This is hairy becasue it will mostly work on HTML-escaped text, and will probably get
+// worse as it works on more text in the future.
+func WrapAttributionInNobr(s string) string {
+	return nobrAttributionRE.ReplaceAllString(s, " <nobr>$1</nobr>")
 }
 
 // Parse MM:SS or HH:MM:SS format into time.Duration.
