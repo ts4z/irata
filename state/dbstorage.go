@@ -20,7 +20,6 @@ import (
 	"github.com/ts4z/irata/dbutil"
 	"github.com/ts4z/irata/he"
 	"github.com/ts4z/irata/model"
-	"github.com/ts4z/irata/tournament"
 )
 
 // DBStorage stores stuff in the associated database.
@@ -29,8 +28,7 @@ import (
 // interfaces are easily seperable.  (The database handle can
 // be shared.)
 type DBStorage struct {
-	db                *sql.DB
-	tournamentMutator *tournament.Manager
+	db *sql.DB
 	// Map from tournament id to slice of notification functions
 	tournamentListeners   map[int64][]chan<- *model.Tournament
 	tournamentListenersMu sync.Mutex
@@ -250,13 +248,12 @@ func dbConnect() (*sql.DB, error) {
 	return factory()
 }
 
-func NewDBStorage(ctx context.Context, url string, tournamentMutator *tournament.Manager) (*DBStorage, error) {
+func NewDBStorage(ctx context.Context, url string) (*DBStorage, error) {
 	db, err := dbConnect()
 	if err != nil {
 		return nil, err
 	}
 	return &DBStorage{
-		tournamentMutator:   tournamentMutator,
 		db:                  db,
 		tournamentListeners: make(map[int64][]chan<- *model.Tournament),
 	}, nil
@@ -433,10 +430,6 @@ func (s *DBStorage) FetchTournament(ctx context.Context, id int64) (*model.Tourn
 	// These come from the database row, not the JSON.
 	t.EventID = id
 	t.Version = lock
-	// These don't come from the database at all.
-	// TODO: This shouldn't be here, because the database has no business
-	// having a clock or paytable fetcher dependency.
-	s.tournamentMutator.FillTransients(ctx, t)
 
 	return t, nil
 }
@@ -514,15 +507,6 @@ func (s *DBStorage) SaveTournament(
 	tm.Version = newVersion
 
 	cpy.Version = newVersion
-
-	// TODO: This is the wrong place for this; we have some things that need to be untangled.
-	// We don't need to FillTransients here, we're only doing that becasue the listener wants it.
-	// The listener logic should be split out of this module.  This will fail to update the PrizePool field
-	// (which is actually in the state) but it'll probably work because of the exact flow of stuff.
-	//
-	// The right thing to do is to make raw storage unaware of the listener, and build that as
-	// a lookaside cache in a decorator of this API.
-	s.tournamentMutator.FillTransients(ctx, &cpy)
 
 	// Notify listeners for this tournament id
 	listeners := s.resetTournamentListeners(tm.EventID)

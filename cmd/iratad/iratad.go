@@ -31,10 +31,11 @@ func main() {
 
 	tournamentManager := tournament.NewManager(clock, state.NewDefaultPaytableStorage(), sefs)
 
-	unprotectedStorage, err := state.NewDBStorage(context.Background(), viper.GetString("db_url"), tournamentManager)
+	unprotectedStorage, err := state.NewDBStorage(context.Background(), viper.GetString("db_url"))
 	if err != nil {
 		log.Fatalf("can't configure database: %v", err)
 	}
+	defer unprotectedStorage.Close()
 
 	siteConfig, err := unprotectedStorage.FetchSiteConfig(ctx)
 	if err != nil {
