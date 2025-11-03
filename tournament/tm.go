@@ -49,14 +49,15 @@ type SoundEffectFetcher interface {
 	FetchSoundEffectByID(ctx context.Context, id int64) (*soundmodel.SoundEffect, error)
 }
 
-type Mutator struct {
+// Manager provides tournament mutation and maintenance operations.
+type Manager struct {
 	clock Clock
 	ptf   PaytableFetcher
 	sef   SoundEffectFetcher
 }
 
-func NewMutator(clock Clock, paytableFetcher PaytableFetcher, soundEffectFetcher SoundEffectFetcher) *Mutator {
-	return &Mutator{
+func NewManager(clock Clock, paytableFetcher PaytableFetcher, soundEffectFetcher SoundEffectFetcher) *Manager {
+	return &Manager{
 		clock: clock,
 		ptf:   paytableFetcher,
 		sef:   soundEffectFetcher,
@@ -66,7 +67,7 @@ func NewMutator(clock Clock, paytableFetcher PaytableFetcher, soundEffectFetcher
 // ComputePrizePoolText calculates the prize pool distribution and returns
 // a formatted text block suitable for display in the PrizePool textarea.
 // Returns an error if the paytable is nil or if the calculation fails.
-func (tm *Mutator) ComputePrizePoolText(m *model.Tournament) (string, error) {
+func (tm *Manager) ComputePrizePoolText(m *model.Tournament) (string, error) {
 	pt, err := tm.ptf.FetchPaytableByID(context.Background(), m.PaytableID)
 	if err != nil {
 		return "", fmt.Errorf("while regenerating pay table: failed to fetch paytable: %w", err)
@@ -122,7 +123,7 @@ func (tm *Mutator) ComputePrizePoolText(m *model.Tournament) (string, error) {
 	return strings.Join(lines, "\n"), nil
 }
 
-func (tm *Mutator) CurrentLevel(m *model.Tournament) *model.Level {
+func (tm *Manager) CurrentLevel(m *model.Tournament) *model.Level {
 	var lvl int = m.State.CurrentLevelNumber
 	if lvl < 0 {
 		lvl = 0
@@ -136,7 +137,7 @@ func (tm *Mutator) CurrentLevel(m *model.Tournament) *model.Level {
 }
 
 // Deduct time from the running level.
-func (tm *Mutator) MinusTime(ctx context.Context, m *model.Tournament, d time.Duration) error {
+func (tm *Manager) MinusTime(ctx context.Context, m *model.Tournament, d time.Duration) error {
 	if d < 0 {
 		log.Fatalf("can't happen: MinusTime with negative duration %v", d)
 	}
@@ -166,7 +167,7 @@ func (tm *Mutator) MinusTime(ctx context.Context, m *model.Tournament, d time.Du
 }
 
 // adjustStateForElapsedTime fixes the state to reflect the current time.
-func (tm *Mutator) adjustStateForElapsedTime(m *model.Tournament) {
+func (tm *Manager) adjustStateForElapsedTime(m *model.Tournament) {
 	if m.CurrentLevel() == nil {
 		tm.RestartLastLevel(m)
 		return
@@ -238,7 +239,7 @@ func (tm *Mutator) adjustStateForElapsedTime(m *model.Tournament) {
 	}
 }
 
-func (tm *Mutator) SetLevelRemaining(m *model.Tournament, d time.Duration) {
+func (tm *Manager) SetLevelRemaining(m *model.Tournament, d time.Duration) {
 	if d < 0 {
 		d = 0
 	}
@@ -254,7 +255,7 @@ func (tm *Mutator) SetLevelRemaining(m *model.Tournament, d time.Duration) {
 	}
 }
 
-func (tm *Mutator) AdvanceLevel(m *model.Tournament) error {
+func (tm *Manager) AdvanceLevel(m *model.Tournament) error {
 	if m.State.CurrentLevelNumber >= len(m.Structure.Levels)-1 {
 		endOfTime(m)
 		return nil
@@ -265,7 +266,7 @@ func (tm *Mutator) AdvanceLevel(m *model.Tournament) error {
 	return nil
 }
 
-func (tm *Mutator) RestartLastLevel(m *model.Tournament) {
+func (tm *Manager) RestartLastLevel(m *model.Tournament) {
 	m.State.CurrentLevelNumber = len(m.Structure.Levels) - 1
 	tm.startLevelFromBeginning(m)
 }
@@ -273,7 +274,7 @@ func (tm *Mutator) RestartLastLevel(m *model.Tournament) {
 // FillTransients fills out computed fields.  (These shouldn't be serialized to
 // the database as they're redundant, but they are very convenient for access
 // from templates and maybe JS.)
-func (tm *Mutator) FillTransients(ctx context.Context, m *model.Tournament) {
+func (tm *Manager) FillTransients(ctx context.Context, m *model.Tournament) {
 	m.Transients = &model.Transients{
 		ProtocolVersion: protocol.Version,
 	}
@@ -308,7 +309,7 @@ func (tm *Mutator) FillTransients(ctx context.Context, m *model.Tournament) {
 	}
 }
 
-func (tm *Mutator) PreviousLevel(m *model.Tournament) error {
+func (tm *Manager) PreviousLevel(m *model.Tournament) error {
 	if m.State.CurrentLevelNumber <= 0 {
 		return errors.New("already at min level")
 	}
@@ -319,7 +320,7 @@ func (tm *Mutator) PreviousLevel(m *model.Tournament) error {
 
 // startLevelFromBeginning resets the current level's clocks after a manual level change.
 // (It doesn't make sense to call this externally.)
-func (tm *Mutator) startLevelFromBeginning(m *model.Tournament) {
+func (tm *Manager) startLevelFromBeginning(m *model.Tournament) {
 	if m.CurrentLevel() == nil {
 		log.Printf("debug: can't restart level: no current level")
 	}
@@ -336,30 +337,30 @@ func (tm *Mutator) startLevelFromBeginning(m *model.Tournament) {
 	}
 }
 
-func (tm *Mutator) MuteSound(m *model.Tournament) error {
+func (tm *Manager) MuteSound(m *model.Tournament) error {
 	m.State.SoundMuted = true
 	return nil
 }
 
-func (tm *Mutator) UnmuteSound(m *model.Tournament) error {
+func (tm *Manager) UnmuteSound(m *model.Tournament) error {
 	m.State.SoundMuted = false
 	return nil
 }
 
-func (tm *Mutator) PauseAndRestartLevel(m *model.Tournament) error {
+func (tm *Manager) PauseAndRestartLevel(m *model.Tournament) error {
 	tm.StopClock(m)
 	tm.startLevelFromBeginning(m)
 	return nil
 }
 
-func (tm *Mutator) PauseAndRestartTournament(m *model.Tournament) error {
+func (tm *Manager) PauseAndRestartTournament(m *model.Tournament) error {
 	m.State.CurrentLevelNumber = 0
 	tm.StopClock(m)
 	tm.startLevelFromBeginning(m)
 	return nil
 }
 
-func (tm *Mutator) StopClock(m *model.Tournament) error {
+func (tm *Manager) StopClock(m *model.Tournament) error {
 	tm.adjustStateForElapsedTime(m)
 
 	if !m.State.IsClockRunning {
@@ -380,7 +381,7 @@ func (tm *Mutator) StopClock(m *model.Tournament) error {
 	return nil
 }
 
-func (tm *Mutator) StartClock(m *model.Tournament) error {
+func (tm *Manager) StartClock(m *model.Tournament) error {
 	tm.adjustStateForElapsedTime(m)
 
 	if m.State.IsClockRunning {
@@ -408,7 +409,7 @@ func (tm *Mutator) StartClock(m *model.Tournament) error {
 	return nil
 }
 
-func (tm *Mutator) ChangePlayers(ctx context.Context, m *model.Tournament, n int) error {
+func (tm *Manager) ChangePlayers(ctx context.Context, m *model.Tournament, n int) error {
 	m.State.CurrentPlayers += n
 	if m.State.CurrentPlayers < 1 {
 		m.State.CurrentPlayers = 1
@@ -417,7 +418,7 @@ func (tm *Mutator) ChangePlayers(ctx context.Context, m *model.Tournament, n int
 	return nil
 }
 
-func (tm *Mutator) ChangeBuyIns(ctx context.Context, m *model.Tournament, n int) error {
+func (tm *Manager) ChangeBuyIns(ctx context.Context, m *model.Tournament, n int) error {
 	m.State.BuyIns += n
 	if m.State.BuyIns < 1 {
 		m.State.BuyIns = 1
@@ -426,7 +427,7 @@ func (tm *Mutator) ChangeBuyIns(ctx context.Context, m *model.Tournament, n int)
 	return nil
 }
 
-func (tm *Mutator) ChangeAddOns(ctx context.Context, m *model.Tournament, n int) error {
+func (tm *Manager) ChangeAddOns(ctx context.Context, m *model.Tournament, n int) error {
 	m.State.AddOns += n
 	if m.State.AddOns < 1 {
 		m.State.AddOns = 0
@@ -435,7 +436,7 @@ func (tm *Mutator) ChangeAddOns(ctx context.Context, m *model.Tournament, n int)
 	return nil
 }
 
-func (tm *Mutator) PlusTime(ctx context.Context, m *model.Tournament, d time.Duration) error {
+func (tm *Manager) PlusTime(ctx context.Context, m *model.Tournament, d time.Duration) error {
 
 	tm.adjustStateForElapsedTime(m)
 

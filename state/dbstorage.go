@@ -30,7 +30,7 @@ import (
 // be shared.)
 type DBStorage struct {
 	db                *sql.DB
-	tournamentMutator *tournament.Mutator
+	tournamentMutator *tournament.Manager
 	// Map from tournament id to slice of notification functions
 	tournamentListeners   map[int64][]chan<- *model.Tournament
 	tournamentListenersMu sync.Mutex
@@ -250,7 +250,7 @@ func dbConnect() (*sql.DB, error) {
 	return factory()
 }
 
-func NewDBStorage(ctx context.Context, url string, tournamentMutator *tournament.Mutator) (*DBStorage, error) {
+func NewDBStorage(ctx context.Context, url string, tournamentMutator *tournament.Manager) (*DBStorage, error) {
 	db, err := dbConnect()
 	if err != nil {
 		return nil, err

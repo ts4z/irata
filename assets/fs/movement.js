@@ -681,7 +681,7 @@ const cached_change_listener = (() => {
     controller = new AbortController();
     cached_promise = Promise.any([
       listen_and_consume_model_changes(controller.signal),
-      sleep(10 * 1000),
+      sleep(60 * 1000),
     ]).then(how => { cached_promise = undefined; return how; })
   }
 
@@ -713,7 +713,7 @@ async function tick() {
   Promise.any(wait).catch((e) => {
     console.log(`tick threw up: ${e}`);
   }).finally(() => {
-    setTimeout(tick, 50);
+    setTimeout(tick, 500);
   });
 }
 

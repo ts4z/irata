@@ -16,12 +16,13 @@ import (
 )
 
 type FormProcessor struct {
-	storage           state.AppStorage
-	tournamentMutator *tournament.Mutator
+	appStorage        state.AppStorage
+	ts                state.TournamentStorage
+	tournamentMutator *tournament.Manager
 }
 
-func New(s state.AppStorage, tournamentMutator *tournament.Mutator) *FormProcessor {
-	return &FormProcessor{storage: s, tournamentMutator: tournamentMutator}
+func NewProcessor(as state.AppStorage, ts state.TournamentStorage, tournamentMutator *tournament.Manager) *FormProcessor {
+	return &FormProcessor{appStorage: as, ts: ts, tournamentMutator: tournamentMutator}
 }
 
 func maybeCopyString(form url.Values, dest *string, key string) {
@@ -125,7 +126,7 @@ func (a *FormProcessor) ApplyFormToTournament(ctx context.Context, form url.Valu
 		}
 
 		// Fetch the new structure
-		structure, err := a.storage.FetchStructure(ctx, structureID)
+		structure, err := a.appStorage.FetchStructure(ctx, structureID)
 		if err != nil {
 			return he.HTTPCodedErrorf(404, "can't fetch structure")
 		}
@@ -177,7 +178,7 @@ func (a *FormProcessor) ApplyFormToTournament(ctx context.Context, form url.Valu
 func (a *FormProcessor) EditTournament(ctx context.Context, id int64, form url.Values) error {
 	log.Printf("edit path: %v", id)
 
-	t, err := a.storage.FetchTournament(ctx, id)
+	t, err := a.ts.FetchTournament(ctx, id)
 	if err != nil {
 		return he.HTTPCodedErrorf(404, "can't get tournament from database")
 	}
@@ -189,7 +190,7 @@ func (a *FormProcessor) EditTournament(ctx context.Context, id int64, form url.V
 		return err
 	}
 
-	return a.storage.SaveTournament(ctx, t)
+	return a.ts.SaveTournament(ctx, t)
 }
 
 func (a *FormProcessor) CreateTournament(ctx context.Context, form url.Values) (int64, error) {
@@ -202,5 +203,5 @@ func (a *FormProcessor) CreateTournament(ctx context.Context, form url.Values) (
 		return 0, err
 	}
 
-	return a.storage.CreateTournament(ctx, t)
+	return a.ts.CreateTournament(ctx, t)
 }

@@ -11,14 +11,7 @@ import (
 	"github.com/ts4z/irata/soundmodel"
 )
 
-type Closer interface {
-	Close()
-}
-
-// AppStorage describes storage's view of state management.
-type AppStorage interface {
-	Closer
-
+type TournamentStorage interface {
 	FetchOverview(ctx context.Context, offset, limit int) (*model.Overview, error)
 
 	CreateTournament(ctx context.Context, t *model.Tournament) (int64, error)
@@ -26,7 +19,10 @@ type AppStorage interface {
 	DeleteTournament(ctx context.Context, id int64) error
 	FetchTournament(ctx context.Context, id int64) (*model.Tournament, error)
 	ListenTournamentVersion(ctx context.Context, id int64, version int64, errCh chan<- error, tournamentCh chan<- *model.Tournament)
+}
 
+// AppStorage describes storage's view of state management.
+type AppStorage interface {
 	FetchPlugs(ctx context.Context, id int64) (*model.FooterPlugs, error)
 
 	// List all footer plug sets (metadata only, not plugs).
@@ -49,15 +45,11 @@ type AppStorage interface {
 }
 
 type SiteStorage interface {
-	Closer
-
 	FetchSiteConfig(ctx context.Context) (*model.SiteConfig, error)
 	SaveSiteConfig(ctx context.Context, config *model.SiteConfig) error
 }
 
 type UserStorage interface {
-	Closer
-
 	FetchUsers(ctx context.Context) ([]*model.UserIdentity, error)
 	CreateUser(ctx context.Context, nick string, emailAddress string, passwordHash string, isAdmin bool) error
 	FetchUserByUserID(ctx context.Context, id int64) (*model.UserIdentity, error)
@@ -70,15 +62,11 @@ type UserStorage interface {
 }
 
 type PaytableStorage interface {
-	Closer
-
 	FetchPaytableByID(ctx context.Context, id int64) (*paytable.Paytable, error)
 	FetchPaytableSlugs(ctx context.Context) ([]*paytable.PaytableSlug, error)
 }
 
 type SoundEffectStorage interface {
-	Closer
-
 	FetchSoundEffectByID(ctx context.Context, id int64) (*soundmodel.SoundEffect, error)
 	FetchSoundEffectSlugs(ctx context.Context) ([]*soundmodel.SoundEffectSlug, error)
 }

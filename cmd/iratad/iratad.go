@@ -29,9 +29,9 @@ func main() {
 
 	sefs := state.NewBuiltInSoundStorage()
 
-	tournamentMutator := tournament.NewMutator(clock, state.NewDefaultPaytableStorage(), sefs)
+	tournamentManager := tournament.NewManager(clock, state.NewDefaultPaytableStorage(), sefs)
 
-	unprotectedStorage, err := state.NewDBStorage(context.Background(), viper.GetString("db_url"), tournamentMutator)
+	unprotectedStorage, err := state.NewDBStorage(context.Background(), viper.GetString("db_url"), tournamentManager)
 	if err != nil {
 		log.Fatalf("can't configure database: %v", err)
 	}
@@ -46,16 +46,18 @@ func main() {
 		log.Fatalf("can't create bakery: %v", err)
 	}
 
-	storage := &permission.StoragePermissionFacade{Storage: unprotectedStorage}
+	appStorage := &permission.AppStorage{Storage: unprotectedStorage}
+	tournamentStorage := &permission.TournamentStorage{Storage: unprotectedStorage}
 
-	mutator := form.New(storage, tournamentMutator)
+	mutator := form.NewProcessor(appStorage, tournamentStorage, tournamentManager)
 
 	paytableStorage := state.NewDefaultPaytableStorage()
 
 	soundStorage := state.NewBuiltInSoundStorage()
 
 	app := webapp.New(ctx, &webapp.Config{
-		AppStorage:        storage,
+		AppStorage:        appStorage,
+		TournamentStorage: tournamentStorage,
 		SiteStorage:       unprotectedStorage,
 		PaytableStorage:   paytableStorage,
 		SoundStorage:      soundStorage,
@@ -64,7 +66,7 @@ func main() {
 		SubFS:             subFS,
 		Bakery:            bakery,
 		Clock:             clock,
-		TournamentMutator: tournamentMutator,
+		TournamentManager: tournamentManager,
 	})
 
 	if err := app.Serve(ctx, viper.GetString("listen_address")); err != nil {

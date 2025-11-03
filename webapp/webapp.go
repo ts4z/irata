@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"html"
 	"html/template"
+	"io"
 	"io/fs"
 	"log"
 	"net"
@@ -21,6 +22,7 @@ import (
 
 	"github.com/ts4z/irata/app/handlers"
 	"github.com/ts4z/irata/assets"
+	"github.com/ts4z/irata/dep"
 	"github.com/ts4z/irata/form"
 	"github.com/ts4z/irata/he"
 	"github.com/ts4z/irata/middleware"
@@ -36,7 +38,7 @@ import (
 	"github.com/ts4z/irata/textutil"
 	"github.com/ts4z/irata/tournament"
 	"github.com/ts4z/irata/urlpath"
-	"github.com/ts4z/irata/webapp/ksd"
+	"github.com/ts4z/irata/webapp/kbd"
 )
 
 var templateFuncs template.FuncMap = template.FuncMap{
@@ -66,6 +68,7 @@ type editTournamentArgs struct {
 
 // Config holds the configuration for creating a new IrataApp.
 type Config struct {
+	TournamentStorage state.TournamentStorage
 	AppStorage        state.AppStorage
 	SiteStorage       state.SiteStorage
 	UserStorage       state.UserStorage
@@ -75,7 +78,7 @@ type Config struct {
 	SubFS             fs.FS
 	Bakery            *permission.Bakery
 	Clock             nower
-	TournamentMutator *tournament.Mutator
+	TournamentManager *tournament.Manager
 }
 
 // App is the main web application.
@@ -85,15 +88,16 @@ type App struct {
 	subFS     fs.FS
 
 	// dependencies
-	appStorage      state.AppStorage
-	siteStorage     state.SiteStorage
-	userStorage     state.UserStorage
-	paytableStorage state.PaytableStorage
-	soundStorage    state.SoundEffectStorage
-	formProcessor   *form.FormProcessor
-	bakery          *permission.Bakery
-	clock           nower
-	tm              *tournament.Mutator
+	tournamentStorage state.TournamentStorage
+	appStorage        state.AppStorage
+	siteStorage       state.SiteStorage
+	userStorage       state.UserStorage
+	paytableStorage   state.PaytableStorage
+	soundStorage      state.SoundEffectStorage
+	formProcessor     *form.FormProcessor
+	bakery            *permission.Bakery
+	clock             nower
+	tm                *tournament.Manager
 
 	// internals
 	mux     *http.ServeMux
@@ -130,17 +134,18 @@ func allowedOrigins(sc *model.SiteConfig) []string {
 // New creates a new IrataApp with the given configuration.
 func New(ctx context.Context, config *Config) *App {
 	app := &App{
-		appStorage:      config.AppStorage,
-		siteStorage:     config.SiteStorage,
-		userStorage:     config.UserStorage,
-		paytableStorage: config.PaytableStorage,
-		soundStorage:    config.SoundStorage,
-		formProcessor:   config.FormProcessor,
-		subFS:           config.SubFS,
-		bakery:          config.Bakery,
-		clock:           config.Clock,
-		tm:              config.TournamentMutator,
-		mux:             http.NewServeMux(),
+		appStorage:        dep.Required(config.AppStorage),
+		tournamentStorage: dep.Required(config.TournamentStorage),
+		siteStorage:       dep.Required(config.SiteStorage),
+		userStorage:       dep.Required(config.UserStorage),
+		paytableStorage:   dep.Required(config.PaytableStorage),
+		soundStorage:      dep.Required(config.SoundStorage),
+		formProcessor:     dep.Required(config.FormProcessor),
+		subFS:             dep.Required(config.SubFS),
+		bakery:            dep.Required(config.Bakery),
+		clock:             dep.Required(config.Clock),
+		tm:                dep.Required(config.TournamentManager),
+		mux:               dep.Required(http.NewServeMux()),
 	}
 
 	sc, err := app.siteStorage.FetchSiteConfig(ctx)
@@ -165,7 +170,6 @@ func New(ctx context.Context, config *Config) *App {
 		AllowedOrigins:   allowedOrigins(sc),
 		AllowedMethods:   []string{http.MethodGet, http.MethodPost, http.MethodDelete},
 		AllowCredentials: true,
-		// Debug: true,
 	})
 	app.handler = corsMW.Handler(tarpit)
 
@@ -181,7 +185,12 @@ func (app *App) Handler() http.Handler {
 }
 
 func (app *App) fetchTournament(ctx context.Context, id int64) (*model.Tournament, error) {
-	return app.appStorage.FetchTournament(ctx, id)
+	t, err := app.tournamentStorage.FetchTournament(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	app.tm.FillTransients(ctx, t)
+	return t, nil
 }
 
 var regexpLFLF = regexp.MustCompile(`\n\n+`)
@@ -628,7 +637,7 @@ func (app *App) handleIndex(ctx context.Context, w http.ResponseWriter, r *http.
 	}
 
 	// TODO: pagination
-	o, err := app.appStorage.FetchOverview(ctx, 0, 100)
+	o, err := app.tournamentStorage.FetchOverview(ctx, 0, 100)
 	if err != nil {
 		he.SendErrorToHTTPClient(w, "fetch overview", err)
 		return
@@ -815,9 +824,25 @@ func (app *App) handleAPITournamentListen(ctx context.Context, w http.ResponseWr
 		ProtocolVersion int64
 	}
 	var req reqBody
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+
+	// Read the body to log it
+	bodyBytes, err := io.ReadAll(r.Body)
+	if err != nil {
+		log.Printf("can't read body: %v", err)
+		he.SendErrorToHTTPClient(w, "/api/tournament-listen", he.HTTPCodedErrorf(400, "reading body: %w", err))
+		return
+	}
+	log.Printf("/api/tournament-listen payload: %s", string(bodyBytes))
+
+	// Decode the JSON from the bytes we read
+	if err := json.Unmarshal(bodyBytes, &req); err != nil {
 		log.Printf("can't decode body: %v", err)
 		he.SendErrorToHTTPClient(w, "/api/tournament-listen", he.HTTPCodedErrorf(400, "decoding json: %w", err))
+		return
+	}
+	if req.TournamentID <= 0 {
+		log.Printf("invalid tournament ID: %d in req: %+v", req.TournamentID, req)
+		he.SendErrorToHTTPClient(w, "prep listen request", he.HTTPCodedErrorf(400, "invalid tournament ID %d", req.TournamentID))
 		return
 	}
 	errCh := make(chan error, 1)
@@ -829,12 +854,13 @@ func (app *App) handleAPITournamentListen(ctx context.Context, w http.ResponseWr
 		// have to reload
 		version = -1
 	}
-	go app.appStorage.ListenTournamentVersion(ctx, req.TournamentID, version, errCh, tournamentCh)
+	go app.tournamentStorage.ListenTournamentVersion(ctx, req.TournamentID, version, errCh, tournamentCh)
 	select {
 	case err := <-errCh:
 		he.SendErrorToHTTPClient(w, "listening for tournament version change", err)
 		return
 	case tm := <-tournamentCh:
+		app.tm.FillTransients(ctx, tm)
 		bytes, err := json.Marshal(tm)
 		if err != nil {
 			he.SendErrorToHTTPClient(w, "marshal model", err)
@@ -930,7 +956,7 @@ func (app *App) handleManageSite(ctx context.Context, w http.ResponseWriter, r *
 }
 
 func (app *App) handleKeyboardControl(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-	handler := ksd.NewKeyboardShortcutDispatcher(app.tm, app.appStorage)
+	handler := kbd.NewKeyboardShortcutDispatcher(app.tm, app.tournamentStorage)
 	err := handler.HandleKeypress(ctx, r)
 	if err != nil {
 		log.Printf("error handling keypress: %v", err)
@@ -1055,7 +1081,7 @@ func (app *App) InstallHandlers() {
 
 	// TODO: This should be a DELETE method?
 	app.requiringAdminTakingIDHandleFunc("/t/{id}/delete", func(ctx context.Context, id64 int64, w http.ResponseWriter, r *http.Request) {
-		if err := app.appStorage.DeleteTournament(ctx, id64); err != nil {
+		if err := app.tournamentStorage.DeleteTournament(ctx, id64); err != nil {
 			he.SendErrorToHTTPClient(w, "delete tournament", err)
 		} else {
 			http.Redirect(w, r, "/", http.StatusPermanentRedirect)
@@ -1107,7 +1133,14 @@ func (app *App) Serve(ctx context.Context, listenAddress string) error {
 
 	wg.Add(1)
 	go func() {
-		server := &http.Server{Addr: listenAddress, Handler: app.handler, BaseContext: contextualizer(ctx)}
+		server := &http.Server{
+			Addr:         listenAddress,
+			Handler:      app.handler,
+			BaseContext:  contextualizer(ctx),
+			ReadTimeout:  10 * time.Second,
+			WriteTimeout: 1 * time.Hour,
+			IdleTimeout:  12 * time.Hour,
+		}
 		ch <- &result{"http", server.ListenAndServe()}
 		wg.Done()
 	}()

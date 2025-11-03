@@ -28,5 +28,5 @@ func (rl *RequestLogger) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	rl.next.ServeHTTP(ww, r)
 	code := ww.Code()
 	duration := time.Since(start)
-	log.Printf("[access] %d %v %v (%v)", code, r.RemoteAddr, r.URL.Path, duration)
+	log.Printf("[access log] %d %v %v (%v)", code, r.RemoteAddr, r.URL.Path, duration)
 }

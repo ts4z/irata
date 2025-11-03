@@ -1,4 +1,4 @@
-package ksd
+package kbd
 
 import (
 	"context"
@@ -36,11 +36,11 @@ func if10min(b bool) time.Duration {
 
 type KeyboardShortcutDispatcher struct {
 	keyToMutation     map[string]func(context.Context, *model.Tournament, *modifiers) error
-	tournamentStorage state.AppStorage
-	tm                *tournament.Mutator
+	tournamentStorage state.TournamentStorage
+	tm                *tournament.Manager
 }
 
-func NewKeyboardShortcutDispatcher(tm *tournament.Mutator, ts state.AppStorage) *KeyboardShortcutDispatcher {
+func NewKeyboardShortcutDispatcher(tm *tournament.Manager, ts state.TournamentStorage) *KeyboardShortcutDispatcher {
 	k2m := map[string]func(ctx context.Context, t *model.Tournament, bb *modifiers) error{
 		"PreviousLevel": func(ctx context.Context, t *model.Tournament, bb *modifiers) error { return tm.PreviousLevel(t) },
 		"SkipLevel":     func(ctx context.Context, t *model.Tournament, bb *modifiers) error { return tm.AdvanceLevel(t) },

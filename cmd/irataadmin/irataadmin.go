@@ -43,7 +43,8 @@ var (
 	expireTime time.Time
 )
 
-func newUserStorage(ctx context.Context) state.UserStorage {
+// Should return a Userstorage, but that hides Close.
+func newUserStorage(ctx context.Context) *state.DBStorage {
 	config.Init()
 	storage, err := state.NewDBStorage(ctx, config.DBURL(), nil)
 	if err != nil {
@@ -52,7 +53,8 @@ func newUserStorage(ctx context.Context) state.UserStorage {
 	return storage
 }
 
-func newSiteStorage(ctx context.Context) state.SiteStorage {
+// Should return a SiteStorage, but that hides Close.
+func newSiteStorage(ctx context.Context) *state.DBStorage {
 	storage, err := state.NewDBStorage(ctx, config.DBURL(), nil)
 	if err != nil {
 		log.Fatalf("can't connect to database: %v", err)
