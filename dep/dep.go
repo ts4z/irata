@@ -1,3 +1,8 @@
+/*
+package dep provides utilities for dependency injection.
+
+okay, just the one.
+*/
 package dep
 
 import (

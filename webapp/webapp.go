@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"html"
 	"html/template"
-	"io"
 	"io/fs"
 	"log"
 	"net"
@@ -825,17 +824,8 @@ func (app *App) handleAPITournamentListen(ctx context.Context, w http.ResponseWr
 	}
 	var req reqBody
 
-	// Read the body to log it
-	bodyBytes, err := io.ReadAll(r.Body)
-	if err != nil {
-		log.Printf("can't read body: %v", err)
-		he.SendErrorToHTTPClient(w, "/api/tournament-listen", he.HTTPCodedErrorf(400, "reading body: %w", err))
-		return
-	}
-	log.Printf("/api/tournament-listen payload: %s", string(bodyBytes))
-
 	// Decode the JSON from the bytes we read
-	if err := json.Unmarshal(bodyBytes, &req); err != nil {
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		log.Printf("can't decode body: %v", err)
 		he.SendErrorToHTTPClient(w, "/api/tournament-listen", he.HTTPCodedErrorf(400, "decoding json: %w", err))
 		return
