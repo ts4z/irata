@@ -562,8 +562,11 @@ input[type="submit"]:hover, button:hover {
     transform: translate(-50%, -50%) rotate(-33deg);
     font-size: 8vi;
     color: #ffffff;
-    text-shadow: -0.7vi -0.7vi 0 #000, 0.7vi -0.7vi 0 #000, -0.7vi 0.7vi 0 #000,
-        0.7vi 0.7vi 0 #000, 0 0 100px #000;
+    text-shadow: -0.7vi -0.7vi 1vi #000, 
+        0.7vi -0.7vi 1vi #000,
+        -0.7vi 0.7vi 1vi #000,
+        0.7vi 0.7vi 1vi #000,
+        0 0 2vi #000;
     font-family: arcade, monospace;
     pointer-events: none;
     z-index: 10;
