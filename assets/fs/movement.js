@@ -293,7 +293,7 @@ function ms_until_next_break() {
   if (!is_clock_running()) {
     return undefined;
   }
-  let amt = last_model.State.TimeRemainingMillis || 0;
+  let amt = last_model.State.CurrentLevelEndsAt - Date.now();
   for (let i = last_model.State.CurrentLevelNumber + 1; i < last_model.Structure.Levels.length; i++) {
     let level = last_model.Structure.Levels[i];
     if (level.IsBreak) {
@@ -414,8 +414,9 @@ function update_break_clock() {
 
   if (!is_clock_running()) {
     set("PAUSED");
+    return;
   }
-  
+
   let ms = ms_until_next_break();
 
   if (ms) {
