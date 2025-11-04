@@ -67,7 +67,7 @@ type editTournamentArgs struct {
 
 // Config holds the configuration for creating a new IrataApp.
 type Config struct {
-	TournamentStorage state.TournamentStorage
+	TournamentStorage state.TournamentListenerStorage
 	AppStorage        state.AppStorage
 	SiteStorage       state.SiteStorage
 	UserStorage       state.UserStorage
@@ -87,7 +87,7 @@ type App struct {
 	subFS     fs.FS
 
 	// dependencies
-	tournamentStorage state.TournamentStorage
+	tournamentStorage state.TournamentListenerStorage
 	appStorage        state.AppStorage
 	siteStorage       state.SiteStorage
 	userStorage       state.UserStorage
@@ -724,6 +724,8 @@ func (app *App) handleAPIFooterPlugs(ctx context.Context, id int64, w http.Respo
 
 	for i, s := range fp.TextPlugs {
 		escaped := html.EscapeString(s)
+		// Note: This corrupts the data in the model, which is kind of weird.
+		// appStorage cloned the model, so this is disposable, but still...
 		fp.TextPlugs[i] = textutil.WrapAttributionInNobr(escaped)
 	}
 
@@ -847,10 +849,11 @@ func (app *App) handleAPITournamentListen(ctx context.Context, w http.ResponseWr
 	go app.tournamentStorage.ListenTournamentVersion(ctx, req.TournamentID, version, errCh, tournamentCh)
 	select {
 	case err := <-errCh:
-		he.SendErrorToHTTPClient(w, "listening for tournament version change", err)
+		he.SendErrorToHTTPClient(w, "listen for tournament version change", err)
 		return
 	case tm := <-tournamentCh:
-		app.tm.FillTransientsAndAdvanceClock(ctx, tm)
+		// Tournaments from the listener arrive post FillTransientsAndAdvanceClock,
+		// so we don't need to do it again here.
 		bytes, err := json.Marshal(tm)
 		if err != nil {
 			he.SendErrorToHTTPClient(w, "marshal model", err)
@@ -860,8 +863,12 @@ func (app *App) handleAPITournamentListen(ctx context.Context, w http.ResponseWr
 		w.Write(bytes)
 		return
 	case <-timeoutCh:
-		he.SendErrorToHTTPClient(w, "waiting for tournament update",
+		he.SendErrorToHTTPClient(w, "wait for tournament update",
 			he.HTTPCodedErrorf(http.StatusGatewayTimeout, "timeout"))
+		return
+	case <-ctx.Done():
+		log.Printf("client closed connection while listening for tournament update")
+		http.Error(w, "request cancelled", http.StatusRequestTimeout)
 		return
 	}
 }

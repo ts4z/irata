@@ -9,7 +9,9 @@ import (
 
 	"github.com/ts4z/irata/assets"
 	"github.com/ts4z/irata/config"
+	"github.com/ts4z/irata/dbcache"
 	"github.com/ts4z/irata/form"
+	"github.com/ts4z/irata/listener"
 	"github.com/ts4z/irata/permission"
 	"github.com/ts4z/irata/state"
 	"github.com/ts4z/irata/tournament"
@@ -27,9 +29,9 @@ func main() {
 		log.Fatalf("fs.Sub: %v", err)
 	}
 
-	sefs := state.NewBuiltInSoundStorage()
+	soundStorage := state.NewBuiltInSoundStorage()
 
-	tournamentManager := tournament.NewManager(clock, state.NewDefaultPaytableStorage(), sefs)
+	tournamentManager := tournament.NewManager(clock, state.NewDefaultPaytableStorage(), soundStorage)
 
 	unprotectedStorage, err := state.NewDBStorage(context.Background(), viper.GetString("db_url"))
 	if err != nil {
@@ -47,14 +49,18 @@ func main() {
 		log.Fatalf("can't create bakery: %v", err)
 	}
 
-	appStorage := &permission.AppStorage{Storage: unprotectedStorage}
-	tournamentStorage := &permission.TournamentStorage{Storage: unprotectedStorage}
+	appStorage := &permission.AppStorage{
+		Storage: dbcache.NewAppStorage(16, unprotectedStorage),
+	}
+	tournamentStorage := &permission.TournamentStorage{
+		Storage: listener.NewTournamentStorage(
+			dbcache.NewTournamentStorage(128, unprotectedStorage),
+			tournamentManager),
+	}
 
 	mutator := form.NewProcessor(appStorage, tournamentStorage, tournamentManager)
 
 	paytableStorage := state.NewDefaultPaytableStorage()
-
-	soundStorage := state.NewBuiltInSoundStorage()
 
 	app := webapp.New(ctx, &webapp.Config{
 		AppStorage:        appStorage,

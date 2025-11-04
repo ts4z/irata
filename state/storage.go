@@ -18,6 +18,10 @@ type TournamentStorage interface {
 	SaveTournament(ctx context.Context, m *model.Tournament) error
 	DeleteTournament(ctx context.Context, id int64) error
 	FetchTournament(ctx context.Context, id int64) (*model.Tournament, error)
+}
+
+type TournamentListenerStorage interface {
+	TournamentStorage
 	ListenTournamentVersion(ctx context.Context, id int64, version int64, errCh chan<- error, tournamentCh chan<- *model.Tournament)
 }
 

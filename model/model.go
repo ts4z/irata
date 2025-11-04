@@ -75,6 +75,13 @@ type FooterPlugs struct {
 	TextPlugs     []string
 }
 
+func (fp *FooterPlugs) Clone() *FooterPlugs {
+	new := *fp
+	new.TextPlugs = make([]string, len(fp.TextPlugs))
+	copy(new.TextPlugs, fp.TextPlugs)
+	return &new
+}
+
 // Tournaments are the things that we're running.
 type Tournament struct {
 	EventID int64 // TODO: rename to TournamentID

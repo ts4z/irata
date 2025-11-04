@@ -12,7 +12,7 @@ type AppStorage struct {
 }
 
 type TournamentStorage struct {
-	Storage state.TournamentStorage
+	Storage state.TournamentListenerStorage
 }
 
 var _ state.AppStorage = &AppStorage{}

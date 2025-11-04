@@ -36,6 +36,7 @@ type DBStorage struct {
 
 // FetchPlugs fetches a footer plug set and its plugs by set ID.
 func (s *DBStorage) FetchPlugs(ctx context.Context, id int64) (*model.FooterPlugs, error) {
+	log.Printf("FETCH FOOTER PLUGS id=%d", id)
 	row := s.db.QueryRowContext(ctx, `SELECT id, name, version FROM footer_plug_sets WHERE id = $1`, id)
 	var setID, version int64
 	var name string
@@ -413,6 +414,8 @@ func (s *DBStorage) FetchTournament(ctx context.Context, id int64) (*model.Tourn
 	var lock int64
 	var bytes []byte
 
+	log.Printf("FETCH TOURNAMENT")
+
 	err := s.db.QueryRowContext(ctx, `SELECT version, model_data FROM tournaments where tournament_id=$1`, id).Scan(&lock, &bytes)
 
 	if err == sql.ErrNoRows {
@@ -469,18 +472,12 @@ func (s *DBStorage) CreateTournament(
 	return id, nil
 }
 
-func (s *DBStorage) resetTournamentListeners(id int64) []chan<- *model.Tournament {
-	s.tournamentListenersMu.Lock()
-	defer s.tournamentListenersMu.Unlock()
-	listeners := s.tournamentListeners[id]
-	delete(s.tournamentListeners, id)
-	return listeners
-}
-
 func (s *DBStorage) SaveTournament(
 	ctx context.Context,
 	tm *model.Tournament) error {
 	cpy := *tm
+
+	log.Printf("SAVE TOURNAMENT")
 
 	cpy.Transients = nil
 	bytes, err := json.Marshal(&cpy)
@@ -506,19 +503,6 @@ func (s *DBStorage) SaveTournament(
 
 	tm.Version = newVersion
 
-	cpy.Version = newVersion
-
-	// Notify listeners for this tournament id
-	listeners := s.resetTournamentListeners(tm.EventID)
-
-	for _, ch := range listeners {
-		// Pass the updated tournament directly
-		go func(ch chan<- *model.Tournament) {
-			ch <- &cpy
-		}(ch)
-	}
-
-	log.Printf("wrote: tournament id=%d version=%d notified %d listeners", tm.EventID, tm.Version, len(listeners))
 	return nil
 }
 
