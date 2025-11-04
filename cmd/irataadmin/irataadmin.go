@@ -46,7 +46,7 @@ var (
 // Should return a Userstorage, but that hides Close.
 func newUserStorage(ctx context.Context) *state.DBStorage {
 	config.Init()
-	storage, err := state.NewDBStorage(ctx, config.DBURL(), nil)
+	storage, err := state.NewDBStorage(ctx, config.DBURL())
 	if err != nil {
 		log.Fatalf("can't connect to database: %v", err)
 	}
@@ -55,7 +55,7 @@ func newUserStorage(ctx context.Context) *state.DBStorage {
 
 // Should return a SiteStorage, but that hides Close.
 func newSiteStorage(ctx context.Context) *state.DBStorage {
-	storage, err := state.NewDBStorage(ctx, config.DBURL(), nil)
+	storage, err := state.NewDBStorage(ctx, config.DBURL())
 	if err != nil {
 		log.Fatalf("can't connect to database: %v", err)
 	}

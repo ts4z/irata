@@ -188,7 +188,7 @@ func (app *App) fetchTournament(ctx context.Context, id int64) (*model.Tournamen
 	if err != nil {
 		return nil, err
 	}
-	app.tm.FillTransients(ctx, t)
+	app.tm.FillTransientsAndAdvanceClock(ctx, t)
 	return t, nil
 }
 
@@ -850,7 +850,7 @@ func (app *App) handleAPITournamentListen(ctx context.Context, w http.ResponseWr
 		he.SendErrorToHTTPClient(w, "listening for tournament version change", err)
 		return
 	case tm := <-tournamentCh:
-		app.tm.FillTransients(ctx, tm)
+		app.tm.FillTransientsAndAdvanceClock(ctx, tm)
 		bytes, err := json.Marshal(tm)
 		if err != nil {
 			he.SendErrorToHTTPClient(w, "marshal model", err)

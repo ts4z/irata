@@ -148,7 +148,7 @@ func (tm *Manager) MinusTime(ctx context.Context, m *model.Tournament, d time.Du
 
 	// Step clock forward to be consistent with wall-clock.
 	tm.adjustStateForElapsedTime(m)
-	defer tm.FillTransients(ctx, m)
+	defer tm.FillTransientsAndAdvanceClock(ctx, m)
 
 	// Stop clock if running.  Now we can easily manipulate time remaining.
 	if m.State.IsClockRunning {
@@ -271,10 +271,10 @@ func (tm *Manager) RestartLastLevel(m *model.Tournament) {
 	tm.startLevelFromBeginning(m)
 }
 
-// FillTransients fills out computed fields.  (These shouldn't be serialized to
+// FillTransientsAndAdvanceClock fills out computed fields.  (These shouldn't be serialized to
 // the database as they're redundant, but they are very convenient for access
 // from templates and maybe JS.)
-func (tm *Manager) FillTransients(ctx context.Context, m *model.Tournament) {
+func (tm *Manager) FillTransientsAndAdvanceClock(ctx context.Context, m *model.Tournament) {
 	m.Transients = &model.Transients{
 		ProtocolVersion: protocol.Version,
 	}
@@ -414,7 +414,7 @@ func (tm *Manager) ChangePlayers(ctx context.Context, m *model.Tournament, n int
 	if m.State.CurrentPlayers < 1 {
 		m.State.CurrentPlayers = 1
 	}
-	tm.FillTransients(ctx, m)
+	tm.FillTransientsAndAdvanceClock(ctx, m)
 	return nil
 }
 
@@ -423,7 +423,7 @@ func (tm *Manager) ChangeBuyIns(ctx context.Context, m *model.Tournament, n int)
 	if m.State.BuyIns < 1 {
 		m.State.BuyIns = 1
 	}
-	tm.FillTransients(ctx, m)
+	tm.FillTransientsAndAdvanceClock(ctx, m)
 	return nil
 }
 
@@ -432,7 +432,7 @@ func (tm *Manager) ChangeAddOns(ctx context.Context, m *model.Tournament, n int)
 	if m.State.AddOns < 1 {
 		m.State.AddOns = 0
 	}
-	tm.FillTransients(ctx, m)
+	tm.FillTransientsAndAdvanceClock(ctx, m)
 	return nil
 }
 
@@ -444,7 +444,7 @@ func (tm *Manager) PlusTime(ctx context.Context, m *model.Tournament, d time.Dur
 		return errors.New("can't add a minute: no current level")
 	}
 
-	tm.FillTransients(ctx, m)
+	tm.FillTransientsAndAdvanceClock(ctx, m)
 
 	clockRunning := m.State.IsClockRunning
 	if clockRunning {
@@ -469,7 +469,7 @@ func (tm *Manager) PlusTime(ctx context.Context, m *model.Tournament, d time.Dur
 	millis := plus.Milliseconds()
 	m.State.TimeRemainingMillis = &millis
 
-	tm.FillTransients(ctx, m)
+	tm.FillTransientsAndAdvanceClock(ctx, m)
 
 	return nil
 }
