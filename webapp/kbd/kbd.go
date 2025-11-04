@@ -18,7 +18,7 @@ import (
 
 var (
 	keyboardEventsReceived  = varz.NewInt("keyboardEventsReceived")
-	keyboardEventsSuccesses = varz.NewInt("keyboardEventsErrors")
+	keyboardEventsSuccesses = varz.NewInt("keyboardEventsSuccesses")
 	keyboardEventsByType    = varz.NewMap("keyboardEventsByType")
 )
 
