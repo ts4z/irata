@@ -82,13 +82,15 @@
             <div class="clock-rr-bottom-box">
               <div id="next-level-container" class="clock-rr-rotate-container">
                 <div class="clock-rr-label"> NEXT LEVEL </div>
-                <span class="clock-rr-data" id="next-description"> TBD </span>
+                <div class="clock-rr-data" id="next-description"> TBD </div>
               </div>
               <div id="avg-chips-container" class="clock-rr-rotate-container">
                 <div>
                   <div class="clock-rr-label"> AVG CHIPS </div>
-                  <span class="clock-rr-data" id="avg-chips"> {{ .Tournament.Transients.AverageChips }} </span>
+                  <div class="clock-rr-data" id="avg-chips"> {{ .Tournament.Transients.AverageChips }} </div>
                 </div>
+              </div>
+              <div id="next-break-container" class="clock-rr-rotate-container">
                 <div>
                   <div class="clock-rr-label"> NEXT BREAK </div>
                   <div class="clock-rr-data" id="next-break"> RSN </div>

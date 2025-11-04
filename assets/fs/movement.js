@@ -718,26 +718,5 @@ async function tick() {
   });
 }
 
-let rr_rotation_interval_id = undefined;
-function start_rotating_rrdata_containers() {
-  const next_rr_data_interval_ms = 11000;
-  let containers = document.getElementsByClassName("clock-rr-rotate-container");
-  let current = 0;
-  let next_rr_data = function() {
-    containers[current].style.display = "none";
-    current++;
-    if (current >= containers.length) {
-      current = 0;
-    }
-    containers[current].style.display = "block";
-  }
-
-  if (typeof rr_rotation_interval_id === 'undefined') {
-    next_rr_data();
-    rr_rotation_interval_id = setInterval(next_rr_data, next_rr_data_interval_ms);
-  }
-}
-
-start_rotating_rrdata_containers();
 start_rotating_footers();
 tick();

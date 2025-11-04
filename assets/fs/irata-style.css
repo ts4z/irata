@@ -463,8 +463,7 @@ input[type="submit"]:hover, button:hover {
     border-bottom: 1px solid white;
     padding-top: 2px;
     padding-bottom: 2px;
-    height: 30vi;
-    overflow-y: auto;
+    overflow-y: hidden;
     width: 100%;
     align-self: stretch;
 }
@@ -503,7 +502,7 @@ input[type="submit"]:hover, button:hover {
 }
 
 .clock-rr-rotate-container {
-    display: none;
+    display: block;
 }
 
 .clock-help-dialog-overlay {
