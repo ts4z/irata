@@ -20,6 +20,11 @@ import (
 	"github.com/ts4z/irata/dbutil"
 	"github.com/ts4z/irata/he"
 	"github.com/ts4z/irata/model"
+	"github.com/ts4z/irata/varz"
+)
+
+var (
+	saveTournaments = varz.NewInt("saveTournaments")
 )
 
 // DBStorage stores stuff in the associated database.
@@ -414,8 +419,6 @@ func (s *DBStorage) FetchTournament(ctx context.Context, id int64) (*model.Tourn
 	var lock int64
 	var bytes []byte
 
-	log.Printf("FETCH TOURNAMENT")
-
 	err := s.db.QueryRowContext(ctx, `SELECT version, model_data FROM tournaments where tournament_id=$1`, id).Scan(&lock, &bytes)
 
 	if err == sql.ErrNoRows {
@@ -475,9 +478,10 @@ func (s *DBStorage) CreateTournament(
 func (s *DBStorage) SaveTournament(
 	ctx context.Context,
 	tm *model.Tournament) error {
-	cpy := *tm
 
-	log.Printf("SAVE TOURNAMENT")
+	saveTournaments.Add(1)
+
+	cpy := *tm
 
 	cpy.Transients = nil
 	bytes, err := json.Marshal(&cpy)

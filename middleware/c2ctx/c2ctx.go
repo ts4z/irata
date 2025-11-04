@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/ts4z/irata/dep"
 	"github.com/ts4z/irata/model"
 	"github.com/ts4z/irata/permission"
 	"github.com/ts4z/irata/state"
@@ -13,14 +14,18 @@ import (
 // CookieToContext is middleware that parses the cookie from the request and squirrels
 // it away in the context, so not every level of the app has to be aware of users.
 type CookieToContext struct {
-	bakery      *permission.Bakery
-	userStorage state.UserStorage
+	bakeryFactory *permission.BakeryFactory
+	userStorage   state.UserStorage
 
 	next http.Handler
 }
 
 func (c *CookieToContext) fetchUserFromCookie(ctx context.Context, r *http.Request) (*model.UserIdentity, error) {
-	cookieData, err := c.bakery.ReadCookie(r)
+	bakery, err := c.bakeryFactory.Bakery(ctx)
+	if err != nil {
+		return nil, err
+	}
+	cookieData, err := bakery.ReadCookie(r)
 	if err != nil {
 		return nil, err
 	}
@@ -49,15 +54,15 @@ func (c *CookieToContext) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 type Config struct {
-	Bakery      *permission.Bakery
-	UserStorage state.UserStorage
-	Next        http.Handler
+	BakeryFactory *permission.BakeryFactory
+	UserStorage   state.UserStorage
+	Next          http.Handler
 }
 
 func Handler(cf *Config) http.Handler {
 	return &CookieToContext{
-		bakery:      cf.Bakery,
-		userStorage: cf.UserStorage,
-		next:        cf.Next,
+		bakeryFactory: dep.Required(cf.BakeryFactory),
+		userStorage:   dep.Required(cf.UserStorage),
+		next:          dep.Required(cf.Next),
 	}
 }

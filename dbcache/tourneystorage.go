@@ -9,15 +9,18 @@ import (
 
 	"github.com/ts4z/irata/model"
 	"github.com/ts4z/irata/state"
+	"github.com/ts4z/irata/varz"
+)
+
+var (
+	tournamentStorageCacheHits   = varz.NewInt("tournamentStoragecacheHits")
+	tournamentStorageCacheMisses = varz.NewInt("tournamentStoragecacheMisses")
 )
 
 type TournamentStorage struct {
 	cache *lru.Cache[int64, *model.Tournament]
 	lock  sync.Mutex
 	next  state.TournamentStorage
-
-	cacheHit  int
-	cacheMiss int
 }
 
 // CreateTournament implements state.TournamentStorage.
@@ -42,13 +45,11 @@ func (s *TournamentStorage) FetchOverview(ctx context.Context, offset int, limit
 // FetchTournament implements state.TournamentStorage.
 func (s *TournamentStorage) FetchTournament(ctx context.Context, id int64) (*model.Tournament, error) {
 	if t, ok := s.cache.Get(id); ok {
-		s.cacheHit++
-		log.Printf("TournamentStorage cache hit: id=%d hits=%d misses=%d", id, s.cacheHit, s.cacheMiss)
+		tournamentStorageCacheHits.Add(1)
 		return t, nil
 	}
 
-	s.cacheMiss++
-	log.Printf("TournamentStorage cache miss: id=%d hits=%d misses=%d", id, s.cacheHit, s.cacheMiss)
+	tournamentStorageCacheMisses.Add(1)
 	t, err := s.next.FetchTournament(ctx, id)
 	if err != nil {
 		return nil, err

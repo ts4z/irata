@@ -124,8 +124,6 @@ To Do
 
 * CORS configuration requires the app to be working already.  That's probably
   not going to end well.
-* Cookie secrets can be rotated, but nothing makes this happen automatically.
-  Cookie secrets are never reloaded, but they do expire.
 * A lot of inconsistency in data model names and variable names.  The whole
   of `movement.js` is pretty bad.
   * Gratuitious use of LLMs has not helped code consistency.  I regret nothing.
@@ -156,8 +154,6 @@ To Do
   one of our URLs.
 * Theme support is *very* poor, and limited to selecting a CSS file.
   Only the "irata" theme is allegedly well tested.
-* Sound effect select on the site config screen should allow testing sound.
-* Sound effect select on the edit tournanament screen should allow testing sound.
 * Sounds should be in the database, I guess.
 * There should be more than one pay table, and some pay table should scale to 
   at least 500 players.

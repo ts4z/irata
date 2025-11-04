@@ -13,6 +13,13 @@ import (
 	"github.com/ts4z/irata/permission"
 	"github.com/ts4z/irata/state"
 	"github.com/ts4z/irata/tournament"
+	"github.com/ts4z/irata/varz"
+)
+
+var (
+	keyboardEventsReceived  = varz.NewInt("keyboardEventsReceived")
+	keyboardEventsSuccesses = varz.NewInt("keyboardEventsErrors")
+	keyboardEventsByType    = varz.NewMap("keyboardEventsByType")
 )
 
 type modifiers struct {
@@ -110,7 +117,11 @@ func (app *KeyboardShortcutDispatcher) HandleKeypress(ctx context.Context, r *ht
 		return he.HTTPCodedErrorf(http.StatusUnauthorized, "permission denied")
 	}
 
+	keyboardEventsReceived.Add(1)
+	keyboardEventsByType.Add(event.Event, 1)
+
 	if h, ok := app.keyToMutation[event.Event]; !ok {
+
 		return he.HTTPCodedErrorf(404, "unknown keyboard event")
 	} else {
 		t, err := app.tournamentStorage.FetchTournament(ctx, event.TournamentID)
@@ -126,5 +137,6 @@ func (app *KeyboardShortcutDispatcher) HandleKeypress(ctx context.Context, r *ht
 			return he.HTTPCodedErrorf(500, "save tournament after keypress: %w", err)
 		}
 	}
+	keyboardEventsSuccesses.Add(1)
 	return nil
 }

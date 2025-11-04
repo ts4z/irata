@@ -39,12 +39,9 @@ func main() {
 	}
 	defer unprotectedStorage.Close()
 
-	siteConfig, err := unprotectedStorage.FetchSiteConfig(ctx)
-	if err != nil {
-		log.Fatalf("can't fetch site config: %v", err)
-	}
+	siteConfigStorage := dbcache.NewSiteConfigCache(unprotectedStorage, clock)
 
-	bakery, err := permission.New(clock, siteConfig)
+	bakeryFactory := permission.NewBakeryFactory(clock, siteConfigStorage)
 	if err != nil {
 		log.Fatalf("can't create bakery: %v", err)
 	}
@@ -71,7 +68,7 @@ func main() {
 		UserStorage:       unprotectedStorage,
 		FormProcessor:     mutator,
 		SubFS:             subFS,
-		Bakery:            bakery,
+		BakeryFactory:     bakeryFactory,
 		Clock:             clock,
 		TournamentManager: tournamentManager,
 	})

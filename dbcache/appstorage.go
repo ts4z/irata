@@ -8,18 +8,21 @@ import (
 
 	"github.com/ts4z/irata/model"
 	"github.com/ts4z/irata/state"
+	"github.com/ts4z/irata/varz"
 )
 
 const (
 	AppStorageCacheSize = 16
 )
 
+var (
+	appStorageCacheHits   = varz.NewInt("appStorageCacheHits")
+	appStorageCacheMisses = varz.NewInt("appStorageCacheMisses")
+)
+
 type AppStorage struct {
 	fpCache *lru.Cache[int64, *model.FooterPlugs]
 	next    state.AppStorage
-
-	cacheHit  int
-	cacheMiss int
 }
 
 var _ state.AppStorage = (*AppStorage)(nil)
@@ -65,10 +68,10 @@ func (a *AppStorage) DeleteStructure(ctx context.Context, id int64) error {
 // there's one server instance, so...
 func (a *AppStorage) FetchPlugs(ctx context.Context, id int64) (*model.FooterPlugs, error) {
 	if plugs, ok := a.fpCache.Get(id); ok {
-		a.cacheHit++
+		appStorageCacheHits.Add(1)
 		return plugs.Clone(), nil
 	}
-	a.cacheMiss++
+	appStorageCacheMisses.Add(1)
 	fp, err := a.next.FetchPlugs(ctx, id)
 	if err != nil {
 		return nil, err

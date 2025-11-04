@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/gorilla/securecookie"
@@ -23,6 +24,8 @@ import (
 
 const (
 	AuthCookieName = "irata-auth"
+
+	confTTL = time.Duration(1) * time.Minute
 )
 
 type BakeryClock interface {
@@ -47,14 +50,51 @@ type SiteConfigFetcher interface {
 	FetchSiteConfig(ctx context.Context) (*model.SiteConfig, error)
 }
 
+// BakeryFactory produces cached Bakery instances.
+type BakeryFactory struct {
+	clock             BakeryClock
+	siteConfigFetcher SiteConfigFetcher
+
+	mutex        sync.Mutex
+	cachedBakery *Bakery
+}
+
 type Bakery struct {
+	createdAt    time.Time
 	cookieDomain string
 	bakers       []cookieBaker
 }
 
+func NewBakeryFactory(clock BakeryClock, siteConfigFetcher SiteConfigFetcher) *BakeryFactory {
+	return &BakeryFactory{
+		clock:             clock,
+		siteConfigFetcher: siteConfigFetcher,
+	}
+}
+
+func (bf *BakeryFactory) Bakery(ctx context.Context) (*Bakery, error) {
+	bf.mutex.Lock()
+	defer bf.mutex.Unlock()
+
+	if bf.cachedBakery != nil && bf.cachedBakery.createdAt.Add(confTTL).After(bf.clock.Now()) {
+		return bf.cachedBakery, nil
+	}
+
+	bakery, err := bf.NewBakery(ctx)
+	if err != nil {
+		return nil, err
+	}
+	bf.cachedBakery = bakery
+	return bakery, nil
+}
+
 // New creates a new Bakery instance.
-func New(clock BakeryClock, conf *model.SiteConfig) (*Bakery, error) {
-	now := clock.Now()
+func (bf *BakeryFactory) NewBakery(ctx context.Context) (*Bakery, error) {
+	now := bf.clock.Now()
+	conf, err := bf.siteConfigFetcher.FetchSiteConfig(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("can't fetch site config: %w", err)
+	}
 	keys := []cookieBaker{}
 	for i, inputKey := range conf.CookieKeys {
 		if inputKey.Validity.HonorUntil.Before(now) {
@@ -82,11 +122,12 @@ func New(clock BakeryClock, conf *model.SiteConfig) (*Bakery, error) {
 	log.Printf("bakery: %d valid keys", len(keys))
 
 	return &Bakery{
-		bakers: keys,
+		createdAt: now,
+		bakers:    keys,
 	}, nil
 }
 
-func (b *Bakery) ClearCookie(w http.ResponseWriter) {
+func ClearCookie(w http.ResponseWriter) {
 	http.SetCookie(w, &http.Cookie{
 		Name:    AuthCookieName,
 		Value:   "",

@@ -37,7 +37,17 @@ import (
 	"github.com/ts4z/irata/textutil"
 	"github.com/ts4z/irata/tournament"
 	"github.com/ts4z/irata/urlpath"
+	"github.com/ts4z/irata/varz"
 	"github.com/ts4z/irata/webapp/kbd"
+)
+
+var (
+	clientClosedWhileListening    = varz.NewInt("clientClosedWhileListening")
+	timedOutWhileListening        = varz.NewInt("timedOutWhileListening")
+	errorListening                = varz.NewInt("errorListening")
+	badTournamentIDForListen      = varz.NewInt("badTournamentIDForListen")
+	listenNotifiedClient          = varz.NewInt("listenNotifiedClient")
+	errorWhileMarshalingForListen = varz.NewInt("errorWhileMarshalingForListen")
 )
 
 var templateFuncs template.FuncMap = template.FuncMap{
@@ -75,7 +85,7 @@ type Config struct {
 	SoundStorage      state.SoundEffectStorage
 	FormProcessor     *form.FormProcessor
 	SubFS             fs.FS
-	Bakery            *permission.Bakery
+	BakeryFactory     *permission.BakeryFactory
 	Clock             nower
 	TournamentManager *tournament.Manager
 }
@@ -94,7 +104,7 @@ type App struct {
 	paytableStorage   state.PaytableStorage
 	soundStorage      state.SoundEffectStorage
 	formProcessor     *form.FormProcessor
-	bakery            *permission.Bakery
+	bakeryFactory     *permission.BakeryFactory
 	clock             nower
 	tm                *tournament.Manager
 
@@ -132,6 +142,16 @@ func allowedOrigins(sc *model.SiteConfig) []string {
 
 // New creates a new IrataApp with the given configuration.
 func New(ctx context.Context, config *Config) *App {
+	// Prime this so we can check for errors.
+	sc, err := config.SiteStorage.FetchSiteConfig(context.Background())
+	if err != nil {
+		log.Fatalf("can't get SiteConfig: %v", err)
+	}
+
+	if _, err = config.BakeryFactory.Bakery(context.Background()); err != nil {
+		log.Fatalf("can't create bakery: %v", err)
+	}
+
 	app := &App{
 		appStorage:        dep.Required(config.AppStorage),
 		tournamentStorage: dep.Required(config.TournamentStorage),
@@ -141,22 +161,17 @@ func New(ctx context.Context, config *Config) *App {
 		soundStorage:      dep.Required(config.SoundStorage),
 		formProcessor:     dep.Required(config.FormProcessor),
 		subFS:             dep.Required(config.SubFS),
-		bakery:            dep.Required(config.Bakery),
+		bakeryFactory:     dep.Required(config.BakeryFactory),
 		clock:             dep.Required(config.Clock),
 		tm:                dep.Required(config.TournamentManager),
-		mux:               dep.Required(http.NewServeMux()),
-	}
-
-	sc, err := app.siteStorage.FetchSiteConfig(ctx)
-	if err != nil {
-		log.Fatalf("can't get SiteConfig: %v", err)
+		mux:               dep.Required(http.DefaultServeMux),
 	}
 
 	// Stack the handlers together.
 	c2c := c2ctx.Handler(&c2ctx.Config{
-		Bakery:      app.bakery,
-		UserStorage: app.userStorage,
-		Next:        app.mux,
+		BakeryFactory: app.bakeryFactory,
+		UserStorage:   app.userStorage,
+		Next:          app.mux,
 	})
 	csp := http.NewCrossOriginProtection()
 	logger := middleware.NewRequestLogger(csp.Handler(c2c), app.clock)
@@ -779,7 +794,6 @@ func (app *App) handleLogin(ctx context.Context, w http.ResponseWriter, r *http.
 		nope := func() {
 			http.Redirect(w, r, "/login?error=internal+error", http.StatusSeeOther)
 		}
-
 		if err := r.ParseForm(); err != nil {
 			he.SendErrorToHTTPClient(w, "parse login form", err)
 			return
@@ -806,7 +820,12 @@ func (app *App) handleLogin(ctx context.Context, w http.ResponseWriter, r *http.
 			http.Redirect(w, r, "/login?error=invalid+user+or+password", http.StatusSeeOther)
 			return
 		}
-		err = app.bakery.BakeCookie(w, &model.AuthCookieData{
+		bakery, err := app.bakeryFactory.Bakery(ctx)
+		if err != nil {
+			nope()
+			return
+		}
+		err = bakery.BakeCookie(w, &model.AuthCookieData{
 			RealUserID:      identity.ID,
 			EffectiveUserID: identity.ID,
 		})
@@ -833,6 +852,7 @@ func (app *App) handleAPITournamentListen(ctx context.Context, w http.ResponseWr
 		return
 	}
 	if req.TournamentID <= 0 {
+		badTournamentIDForListen.Add(1)
 		log.Printf("invalid tournament ID: %d in req: %+v", req.TournamentID, req)
 		he.SendErrorToHTTPClient(w, "prep listen request", he.HTTPCodedErrorf(400, "invalid tournament ID %d", req.TournamentID))
 		return
@@ -849,6 +869,7 @@ func (app *App) handleAPITournamentListen(ctx context.Context, w http.ResponseWr
 	go app.tournamentStorage.ListenTournamentVersion(ctx, req.TournamentID, version, errCh, tournamentCh)
 	select {
 	case err := <-errCh:
+		errorListening.Add(1)
 		he.SendErrorToHTTPClient(w, "listen for tournament version change", err)
 		return
 	case tm := <-tournamentCh:
@@ -856,17 +877,21 @@ func (app *App) handleAPITournamentListen(ctx context.Context, w http.ResponseWr
 		// so we don't need to do it again here.
 		bytes, err := json.Marshal(tm)
 		if err != nil {
+			errorWhileMarshalingForListen.Add(1)
 			he.SendErrorToHTTPClient(w, "marshal model", err)
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
 		w.Write(bytes)
+		listenNotifiedClient.Add(1)
 		return
 	case <-timeoutCh:
+		timedOutWhileListening.Add(1)
 		he.SendErrorToHTTPClient(w, "wait for tournament update",
 			he.HTTPCodedErrorf(http.StatusGatewayTimeout, "timeout"))
 		return
 	case <-ctx.Done():
+		clientClosedWhileListening.Add(1)
 		log.Printf("client closed connection while listening for tournament update")
 		http.Error(w, "request cancelled", http.StatusRequestTimeout)
 		return
@@ -1029,7 +1054,7 @@ func (app *App) InstallHandlers() {
 	})
 
 	app.handleFunc("/logout", func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-		app.bakery.ClearCookie(w)
+		permission.ClearCookie(w)
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 	})
 
