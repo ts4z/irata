@@ -368,6 +368,7 @@ input[type="submit"]:hover, button:hover {
 .clock-level {
     font-size: 3vi;
     color: yellow;
+    text-align: center;
 }
 
 .clock-time {

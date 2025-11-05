@@ -97,6 +97,7 @@ label {
 }
 
 input, select, textarea {
+    font-family: arcade, monospace;
     font-size: 1em;
     background: #222;
     color: #fff;
@@ -178,9 +179,9 @@ input[type="submit"]:hover, button:hover {
 .level-row {
     display: flex;
     align-items: center;
-    gap: 0.5em;
-    margin-bottom: 1em;
-    padding: 0.5em;
+    gap: 0.3em;
+    margin-bottom: 0.5em;
+    padding: 0.1em 0.2em;
     border: 1px solid #333;
     border-radius: 4px;
 }
@@ -201,6 +202,19 @@ input[type="submit"]:hover, button:hover {
 
 .level-row button {
     flex: 0 0 auto;
+}
+
+/* Level row input field classes */
+.level-duration-input {
+    max-width: 5em;
+}
+
+.level-banner-input {
+    min-width: 10em;
+}
+
+.level-description-input {
+    min-width: 14em;
 }
 
 .admin-bar {
@@ -321,7 +335,6 @@ input[type="submit"]:hover, button:hover {
 .clock-page body {
     height: 100%;
     overflow: hidden;
-    font-size: 6vi;
 }
 
 .clock-page table {
@@ -347,7 +360,6 @@ input[type="submit"]:hover, button:hover {
     text-align: center;
     vertical-align: middle;
     padding: 15vh 0;
-    font-family: rhdisplay, monospace;
 }
 
 .clock-container.clock-td-running {
@@ -362,6 +374,7 @@ input[type="submit"]:hover, button:hover {
 .clock-level {
     font-size: 5vi;
     color: yellow;
+    text-align: center;
 }
 
 .clock-time {
@@ -395,7 +408,7 @@ input[type="submit"]:hover, button:hover {
 }
 
 .clock-title {
-    font-size: 2.3vi;
+    font-size: 1.8vi;
     text-align: center;
     color: #ffffff;
 }
@@ -425,7 +438,7 @@ input[type="submit"]:hover, button:hover {
 }
 
 .clock-avg-chips {
-    font-size: 23.5vi;
+    font-size: 2.5vi;
     text-align: center;
 }
 
@@ -445,6 +458,7 @@ input[type="submit"]:hover, button:hover {
     flex-direction: column;
     height: 100vh;
     width: 100%;
+    line-height: 120%;
     justify-content: center;
 }
 
@@ -459,17 +473,16 @@ input[type="submit"]:hover, button:hover {
     padding-top: 2px;
     padding-bottom: 2px;
     height: 30vi;
-    overflow-y: auto;
+    overflow-y: hidden;
     width: 100%;
     align-self: stretch;
-    font-family: rhdisplay;
 }
 
 .clock-prize-pool {
+    font-family: rhmono, monospace;
     display: block;
     width: 100%;
-    font-size: 1.7vi;
-    line-height: 120%;
+    font-size: 2.0vi;
     text-align: center;
     overflow-y: auto;
     height: 30vi;
@@ -499,9 +512,7 @@ input[type="submit"]:hover, button:hover {
 }
 
 .clock-rr-rotate-container {
-    display: none;
-    font-size: 1vi;
-    line-height: 110%;
+    display: block;
 }
 
 .clock-help-dialog-overlay {
@@ -515,8 +526,7 @@ input[type="submit"]:hover, button:hover {
     color: #fff;
     z-index: 9999;
     font-size: 2vi;
-    text-align: center;
-    padding-top: 5vi;
+    width: min(50vw, 500px);
 }
 
 .clock-help-dialog-content {
@@ -525,7 +535,6 @@ input[type="submit"]:hover, button:hover {
     border: 2px solid #aaaaff;
     border-radius: 1vi;
     padding: 2vi;
-    display: inline-block;
     text-align: left;
     color: #fff;
 }
@@ -538,13 +547,13 @@ input[type="submit"]:hover, button:hover {
 
 .clock-help-dialog-table-key {
     width: 18%;
-    text-align: left;
+    text-align: right;
     padding: 0.1vi 0.4vi 0.1vi 0;
 }
 
 .clock-help-dialog-table-desc {
     text-align: left;
-    padding: 0.1vi 0;
+    padding: 0.1vi 0 0.1vi 1vi;
 }
 
 .clock-paused-overlay {
@@ -555,11 +564,87 @@ input[type="submit"]:hover, button:hover {
     transform: translate(-50%, -50%) rotate(-33deg);
     font-size: 8vi;
     color: #ffffff;
-    text-shadow: -0.7vi -0.7vi 0 #000, 0.7vi -0.7vi 0 #000, -0.7vi 0.7vi 0 #000,
-        0.7vi 0.7vi 0 #000, 0 0 100px #000;
+    text-shadow: -0.7vi -0.7vi 1vi #000, 
+        0.7vi -0.7vi 1vi #000,
+        -0.7vi 0.7vi 1vi #000,
+        0.7vi 0.7vi 1vi #000,
+        0 0 2vi #000;
+    font-family: arcade, monospace;
     pointer-events: none;
     z-index: 10;
     white-space: nowrap;
     letter-spacing: 0.1em;
     font-weight: bold;
+}
+
+.level-break-cb {
+    display: none;
+}
+
+.level-break {
+    display: flex;
+    max-width: 5em;
+    background-color: #700;
+    border: 1px solid #a00;
+    padding: 0.3em 0.6em;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.level-level {
+    border: 1px solid #000;
+    padding: 0.3em 0.6em;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.level-autopause {
+    display: flex;
+    max-width: 5em;
+    background-color: #700;
+    border: 1px solid #a00;
+    padding: 0.3em 0.6em;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.level-run {
+    border: 1px solid #0d0;
+    background-color: #070;
+    padding: 0.3em 0.6em;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+/* Sound preview button */
+.sound-select-container {
+    display: flex;
+    align-items: center;
+    gap: 0.5em;
+}
+
+.sound-select-container select {
+    flex: 1;
+}
+
+.sound-play-btn {
+    flex: 0 0 auto;
+    min-width: 2.5em;
+    padding: 0.5em;
+    background: #333;
+    border: 1px solid #444;
+    color: #fff;
+    cursor: pointer;
+    border-radius: 4px;
+    font-size: 1em;
+    transition: background 0.2s;
+}
+
+.sound-play-btn:hover {
+    background: #444;
+}
+
+.sound-play-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
 }
