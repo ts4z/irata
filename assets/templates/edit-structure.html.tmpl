@@ -3,7 +3,7 @@
 <head>
     <meta name="viewport" content="width=device-width,initial-scale=1.0">
     <title>{{ if .IsNew }}Create{{ else }}Edit{{ end }} Structure</title>
-    <link rel="stylesheet" href="/fs/irata-style.css">
+    <link rel="stylesheet" href="/fs/{{ .Theme }}-style.css">
 </head>
 <body>
 
@@ -254,6 +254,18 @@
             <div class="form-group">
                 <label for="Name">Structure Name</label>
                 <input type="text" id="Name" name="Name" autocomplete="off" value="{{ .Structure.Name }}" required>
+            </div>
+
+            <div class="form-group">
+                <label for="ChipsPerBuyIn">Chips Per Buy-In</label>
+                <input type="number" id="ChipsPerBuyIn" name="ChipsPerBuyIn" min="0" value="{{ .Structure.ChipsPerBuyIn }}" class="field-large">
+                <small>Starting chips each player receives per buy-in</small>
+            </div>
+
+            <div class="form-group">
+                <label for="ChipsPerAddOn">Chips Per Add-On</label>
+                <input type="number" id="ChipsPerAddOn" name="ChipsPerAddOn" min="0" value="{{ .Structure.ChipsPerAddOn }}" class="field-large">
+                <small>Additional chips players receive per add-on (leave 0 if no add-ons)</small>
             </div>
             
             <div class="actions">

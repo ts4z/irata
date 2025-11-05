@@ -10,7 +10,6 @@ import (
 	"log"
 	"net"
 	"net/http"
-	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -207,20 +206,6 @@ func (app *App) fetchTournament(ctx context.Context, id int64) (*model.Tournamen
 	return t, nil
 }
 
-var regexpLFLF = regexp.MustCompile(`\n\n+`)
-
-func parseFooterPlugsBox(plugsRaw string) []string {
-	plugs := []string{}
-	plugsRaw = strings.ReplaceAll(plugsRaw, "\r", "")
-	for _, plug := range regexpLFLF.Split(plugsRaw, -1) {
-		plug = strings.TrimSpace(plug)
-		if plug != "" {
-			plugs = append(plugs, plug)
-		}
-	}
-	return plugs
-}
-
 func (app *App) handleFunc(pattern string, handler func(context.Context, http.ResponseWriter, *http.Request)) {
 	app.mux.HandleFunc(pattern, func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
@@ -292,6 +277,12 @@ func (app *App) renderTournament(ctx context.Context, id int64, w http.ResponseW
 }
 
 func (app *App) handleManageStructures(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	sc, err := app.siteStorage.FetchSiteConfig(ctx)
+	if err != nil {
+		he.SendErrorToHTTPClient(w, "fetch site config", err)
+		return
+	}
+
 	// Fetch all structures
 	slugs, err := app.appStorage.FetchStructureSlugs(ctx, 0, 100)
 	if err != nil {
@@ -307,7 +298,11 @@ func (app *App) handleManageStructures(ctx context.Context, w http.ResponseWrite
 	}
 	data := struct {
 		Structures []*model.Structure
-	}{Structures: structures}
+		Theme      string
+	}{
+		Structures: structures,
+		Theme:      sc.Theme,
+	}
 	if err := app.templates.ExecuteTemplate(w, "manage-structures.html.tmpl", data); err != nil {
 		log.Printf("can't render manage-structure template: %v", err)
 	}
@@ -380,6 +375,18 @@ func (app *App) handleEditStructure(ctx context.Context, id int64, w http.Respon
 			flash = "Error parsing form"
 		} else {
 			name := r.FormValue("Name")
+			chipsPerBuyInStr := r.FormValue("ChipsPerBuyIn")
+			chipsPerAddOnStr := r.FormValue("ChipsPerAddOn")
+			
+			chipsPerBuyIn, err := strconv.Atoi(chipsPerBuyInStr)
+			if err != nil {
+				chipsPerBuyIn = 0
+			}
+			chipsPerAddOn, err := strconv.Atoi(chipsPerAddOnStr)
+			if err != nil {
+				chipsPerAddOn = 0
+			}
+			
 			levels := []*model.Level{}
 			for i := 0; ; i++ {
 				ap := r.FormValue(fmt.Sprintf("Level%dAutoPause", i)) == "on"
@@ -415,6 +422,8 @@ func (app *App) handleEditStructure(ctx context.Context, id int64, w http.Respon
 				} else {
 					st.Name = name
 					st.Levels = levels
+					st.ChipsPerBuyIn = chipsPerBuyIn
+					st.ChipsPerAddOn = chipsPerAddOn
 					err := app.appStorage.SaveStructure(ctx, st)
 					if err != nil {
 						flash = "Error saving structure"
@@ -426,6 +435,12 @@ func (app *App) handleEditStructure(ctx context.Context, id int64, w http.Respon
 			}
 		}
 	}
+	sc, err := app.siteStorage.FetchSiteConfig(ctx)
+	if err != nil {
+		he.SendErrorToHTTPClient(w, "fetch site config", err)
+		return
+	}
+
 	st, err := app.appStorage.FetchStructure(ctx, id)
 	if err != nil {
 		he.SendErrorToHTTPClient(w, "fetch structure", err)
@@ -441,7 +456,14 @@ func (app *App) handleEditStructure(ctx context.Context, id int64, w http.Respon
 		LevelsJSON template.JS
 		Flash      string
 		IsNew      bool
-	}{Structure: st, LevelsJSON: template.JS(levelsJSON), Flash: flash, IsNew: false}
+		Theme      string
+	}{
+		Structure:  st,
+		LevelsJSON: template.JS(levelsJSON),
+		Flash:      flash,
+		IsNew:      false,
+		Theme:      sc.Theme,
+	}
 	if err := app.templates.ExecuteTemplate(w, "edit-structure.html.tmpl", data); err != nil {
 		log.Printf("can't render edit-structure template: %v", err)
 	}
@@ -473,7 +495,7 @@ func (app *App) handleEditFooterSet(ctx context.Context, id int64, w http.Respon
 				if err != nil {
 					flash = "Error saving footer plug set"
 				} else {
-					http.Redirect(w, r, fmt.Sprintf("/manage/footer-set/%d/edit", id), http.StatusSeeOther)
+					http.Redirect(w, r, "/manage/footer-set", http.StatusSeeOther)
 					return
 				}
 			}
@@ -487,7 +509,8 @@ func (app *App) handleEditFooterSet(ctx context.Context, id int64, w http.Respon
 	data := struct {
 		FooterSet *model.FooterPlugs
 		Flash     string
-	}{FooterSet: fp, Flash: flash}
+		IsNew     bool
+	}{FooterSet: fp, Flash: flash, IsNew: false}
 	if err := app.templates.ExecuteTemplate(w, "edit-footer-set.html.tmpl", data); err != nil {
 		log.Printf("can't render edit-footer-set template: %v", err)
 	}
@@ -503,8 +526,21 @@ func (app *App) handleCreateStructure(ctx context.Context, w http.ResponseWriter
 			flash = "Error parsing form"
 		} else {
 			name := r.FormValue("Name")
+			chipsPerBuyInStr := r.FormValue("ChipsPerBuyIn")
+			chipsPerAddOnStr := r.FormValue("ChipsPerAddOn")
+			
+			chipsPerBuyIn, err := strconv.Atoi(chipsPerBuyInStr)
+			if err != nil {
+				chipsPerBuyIn = 0
+			}
+			chipsPerAddOn, err := strconv.Atoi(chipsPerAddOnStr)
+			if err != nil {
+				chipsPerAddOn = 0
+			}
+			
 			levels := []*model.Level{}
 			for i := 0; ; i++ {
+				ap := r.FormValue(fmt.Sprintf("Level%dAutoPause", i)) == "on"
 				durStr := r.FormValue(fmt.Sprintf("Level%dDuration", i))
 				desc := r.FormValue(fmt.Sprintf("Level%dDescription", i))
 				banner := r.FormValue(fmt.Sprintf("Level%dBanner", i))
@@ -521,6 +557,7 @@ func (app *App) handleCreateStructure(ctx context.Context, w http.ResponseWriter
 					continue
 				}
 				levels = append(levels, &model.Level{
+					AutoPause:       ap,
 					DurationMinutes: dur,
 					Description:     desc,
 					IsBreak:         isBreak,
@@ -532,7 +569,9 @@ func (app *App) handleCreateStructure(ctx context.Context, w http.ResponseWriter
 			} else {
 				st := &model.Structure{
 					StructureData: model.StructureData{
-						Levels: levels,
+						Levels:        levels,
+						ChipsPerBuyIn: chipsPerBuyIn,
+						ChipsPerAddOn: chipsPerAddOn,
 					},
 					Name: name,
 				}
@@ -576,6 +615,12 @@ func (app *App) handleCreateStructure(ctx context.Context, w http.ResponseWriter
 		}
 	}
 
+	sc, err := app.siteStorage.FetchSiteConfig(ctx)
+	if err != nil {
+		he.SendErrorToHTTPClient(w, "fetch site config", err)
+		return
+	}
+
 	levelsJSON, err := json.Marshal(structure.Levels)
 	if err != nil {
 		log.Printf("error marshaling levels to JSON: %v", err)
@@ -586,11 +631,13 @@ func (app *App) handleCreateStructure(ctx context.Context, w http.ResponseWriter
 		LevelsJSON template.JS
 		Flash      string
 		IsNew      bool
+		Theme      string
 	}{
 		Structure:  structure,
 		LevelsJSON: template.JS(levelsJSON),
 		Flash:      flash,
 		IsNew:      true,
+		Theme:      sc.Theme,
 	}
 
 	if err := app.templates.ExecuteTemplate(w, "edit-structure.html.tmpl", data); err != nil {
@@ -606,25 +653,42 @@ func (app *App) handleCreateFooterSet(ctx context.Context, w http.ResponseWriter
 			flash = "Error parsing form"
 		} else {
 			name := r.FormValue("Name")
-			plugsRaw := r.FormValue("Plugs")
-			if name == "" || plugsRaw == "" {
-				flash = "All fields required"
+			plugs := []string{}
+			for i := 0; ; i++ {
+				plug := r.FormValue(fmt.Sprintf("Plug%d", i))
+				if plug == "" && i >= len(r.Form)-1 {
+					break
+				}
+				plug = strings.TrimSpace(plug)
+				if plug != "" {
+					plugs = append(plugs, plug)
+				}
+			}
+			if name == "" {
+				flash = "Set name required"
 			} else {
-				plugs := parseFooterPlugsBox(plugsRaw)
-				id, err := app.appStorage.CreateFooterPlugSet(ctx, name, plugs)
+				_, err := app.appStorage.CreateFooterPlugSet(ctx, name, plugs)
 				if err != nil {
 					log.Printf("error creating footer plug set: %v", err)
 					flash = "Error saving footer plug set"
 				} else {
-					http.Redirect(w, r, fmt.Sprintf("/manage/footer-set/%d", id), http.StatusSeeOther)
+					http.Redirect(w, r, "/manage/footer-set/", http.StatusSeeOther)
 					return
 				}
 			}
 		}
 	}
-	data := struct{ Flash string }{Flash: flash}
-	if err := app.templates.ExecuteTemplate(w, "create-footer-set.html.tmpl", data); err != nil {
-		log.Printf("can't render create-footer-set template: %v", err)
+	data := struct {
+		FooterSet *model.FooterPlugs
+		Flash     string
+		IsNew     bool
+	}{
+		FooterSet: &model.FooterPlugs{TextPlugs: []string{}},
+		Flash:     flash,
+		IsNew:     true,
+	}
+	if err := app.templates.ExecuteTemplate(w, "edit-footer-set.html.tmpl", data); err != nil {
+		log.Printf("can't render edit-footer-set template: %v", err)
 	}
 }
 

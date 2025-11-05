@@ -3,7 +3,7 @@
 <head>
     <meta name="viewport" content="width=device-width,initial-scale=1.0">
     <title>Manage Structures</title>
-    <link rel="stylesheet" href="/fs/irata-style.css">
+    <link rel="stylesheet" href="/fs/{{ .Theme }}-style.css">
 </head>
 <body>
     <div class="container">
@@ -27,11 +27,14 @@
                 <tr>
                     <td>{{ $s.Name }}</td>
                     <td>
-                        <ul>
-                        {{ range $lvl := $s.Levels }}
-                            <li>{{ $lvl.DurationMinutes }} min - {{ $lvl.Description }} {{ if $lvl.IsBreak }}(Break){{ end }}</li>
+                        {{ len $s.Levels }} levels, {{ $s.StructureData.ChipsPerBuyIn }} chips per buy-in
+                        {{- if $s.StructureData.ChipsPerAddOn }}{{- $s.StructureData.ChipsPerAddOn }} chips per add-on{{ end }}
+                        <br>
+                        <select style="width: 100%; margin-top: 0.5em;">
+                        {{ range $i, $lvl := $s.Levels }}
+                            <option {{ if eq $i 1 }}selected{{ end }}>{{ $lvl.DurationMinutes }} min - {{ $lvl.Description }} {{ if $lvl.IsBreak }}(Break){{ end }}</option>
                         {{ end }}
-                        </ul>
+                        </select>
                     </td>
                     <td>
                         <a href="/manage/structure/{{ $s.ID }}/edit">Edit</a>

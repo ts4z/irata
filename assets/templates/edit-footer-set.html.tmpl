@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta name="viewport" content="width=device-width,initial-scale=1.0">
-    <title>Edit Footer Plug Set</title>
+    <title>{{ if .IsNew }}Create{{ else }}Edit{{ end }} Footer Plug Set</title>
     <link rel="stylesheet" href="/fs/irata-style.css">
     <script>
       function addPlug() {
@@ -18,10 +18,10 @@
 <body>
     <div class="container">
         <div class="admin-bar">
-            <a href="/manage/footers">&lt; Back to Footer Sets</a>
+            <a href="/manage/footer-set/">&lt; Back to Footer Sets</a>
         </div>
 
-        <h1>Edit Footer Plug Set</h1>
+        <h1>{{ if .IsNew }}Create{{ else }}Edit{{ end }} Footer Plug Set</h1>
         <form method="POST">
             <div class="form-group">
                 <label for="Name">Set Name</label>
@@ -42,8 +42,8 @@
             </div>
 
             <div class="actions">
-                <button type="submit">Save</button>
-                <a href="/manage/footers">Cancel</a>
+                <button type="submit">{{ if .IsNew }}Create{{ else }}Save{{ end }}</button>
+                <a href="/manage/footer-set/">Cancel</a>
             </div>
             
             {{ if .Flash }}<div class="flash">{{ .Flash }}</div>{{ end }}
