@@ -80,6 +80,31 @@
             </div>
 
             <div class="form-section">
+                <h2> {{ if .IsNew }}Structure{{ else }}Change Structure{{ end }} </h2>
+                                {{ if .IsNew }}
+                <input type="hidden" id="ChangeStructure" name="ChangeStructure" value="on">
+                {{ else }}
+                <div>
+                    <input type="checkbox" id="ChangeStructure" name="ChangeStructure"
+                        onchange="toggleStructureSelect()" style="display: inline; margin: 0; width: auto;">
+                    <label for="ChangeStructure" style="display: inline; margin: 0;">
+                        Change Structure (+ re-start)
+                    </label>
+                </div>
+                {{ end }}
+                <select id="StructureID" name="StructureID" {{ if .IsNew }}required{{ else }}disabled{{ end }} onchange="loadStructureChipValues()">
+                    {{ range $.Structures }}
+                    <option value="{{ .ID }}" 
+                        data-chips-per-buyin="{{ .ChipsPerBuyIn }}" 
+                        data-chips-per-addon="{{ .ChipsPerAddOn }}"
+                        {{ if and (not $.IsNew) (eq .ID $.Tournament.FromStructureID) }}selected{{ end }}>
+                        {{ .Name }}
+                    </option>
+                    {{ end }}
+                </select>
+            </div>
+
+            <div class="form-section">
                 <h2> Chip Setup </h2>
 
                 <div class="form-group">
@@ -283,36 +308,14 @@
             </div>
 
             <div class="form-section">
-                <h2> {{ if .IsNew }}Structure{{ else }}Change Structure{{ end }} </h2>
-                <div class="form-group">
-                    {{ if .IsNew }}
-                    <input type="hidden" id="ChangeStructure" name="ChangeStructure" value="on">
-                    {{ else }}
-                    <div>
-                        <input type="checkbox" id="ChangeStructure" name="ChangeStructure"
-                            onchange="toggleStructureSelect()" style="display: inline; margin: 0; width: auto;">
-                        <label for="ChangeStructure" style="display: inline; margin: 0;">
-                            Change Structure (+ re-start)
-                        </label>
-                    </div>
-                    {{ end }}
-                    <select id="StructureID" name="StructureID" {{ if .IsNew }}required{{ else }}disabled{{ end }}>
-                        {{ range $.Structures }}
-                        <option value="{{ .ID }}" {{ if and (not $.IsNew) (eq .ID $.Tournament.FromStructureID)
-                            }}selected{{ end }}>{{ .Name }}
-                        </option>
-                        {{ end }}
-                    </select>
-                </div>
-            </div>
-
-            <div class="form-section">
                 <h2> Tournament State </h2>
+                {{ if not .IsNew }}
                 <small>
                     Note the tournament may have changed out from under you
                     if the clock is already running. These are easier to
                     edit from the tournament view page, but not as precise.
                 </small>
+                {{ end }}
                 <div class="form-group">
                     <label for="CurrentPlayers">Current Players</label>
                     <input type="text" id="CurrentPlayers" name="CurrentPlayers" class="field-small" maxlength="6"
@@ -463,6 +466,20 @@
                     }
                 }
                 {{ end }}
+
+                function loadStructureChipValues() {
+                    const select = document.getElementById('StructureID');
+                    const selectedOption = select.options[select.selectedIndex];
+                    
+                    const chipsPerBuyIn = selectedOption.getAttribute('data-chips-per-buyin') || '0';
+                    const chipsPerAddOn = selectedOption.getAttribute('data-chips-per-addon') || '0';
+                    
+                    document.getElementById('ChipsPerBuyIn').value = commaize(parseInt(chipsPerBuyIn));
+                    document.getElementById('ChipsPerAddOn').value = commaize(parseInt(chipsPerAddOn));
+                    
+                    // Recalculate totals
+                    calculateChips();
+                }
 
                 function togglePrizePoolMode() {
                     const mode = document.getElementById('PrizePoolMode').value;

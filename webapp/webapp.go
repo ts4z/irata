@@ -377,7 +377,7 @@ func (app *App) handleEditStructure(ctx context.Context, id int64, w http.Respon
 			name := r.FormValue("Name")
 			chipsPerBuyInStr := r.FormValue("ChipsPerBuyIn")
 			chipsPerAddOnStr := r.FormValue("ChipsPerAddOn")
-			
+
 			chipsPerBuyIn, err := strconv.Atoi(chipsPerBuyInStr)
 			if err != nil {
 				chipsPerBuyIn = 0
@@ -386,7 +386,7 @@ func (app *App) handleEditStructure(ctx context.Context, id int64, w http.Respon
 			if err != nil {
 				chipsPerAddOn = 0
 			}
-			
+
 			levels := []*model.Level{}
 			for i := 0; ; i++ {
 				ap := r.FormValue(fmt.Sprintf("Level%dAutoPause", i)) == "on"
@@ -528,7 +528,7 @@ func (app *App) handleCreateStructure(ctx context.Context, w http.ResponseWriter
 			name := r.FormValue("Name")
 			chipsPerBuyInStr := r.FormValue("ChipsPerBuyIn")
 			chipsPerAddOnStr := r.FormValue("ChipsPerAddOn")
-			
+
 			chipsPerBuyIn, err := strconv.Atoi(chipsPerBuyInStr)
 			if err != nil {
 				chipsPerBuyIn = 0
@@ -537,7 +537,7 @@ func (app *App) handleCreateStructure(ctx context.Context, w http.ResponseWriter
 			if err != nil {
 				chipsPerAddOn = 0
 			}
-			
+
 			levels := []*model.Level{}
 			for i := 0; ; i++ {
 				ap := r.FormValue(fmt.Sprintf("Level%dAutoPause", i)) == "on"

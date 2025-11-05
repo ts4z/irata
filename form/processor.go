@@ -136,7 +136,7 @@ func (a *FormProcessor) ApplyFormToTournament(ctx context.Context, form url.Valu
 		t.FromStructureID = structureID
 		t.State.CurrentLevelNumber = 0
 		t.State.IsClockRunning = false
-		timeRemaining := (time.Duration(structure.Levels[0].DurationMinutes) * time.Millisecond).Milliseconds()
+		timeRemaining := (time.Duration(structure.Levels[0].DurationMinutes) * time.Minute).Milliseconds()
 		t.State.TimeRemainingMillis = &timeRemaining
 		t.State.CurrentLevelEndsAt = nil
 		log.Printf("Structure changed to %d, reset to level 0 and paused", structureID)

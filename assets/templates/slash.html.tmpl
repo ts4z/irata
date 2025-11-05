@@ -99,7 +99,10 @@
 
             confirmBtn.onclick = function() {
                 if (currentTournamentId) {
+                    // Navigate to delete endpoint, which will redirect back to home page
                     window.location.href = '/t/' + currentTournamentId + '/delete';
+                    // Close modal immediately to provide feedback
+                    modal.style.display = 'none';
                 }
             };
 

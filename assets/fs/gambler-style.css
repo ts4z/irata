@@ -48,6 +48,12 @@ h2 {
     margin-bottom: 0.8em;
 }
 
+.nowrap {
+  white-space: nowrap;    
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* Data table styling - add this class to tables that need borders/hover */
 .data-table {
     width: 100%;
@@ -115,11 +121,11 @@ input, select, textarea {
 }
 
 .field-medium {
-    max-width: 9ch;
+    max-width: 10ch;
 }
 
 .field-large {
-    max-width: 13ch;
+    max-width: 14ch;
 }
 
 .field-text {
@@ -472,7 +478,7 @@ input[type="submit"]:hover, button:hover {
     border-bottom: 1px solid white;
     padding-top: 2px;
     padding-bottom: 2px;
-    height: 30vi;
+    height: 100%;
     overflow-y: hidden;
     width: 100%;
     align-self: stretch;
@@ -482,10 +488,11 @@ input[type="submit"]:hover, button:hover {
     font-family: rhmono, monospace;
     display: block;
     width: 100%;
-    font-size: 2.0vi;
+    font-size: 3vh;
     text-align: center;
-    overflow-y: auto;
-    height: 30vi;
+    overflow-y: hidden;
+    height: 100%;
+    line-height: 120%;
 }
 
 .clock-rr-top-box {
@@ -562,7 +569,7 @@ input[type="submit"]:hover, button:hover {
     left: 50%;
     top: 50%;
     transform: translate(-50%, -50%) rotate(-33deg);
-    font-size: 8vi;
+    font-size: 10vi;
     color: #ffffff;
     text-shadow: -0.7vi -0.7vi 1vi #000, 
         0.7vi -0.7vi 1vi #000,

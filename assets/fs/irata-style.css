@@ -41,6 +41,12 @@ h2 {
     margin-bottom: 0.8em;
 }
 
+.nowrap {
+  white-space: nowrap;    
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* Data table styling - add this class to tables that need borders/hover */
 .data-table {
     width: 100%;

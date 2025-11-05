@@ -141,8 +141,10 @@ func (old *StructureData) Clone() *StructureData {
 }
 
 type StructureSlug struct {
-	Name string
-	ID   int64
+	Name          string
+	ID            int64
+	ChipsPerBuyIn int
+	ChipsPerAddOn int
 }
 
 // State represents the mutable state of a tournament (stuff that is supposed to

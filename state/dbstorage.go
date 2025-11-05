@@ -348,7 +348,7 @@ func (s *DBStorage) FetchStructure(ctx context.Context, id int64) (*model.Struct
 }
 
 func (s *DBStorage) FetchStructureSlugs(ctx context.Context, offset, limit int) ([]*model.StructureSlug, error) {
-	rows, err := s.db.QueryContext(ctx, "SELECT structure_id, name FROM structures LIMIT $1 OFFSET $2", limit, offset)
+	rows, err := s.db.QueryContext(ctx, "SELECT structure_id, name, model_data FROM structures LIMIT $1 OFFSET $2", limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("querying structures: %w", err)
 	}
@@ -359,14 +359,23 @@ func (s *DBStorage) FetchStructureSlugs(ctx context.Context, offset, limit int) 
 	for rows.Next() {
 		var name string
 		var id int64
+		var modelData []byte
 
-		if err := rows.Scan(&id, &name); err != nil {
+		if err := rows.Scan(&id, &name, &modelData); err != nil {
 			return nil, err
 		}
 
+		// Parse model_data to extract chip values
+		var sd model.StructureData
+		if err := json.Unmarshal(modelData, &sd); err != nil {
+			return nil, fmt.Errorf("unmarshaling structure data: %w", err)
+		}
+
 		slugs = append(slugs, &model.StructureSlug{
-			ID:   id,
-			Name: name,
+			ID:            id,
+			Name:          name,
+			ChipsPerBuyIn: sd.ChipsPerBuyIn,
+			ChipsPerAddOn: sd.ChipsPerAddOn,
 		})
 	}
 
