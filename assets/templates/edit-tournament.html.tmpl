@@ -285,7 +285,7 @@
                 <div class="form-group" id="PaytableGroup"
                     style="display: {{ if .Tournament.State.AutoComputePrizePool -}} block {{- else -}} none {{- end -}};">
                     <label for="PaytableID">Paytable</label>
-                    <select id="PaytableID" name="PaytableID" onchange="recalculatePrizePool()">
+                    <select id="PaytableID" name="PaytableID" onchange="maybeRecalcPrizePool()">
                         {{ range $.Paytables }}
                         <option value="{{ .ID }}" {{ if eq .ID $.Tournament.PaytableID }}selected{{ end }}>{{ .Name }}
                         </option>
@@ -449,9 +449,7 @@
                     snf('PrizePoolSavesSubtotal', savesAmount);
                     snf('PrizePoolTotal', total);
 
-                    if (document.getElementById('PrizePoolMode').value === 'calculated') {
-                        recalculatePrizePool();
-                    }
+                    maybeRecalcPrizePool();
                 }
 
                 {{ if not .IsNew }}
@@ -491,7 +489,7 @@
                         paytableGroup.style.display = 'block';
                         prizePoolTextarea.readOnly = true;
                         helpText.textContent = 'Automatically calculated based on buy-ins, add-ons, and selected paytable';
-                        recalculatePrizePool();
+                        maybeRecalcPrizePool();
                     } else {
                         paytableGroup.style.display = 'none';
                         prizePoolTextarea.readOnly = false;
@@ -499,9 +497,10 @@
                     }
                 }
 
-                async function recalculatePrizePool() {
+                async function maybeRecalcPrizePool() {
                     const mode = document.getElementById('PrizePoolMode').value;
                     if (mode !== 'calculated') {
+                        // maybe not.
                         return;
                     }
 
@@ -585,28 +584,20 @@
                     // Sync buy-ins and add-ons fields first
                     syncFields();
 
-                    // Watch chip-related fields - add listeners to all fields that affect chip calculation
                     ['ChipsPerBuyIn', 'ChipsPerAddOn', 'ChipSetupBuyIns', 'ChipSetupAddOns'].forEach(fieldId => {
                         const field = document.getElementById(fieldId);
-                        if (field) {/* Lines 545-546 omitted */}
+                        if (field) {
+                            field.addEventListener('input', calculateChips);
+                        }
                     });
 
                     // Watch prize pool amount fields - add listeners to all fields that affect prize pool calculation
                     ['PrizePoolPerBuyIn', 'PrizePoolPerAddOn', 'PrizePoolBuyIns', 'PrizePoolAddOns', 'Saves', 'AmountPerSave'].forEach(fieldId => {
                         const field = document.getElementById(fieldId);
-                        if (field) {/* Lines 553-554 omitted */}
+                        field.addEventListener('input', calculatePrizePoolAmount);
                     });
 
-                    // Watch fields for prize pool text calculation
-                    const fieldsToWatch = [
-                        'BuyIns', 'AddOns', 'Saves', 'AmountPerSave',
-                        'PrizePoolPerBuyIn', 'PrizePoolPerAddOn', 'TotalPrizePoolOverride'
-                    ];
-
-                    fieldsToWatch.forEach(fieldId => {
-                        const field = document.getElementById(fieldId);
-                        if (field) {/* Lines 566-571 omitted */}
-                    });
+                    ['TotalPrizePoolOverride'].forEach(field => addEventListener('input', maybeRecalcPrizePool));
 
                     // Initialize calculations on load
                     calculateChips();
