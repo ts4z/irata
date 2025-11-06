@@ -552,13 +552,36 @@ function install_keyboard_handlers() {
     }
   }
 
+  function stopClock() {
+    // Stop advancing the clock.  We'll probably lose a second once the server
+    // responds, but this makes the application feel like it's listening.
+    send_modify('StopClock');
+    if (last_model.State.IsClockRunning) {
+      last_model.CurrentLevelEndsAt = undefined;
+      last_model.State.TimeRemainingMillis = millis_remaining_in_level();
+      last_model.State.IsClockRunning = false;
+    }
+  }
+
+  function startClock() {
+    send_modify('StartClock');
+    // Start advancing the clock.  It's disconcerting when it doesn't start on a pause.
+    if (!last_model.State.IsClockRunning) {
+      let now = Date.now();
+      last_model.State.CurrentLevelEndsAt = now + millis_remaining_in_level();
+      last_model.State.TimeRemainingMillis = undefined;
+      last_model.State.IsClockRunning = true;
+      tick();
+    }
+  }
+
   function toggle_pause(_) {
     if (last_model === undefined) {
       console.log("last_model undefined")
     } else if (is_clock_running()) {
-      send_modify('StopClock')
+      stopClock();
     } else {
-      send_modify('StartClock')
+      startClock();
     }
   }
 
@@ -701,7 +724,7 @@ const cached_change_listener = (() => {
   }
 })();
 
-async function tick() {
+function tick() {
   let wait = [cached_change_listener()];
   if (is_clock_running()) {
     wait.push(maybe_clock_tick());
@@ -714,7 +737,7 @@ async function tick() {
   Promise.any(wait).catch((e) => {
     console.log(`tick threw up: ${e}`);
   }).finally(() => {
-    setTimeout(tick, 500);
+    setTimeout(tick, 800);
   });
 }
 
