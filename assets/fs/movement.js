@@ -565,7 +565,8 @@ function install_keyboard_handlers() {
 
   function startClock() {
     send_modify('StartClock');
-    // Start advancing the clock.  It's disconcerting when it doesn't start on a pause.
+    // Start advancing the clock without waiting for the server response.
+    // It's disconcerting when it isn't responsive.
     if (!last_model.State.IsClockRunning) {
       let now = Date.now();
       last_model.State.CurrentLevelEndsAt = now + millis_remaining_in_level();
