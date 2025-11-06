@@ -431,7 +431,7 @@ async function maybe_clock_tick() {
     return Promise.reject("clock not running");
   }
 
-  let time_until_next_tick = 5 + (millis_remaining_in_level() % 1000);
+  let time_until_next_tick = 1 + (millis_remaining_in_level() % 1000);
   // console.log(`ramaining until next tick: ${time_until_next_tick}`);
   return new Promise(resolve => setTimeout(resolve, time_until_next_tick)).then(() => {
     advance_clock_from_wall_clock();
@@ -724,22 +724,49 @@ const cached_change_listener = (() => {
   }
 })();
 
+// Wrapper around setTimeout(tick, ms), but prevents setting
+// multiple tick timers.
+//
+// We continually reset the timer (that is, not an interval) because
+// we want to get the timer close to the top of the second.  However,
+// there are a couple places that schedule a tick, and a tick is self-
+// scheduling.  So we quash one of them if we see a second one while
+// the first one is outstanding.  (We don't use the interval id because
+// this is a little clearer that it doesn't have a race condition, I think.)
+const setTickTimer = function() {
+  let counter = 1;
+
+  return function(ms) {
+    let c = ++counter;
+    setTimeout(() => {
+      if (counter !== c) {
+        return;
+      }
+      tick();
+    }, ms);
+  }
+}();
+
 function tick() {
   let wait = [cached_change_listener()];
   if (is_clock_running()) {
     wait.push(maybe_clock_tick());
   }
   if (want_footers()) {
-    console.log("main event: want footers");
     wait.push(cached_fetch_footers_promise())
   }
 
   Promise.any(wait).catch((e) => {
     console.log(`tick threw up: ${e}`);
   }).finally(() => {
-    setTimeout(tick, 800);
+    // Schedule the start of the next tick, which will
+    // mostly sleep until the top of the next second.  Do
+    // this in 10ms in case we have a bug, we don't swamp
+    // the browser.
+    setTickTimer(10);
   });
 }
+
 
 start_rotating_footers();
 tick();
