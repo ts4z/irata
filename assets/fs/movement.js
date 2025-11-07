@@ -100,8 +100,6 @@ var last_model = {
   },
   // Transients are things that are computed from State and Structure.
   "Transients": {
-    "NextBreakAt": undefined,
-    "EndsAt": undefined,
     "ProtocolVersion": undefined,
   }
 }
@@ -218,11 +216,9 @@ async function listen_and_consume_model_changes(currentVersion, abortSignal) {
   return "fetched new model";
 }
 
-function update_next_level_and_break_fields() {
-  next_level_complete_at = last_model.Transients.EndsAt;
-
-  var cln = last_model.State.CurrentLevelNumber;
-  var level = last_model.Structure.Levels[cln]
+function updateClockClassAndBannerFromLevel() {
+  let cln = last_model.State.CurrentLevelNumber;
+  let level = last_model.Structure.Levels[cln]
 
   if (level.IsBreak) {
     set_text("blinds", level.Description);
@@ -234,10 +230,6 @@ function update_next_level_and_break_fields() {
 
   let level_banner = level.Banner;
   set_text("level", level_banner);
-
-  next_level_complete_at = new Date(last_model.State.CurrentLevelEndsAt)
-
-  show_paused_overlay(!is_clock_running());
 }
 
 // Server sent a whole new model.  Update all the fields.
@@ -313,12 +305,24 @@ function setNextDescription() {
   }
 }
 
-const leadingBlindsRE = /^BLINDS /i;
-function abridgeDescription(description) {
-  return description.replace(leadingBlindsRE, "");
+// Try to abridge a level description to just the blinds/limits.
+function abridgeDescription(desc) {
+  let rxes = [ 
+    /(?:BLINDS|LIMITS)\s+([0-9,k]+(?:-|—|\/|–)[0-9,k]+)/i ,
+    /([0-9,k]+(?:-|—|\/|–)[0-9,k]+)/i,
+  ];
+  for (let rx of rxes) {
+    let m = desc.match(rx);
+    if (m) {
+      return m[1];
+    }
+  }
+
+  return desc;
 }
 
-function show_paused_overlay(show) {
+function showPausedOverlay() {
+  const show = !is_clock_running();
   const el = document.getElementById("paused-overlay");
   if (el) {
     el.style.display = show ? "block" : "none";
@@ -470,14 +474,11 @@ function advance_clock_from_wall_clock() {
 function update_time_fields() {
   update_break_clock();
   update_big_clock();
-  update_next_level_and_break_fields();
+  updateClockClassAndBannerFromLevel();
+  showPausedOverlay();
 }
 
 function update_big_clock() {
-  if (typeof next_level_complete_at === 'undefined') {
-    // this doesn't happen -- why?
-    document.getElementById("clock").innerHTML = "??:??";
-  }
   var render = to_hmmss(millis_remaining_in_level());
   var clockElement = document.getElementById("clock");
   clockElement.innerHTML = render;
