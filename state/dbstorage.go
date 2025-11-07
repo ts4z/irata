@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"net/http"
 	"os"
 	"sync"
 	"time"
@@ -700,8 +701,10 @@ func (s *DBStorage) FetchUserByUserID(ctx context.Context, id int64) (*model.Use
 	fetchUserByID.Add(1)
 	row := &model.UserIdentity{ID: id}
 	err := s.db.QueryRowContext(ctx,
-		"SELECT nick, is_admin FROM users WHERE user_id=$1;", id).Scan(
-		&row.Nick, &row.IsAdmin)
+		`SELECT nick, is_admin, is_operator
+		FROM users
+		WHERE user_id=$1`, id).Scan(
+		&row.Nick, &row.IsAdmin, &row.IsOperator)
 	if err == sql.ErrNoRows {
 		return nil, errors.New("user not found")
 	}
@@ -714,7 +717,9 @@ func (s *DBStorage) FetchUserByUserID(ctx context.Context, id int64) (*model.Use
 func (s *DBStorage) FetchUsers(ctx context.Context) ([]*model.UserIdentity, error) {
 	// TODO: pagination
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT user_id, nick, is_admin FROM users ORDER BY user_id`)
+		`SELECT user_id, nick, is_admin, is_operator
+		FROM users
+		ORDER BY user_id`)
 	if err != nil {
 		return nil, err
 	}
@@ -723,12 +728,48 @@ func (s *DBStorage) FetchUsers(ctx context.Context) ([]*model.UserIdentity, erro
 	var users []*model.UserIdentity
 	for rows.Next() {
 		var user model.UserIdentity
-		if err := rows.Scan(&user.ID, &user.Nick, &user.IsAdmin); err != nil {
+		if err := rows.Scan(&user.ID, &user.Nick, &user.IsAdmin, &user.IsOperator); err != nil {
 			return nil, err
 		}
 		users = append(users, &user)
 	}
 	return users, nil
+}
+
+func (s *DBStorage) SaveUser(ctx context.Context, u *model.UserIdentity) error {
+	result, err := s.db.ExecContext(ctx,
+		`UPDATE users SET nick=$1, is_admin=$2, is_operator=$3 WHERE user_id=$4`,
+		u.Nick, u.IsAdmin, u.IsOperator, u.ID)
+	if err != nil {
+		return he.HTTPCodedErrorf(http.StatusInternalServerError, "db error: %w", err)
+	}
+
+	n, err := result.RowsAffected()
+	if err != nil {
+		return he.HTTPCodedErrorf(http.StatusInternalServerError, "db error: %w", err)
+	}
+	if n != 1 {
+		return he.HTTPCodedErrorf(http.StatusNotFound, "no rows affected")
+	}
+
+	return nil
+}
+
+func (s *DBStorage) DeleteUserByID(ctx context.Context, id int64) error {
+	result, err := s.db.ExecContext(ctx,
+		"DELETE from users WHERE user_id=$1", id)
+
+	if err != nil {
+		return err
+	} else {
+		if n, err := result.RowsAffected(); err != nil {
+			return err
+		} else if n != 1 {
+			return fmt.Errorf("%d rows deleted", n)
+		} else {
+			return nil
+		}
+	}
 }
 
 func (s *DBStorage) DeleteUserByNick(ctx context.Context, nick string) error {

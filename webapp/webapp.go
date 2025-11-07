@@ -308,6 +308,31 @@ func (app *App) handleManageStructures(ctx context.Context, w http.ResponseWrite
 	}
 }
 
+func (app *App) handleManageUsers(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	sc, err := app.siteStorage.FetchSiteConfig(ctx)
+	if err != nil {
+		he.SendErrorToHTTPClient(w, "fetch site config", err)
+		return
+	}
+
+	users, err := app.userStorage.FetchUsers(ctx)
+	if err != nil {
+		he.SendErrorToHTTPClient(w, "fetch users", err)
+		return
+	}
+
+	data := struct {
+		Users []*model.UserIdentity
+		Theme string
+	}{
+		Users: users,
+		Theme: sc.Theme,
+	}
+	if err := app.templates.ExecuteTemplate(w, "manage-users.html.tmpl", data); err != nil {
+		log.Printf("can't render manage-users template: %v", err)
+	}
+}
+
 func (app *App) handleCreateTournament(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	var flash string
 	if r.Method == http.MethodPost {
@@ -1130,6 +1155,18 @@ func (app *App) InstallHandlers() {
 	app.requiringAdminHandleFunc("/api/keyboard-control", app.handleKeyboardControl)
 
 	app.requiringAdminHandleFunc("/manage/structure", app.handleManageStructures)
+
+	app.requiringAdminHandleFunc("/manage/users", app.handleManageUsers)
+
+	// TODO: This should be a DELETE method?
+	app.requiringAdminTakingIDHandleFunc("/manage/user/{id}/delete", func(ctx context.Context, id int64, w http.ResponseWriter, r *http.Request) {
+		err := app.userStorage.DeleteUserByID(ctx, id)
+		if err != nil {
+			he.SendErrorToHTTPClient(w, "delete user", err)
+			return
+		}
+		http.Redirect(w, r, "/manage/users", http.StatusSeeOther)
+	})
 
 	app.requiringAdminHandleFunc("/create/tournament", app.handleCreateTournament)
 

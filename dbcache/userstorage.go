@@ -67,6 +67,22 @@ func (s *UserStorage) FetchUserRow(ctx context.Context, nick string) (*model.Use
 	return s.next.FetchUserRow(ctx, nick)
 }
 
+func (s *UserStorage) SaveUser(ctx context.Context, u *model.UserIdentity) error {
+	err := s.next.SaveUser(ctx, u)
+	if err == nil {
+		s.cache.Add(u.ID, u.Clone())
+	}
+	return err
+}
+
+func (s *UserStorage) DeleteUserByID(ctx context.Context, id int64) error {
+	err := s.next.DeleteUserByID(ctx, id)
+	if err == nil {
+		s.InvalidateCache(id)
+	}
+	return err
+}
+
 func (s *UserStorage) DeleteUserByNick(ctx context.Context, nick string) error {
 	return s.next.DeleteUserByNick(ctx, nick)
 }

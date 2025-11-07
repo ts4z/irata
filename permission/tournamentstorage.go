@@ -21,10 +21,9 @@ func (s *TournamentStorage) CreateTournament(ctx context.Context, t *model.Tourn
 }
 
 func (s *TournamentStorage) DeleteTournament(ctx context.Context, id int64) error {
-	if err := CheckWriteAccessToTournamentID(ctx, id); err != nil {
-		return err
-	}
-	return s.Storage.DeleteTournament(ctx, id)
+	return requireOperator(ctx, func() error {
+		return s.Storage.DeleteTournament(ctx, id)
+	})
 }
 
 func (s *TournamentStorage) FetchOverview(ctx context.Context, offset, limit int) (*model.Overview, error) {

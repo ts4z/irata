@@ -20,6 +20,14 @@ func IsAdmin(context context.Context) bool {
 	return u.IsAdmin
 }
 
+func IsOperator(context context.Context) bool {
+	u := UserFromContext(context)
+	if u == nil {
+		return false
+	}
+	return u.IsAdmin || u.IsOperator
+}
+
 func UserIdentityInContext(ctx context.Context, a *model.UserIdentity) context.Context {
 	return context.WithValue(ctx, contextKeyType{}, a)
 }
@@ -33,14 +41,16 @@ func UserFromContext(ctx context.Context) *model.UserIdentity {
 	}
 }
 
+// Deprecated. Replace with requireOperator.
 func CheckWriteAccessToTournamentID(ctx context.Context, _ int64) error {
-	if !IsAdmin(ctx) {
+	if !IsOperator(ctx) {
 		return he.HTTPCodedErrorf(http.StatusUnauthorized, "permission denied")
 	}
 	// TODO more checks needed, eh?
 	return nil
 }
 
+// Deprecated. Rplace with calls to requireOperator.
 func CheckCreateTournamentAccess(ctx context.Context) error {
 	if !IsAdmin(ctx) {
 		return he.HTTPCodedErrorf(http.StatusUnauthorized, "permission denied")
@@ -49,6 +59,7 @@ func CheckCreateTournamentAccess(ctx context.Context) error {
 	return nil
 }
 
+// Deprecated.  Replace with calls to requireUserAdmin.
 func CheckAdminAccess(ctx context.Context) error {
 	if !IsAdmin(ctx) {
 		return he.HTTPCodedErrorf(http.StatusUnauthorized, "permission denied")

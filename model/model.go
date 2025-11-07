@@ -28,9 +28,10 @@ type UserRow struct {
 }
 
 type UserIdentity struct {
-	ID      int64
-	Nick    string
-	IsAdmin bool
+	ID         int64
+	Nick       string
+	IsAdmin    bool
+	IsOperator bool
 }
 
 func (ui *UserIdentity) Clone() *UserIdentity {

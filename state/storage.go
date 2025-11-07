@@ -59,6 +59,8 @@ type UserStorage interface {
 	CreateUser(ctx context.Context, nick string, emailAddress string, passwordHash string, isAdmin bool) error
 	FetchUserByUserID(ctx context.Context, id int64) (*model.UserIdentity, error)
 	FetchUserRow(ctx context.Context, nick string) (*model.UserRow, error)
+	SaveUser(ctx context.Context, u *model.UserIdentity) error
+	DeleteUserByID(ctx context.Context, id int64) error
 	DeleteUserByNick(ctx context.Context, nick string) error
 
 	AddPassword(ctx context.Context, userID int64, passwordHash string) error
