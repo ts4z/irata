@@ -333,6 +333,107 @@ func (app *App) handleManageUsers(ctx context.Context, w http.ResponseWriter, r 
 	}
 }
 
+func (app *App) handleEditUser(ctx context.Context, id int64, w http.ResponseWriter, r *http.Request) {
+	var flash string
+
+	if r.Method == http.MethodPost {
+		if err := r.ParseForm(); err != nil {
+			log.Printf("error parsing form: %v", err)
+			flash = "Error parsing form"
+		} else {
+			formType := r.FormValue("FormType")
+			switch formType {
+			case "details":
+				// Update user details
+				if err := app.formProcessor.EditUser(ctx, id, r.Form); err != nil {
+					flash = fmt.Sprintf("Error saving user: %v", err)
+				} else {
+					flash = "User details updated successfully"
+				}
+			case "email":
+				// TODO: Update email address
+				flash = "Email update not yet implemented"
+			case "password":
+				// TODO: Update password
+				flash = "Password update not yet implemented"
+			default:
+				flash = "Unknown form type"
+			}
+		}
+	}
+
+	sc, err := app.siteStorage.FetchSiteConfig(ctx)
+	if err != nil {
+		he.SendErrorToHTTPClient(w, "fetch site config", err)
+		return
+	}
+
+	user, err := app.userStorage.FetchUserByUserID(ctx, id)
+	if err != nil {
+		he.SendErrorToHTTPClient(w, "fetch user", err)
+		return
+	}
+
+	// TODO: Fetch email address
+	emailAddress := ""
+
+	data := struct {
+		User         *model.UserIdentity
+		EmailAddress string
+		Theme        string
+		Flash        string
+		IsNew        bool
+	}{
+		User:         user,
+		EmailAddress: emailAddress,
+		Theme:        sc.Theme,
+		Flash:        flash,
+		IsNew:        false,
+	}
+
+	if err := app.templates.ExecuteTemplate(w, "edit-user.html.tmpl", data); err != nil {
+		log.Printf("can't render edit-user template: %v", err)
+	}
+}
+
+func (app *App) handleCreateUser(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	var flash string
+
+	if r.Method == http.MethodPost {
+		if err := r.ParseForm(); err != nil {
+			log.Printf("error parsing form: %v", err)
+			flash = "Error parsing form"
+		} else {
+			// TODO: Implement user creation
+			flash = "User creation not yet implemented"
+		}
+	}
+
+	sc, err := app.siteStorage.FetchSiteConfig(ctx)
+	if err != nil {
+		he.SendErrorToHTTPClient(w, "fetch site config", err)
+		return
+	}
+
+	data := struct {
+		User         *model.UserIdentity
+		EmailAddress string
+		Theme        string
+		Flash        string
+		IsNew        bool
+	}{
+		User:         &model.UserIdentity{},
+		EmailAddress: "",
+		Theme:        sc.Theme,
+		Flash:        flash,
+		IsNew:        true,
+	}
+
+	if err := app.templates.ExecuteTemplate(w, "edit-user.html.tmpl", data); err != nil {
+		log.Printf("can't render edit-user template: %v", err)
+	}
+}
+
 func (app *App) handleCreateTournament(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	var flash string
 	if r.Method == http.MethodPost {
@@ -1157,6 +1258,10 @@ func (app *App) InstallHandlers() {
 	app.requiringAdminHandleFunc("/manage/structure", app.handleManageStructures)
 
 	app.requiringAdminHandleFunc("/manage/users", app.handleManageUsers)
+
+	app.requiringAdminTakingIDHandleFunc("/manage/user/{id}/edit", app.handleEditUser)
+
+	app.requiringAdminHandleFunc("/create/user", app.handleCreateUser)
 
 	// TODO: This should be a DELETE method?
 	app.requiringAdminTakingIDHandleFunc("/manage/user/{id}/delete", func(ctx context.Context, id int64, w http.ResponseWriter, r *http.Request) {

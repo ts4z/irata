@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta name="viewport" content="width=device-width,initial-scale=1.0">
+    <title>Manage Users</title>
+    <link rel="stylesheet" href="/fs/{{ .Theme }}-style.css">
+</head>
+<body>
+    <div class="container">
+        <div class="admin-bar">
+            <a href="/">&lt; Back to Home</a>
+            <a href="/create/user">Create New User</a>
+        </div>
+
+        <h1>Manage Users</h1>
+        
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>User ID</th>
+                    <th>Nick</th>
+                    <th>Admin</th>
+                    <th>Op</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{ range .Users }}
+                <tr>
+                    <td>{{ .ID }}</td>
+                    <td>{{ .Nick }}</td>
+                    <td>{{ if .IsAdmin }}&#x2705;{{ else }}&nbsp;{{ end }}</td>
+                    <td>{{ if .IsOperator }}&#x2705;{{ else }}&nbsp;{{ end }}</td>
+                    <td>
+                        <a href="/manage/user/{{ .ID }}/edit">Edit</a>
+                        <a href="#" style="color:#f88;" onclick="showDeleteModal('{{ .Nick }}', {{ .ID }})">Delete</a>
+                    </td>
+                </tr>
+                {{ end }}
+            </tbody>
+        </table>
+
+        <!-- Delete Confirmation Modal -->
+        <div id="deleteModal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.7); z-index:1000;">
+            <div style="position:relative; top:50%; transform:translateY(-50%); margin:auto; padding:2em; background:#222; max-width:500px; border-radius:8px; text-align:center;">
+                <p id="deleteModalText"></p>
+                <form id="deleteForm" method="GET" style="margin-top:1em;">
+                    <button type="submit" style="background:#f88; color:#fff; border:none; padding:0.5em 1em; border-radius:4px;">Confirm Delete</button>
+                    <button type="button" onclick="hideDeleteModal()" style="margin-left:1em;">Cancel</button>
+                </form>
+            </div>
+        </div>
+
+        <script>
+            function showDeleteModal(nick, id) {
+                document.getElementById('deleteModalText').textContent = `Are you sure you want to delete user "${nick}"?`;
+                document.getElementById('deleteForm').action = `/manage/user/${id}/delete`;
+                document.getElementById('deleteModal').style.display = 'block';
+            }
+
+            function hideDeleteModal() {
+                document.getElementById('deleteModal').style.display = 'none';
+            }
+        </script>
+    </div>
+</body>
+</html>

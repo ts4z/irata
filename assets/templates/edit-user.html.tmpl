@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta name="viewport" content="width=device-width,initial-scale=1.0">
+    <title>{{ if .IsNew }}Create{{ else }}Edit{{ end }} User</title>
+    <link rel="stylesheet" href="/fs/{{ .Theme }}-style.css">
+</head>
+<body>
+    <div class="container">
+        <div class="admin-bar">
+            <a href="/manage/users">&lt; Back to Users</a>
+        </div>
+
+        <h1>{{ if .IsNew }}Create{{ else }}Edit{{ end }} User</h1>
+
+        {{ if .Flash }}
+        <div class="flash">{{ .Flash }}</div>
+        {{ end }}
+
+        <!-- User Details Form -->
+        <section style="margin-bottom: 2em;">
+            <h2>User Details</h2>
+            <form method="POST" action="{{ if .IsNew }}/create/user{{ else }}/manage/user/{{ .User.ID }}/edit{{ end }}">
+                <input type="hidden" name="FormType" value="details">
+                
+                <div class="form-group">
+                    <label for="Nick">Username (Nick)</label>
+                    <input type="text" id="Nick" name="Nick" value="{{ .User.Nick }}" required>
+                </div>
+
+                <div class="form-section">
+                <h3>Permissions</h3>
+                <label style="display: inline-flex; align-items: center; white-space: nowrap;"><input type="checkbox" id="IsAdmin" name="IsAdmin" value="true" {{ if .User.IsAdmin }}checked{{ end }} style="margin-right: 0.5em;"> Administrator
+                <small>&nbsp;(may manage users and permissions) </small>
+                </label>
+                <br>
+                <label style="display: inline-flex; align-items: center; white-space: nowrap;"><input type="checkbox" id="IsOperator" name="IsOperator" value="true" {{ if .User.IsOperator }}checked{{ end }} style="margin-right: 0.5em;"> Operator
+                <small>&nbsp;(may create and edit tournaments) </small>
+                </label>
+                </div>
+
+                <div class="actions">
+                    <button type="submit">{{ if .IsNew }}Create User{{ else }}Save Details{{ end }}</button>
+                    <a href="/manage/users">Cancel</a>
+                </div>
+            </form>
+        </section>
+
+        {{ if not .IsNew }}
+        <!-- Email Address Form -->
+        <section style="margin-bottom: 2em; border-top: 1px solid #444; padding-top: 1em;">
+            <h2>Email Address</h2>
+            <form method="POST" action="/manage/user/{{ .User.ID }}/edit">
+                <input type="hidden" name="FormType" value="email">
+                
+                <div class="form-group">
+                    <label for="EmailAddress">Email Address</label>
+                    <input type="email" id="EmailAddress" name="EmailAddress" value="{{ .EmailAddress }}" required>
+                </div>
+
+                <div class="actions">
+                    <button type="submit">Update Email</button>
+                </div>
+            </form>
+        </section>
+
+        <!-- Password Form -->
+        <section style="margin-bottom: 2em; border-top: 1px solid #444; padding-top: 1em;">
+            <h2>Password</h2>
+            <form method="POST" action="/manage/user/{{ .User.ID }}/edit">
+                <input type="hidden" name="FormType" value="password">
+                
+                <div class="form-group">
+                    <label for="NewPassword">New Password</label>
+                    <input type="password" id="NewPassword" name="NewPassword" required minlength="1">
+                    <small style="opacity: 0.7;">Minimum 16 characters, must use three special characters,
+                    uppercase, lowercase, numbers, an emoji, two CJK characters, one Klingon letter, and one
+                    invalid UTF-8 octet
+                    </small>
+                </div>
+
+                <div class="form-group">
+                    <label for="ConfirmPassword">Confirm Password</label>
+                    <input type="password" id="ConfirmPassword" name="ConfirmPassword" required minlength="1">
+                </div>
+
+                <div class="actions">
+                    <button type="submit">Change Password</button>
+                </div>
+            </form>
+        </section>
+        {{ end }}
+    </div>
+</body>
+</html>

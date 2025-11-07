@@ -18,11 +18,12 @@ import (
 type FormProcessor struct {
 	appStorage        state.AppStorage
 	ts                state.TournamentStorage
+	userStorage       state.UserStorage
 	tournamentMutator *tournament.Manager
 }
 
-func NewProcessor(as state.AppStorage, ts state.TournamentStorage, tournamentMutator *tournament.Manager) *FormProcessor {
-	return &FormProcessor{appStorage: as, ts: ts, tournamentMutator: tournamentMutator}
+func NewProcessor(as state.AppStorage, ts state.TournamentStorage, us state.UserStorage, tournamentMutator *tournament.Manager) *FormProcessor {
+	return &FormProcessor{appStorage: as, ts: ts, userStorage: us, tournamentMutator: tournamentMutator}
 }
 
 func maybeCopyString(form url.Values, dest *string, key string) {
@@ -204,4 +205,26 @@ func (a *FormProcessor) CreateTournament(ctx context.Context, form url.Values) (
 	}
 
 	return a.ts.CreateTournament(ctx, t)
+}
+
+func (a *FormProcessor) ApplyFormToUserIdentity(form url.Values, u *model.UserIdentity) {
+	maybeCopyString(form, &u.Nick, "Nick")
+	u.IsAdmin = form.Get("IsAdmin") == "true"
+	u.IsOperator = form.Get("IsOperator") == "true"
+}
+
+func (a *FormProcessor) EditUser(ctx context.Context, id int64, form url.Values) error {
+	user, err := a.userStorage.FetchUserByUserID(ctx, id)
+	if err != nil {
+		return he.HTTPCodedErrorf(404, "can't get user from database")
+	}
+
+	a.ApplyFormToUserIdentity(form, user)
+
+	return a.userStorage.SaveUser(ctx, user)
+}
+
+func (a *FormProcessor) CreateUser(ctx context.Context, form url.Values) (int64, error) {
+	// TODO: Implement user creation
+	return 0, he.HTTPCodedErrorf(501, "user creation not yet implemented")
 }
