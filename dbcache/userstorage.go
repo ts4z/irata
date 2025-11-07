@@ -2,13 +2,18 @@ package dbcache
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	lru "github.com/hashicorp/golang-lru/v2"
 
 	"github.com/ts4z/irata/model"
 	"github.com/ts4z/irata/state"
+	"github.com/ts4z/irata/varz"
+)
+
+var (
+	userStorageCacheHits   = varz.NewInt("userStorageCacheHits")
+	userStorageCacheMisses = varz.NewInt("userStoragecacheMisses")
 )
 
 type UserStorage struct {
@@ -29,6 +34,11 @@ func NewUserStorage(size int, nx state.UserStorage) *UserStorage {
 	}
 }
 
+// TODO: We need to be able to call this for multiple-writer changes.
+func (s *UserStorage) InvalidateCache(userID int64) {
+	s.cache.Remove(userID)
+}
+
 func (s *UserStorage) FetchUsers(ctx context.Context) ([]*model.UserIdentity, error) {
 	return s.next.FetchUsers(ctx)
 }
@@ -39,8 +49,11 @@ func (s *UserStorage) CreateUser(ctx context.Context, nick string, emailAddress 
 
 func (s *UserStorage) FetchUserByUserID(ctx context.Context, id int64) (*model.UserIdentity, error) {
 	if ui, ok := s.cache.Get(id); ok {
+		userStorageCacheHits.Add(1)
 		return ui.Clone(), nil
 	}
+
+	userStorageCacheMisses.Add(1)
 
 	ui, error := s.next.FetchUserByUserID(ctx, id)
 	if error == nil {
@@ -68,8 +81,4 @@ func (s *UserStorage) RemoveExpiredPasswords(ctx context.Context, before time.Ti
 
 func (s *UserStorage) ReplacePassword(ctx context.Context, userID int64, newPasswordHash string, oldPasswordsExpire time.Time) error {
 	return s.next.ReplacePassword(ctx, userID, newPasswordHash, oldPasswordsExpire)
-}
-
-func unimplemented() error {
-	return errors.New("fix me")
 }

@@ -24,7 +24,10 @@ import (
 )
 
 var (
-	saveTournaments = varz.NewInt("saveTournaments")
+	fetchFooterPlugs = varz.NewInt("fetchFooterPlugs")
+	fetchUserByID    = varz.NewInt("fetchUserByID")
+	fetchTournament  = varz.NewInt("fetchTournament")
+	saveTournament   = varz.NewInt("saveTournament")
 )
 
 // DBStorage stores stuff in the associated database.
@@ -41,7 +44,7 @@ type DBStorage struct {
 
 // FetchPlugs fetches a footer plug set and its plugs by set ID.
 func (s *DBStorage) FetchPlugs(ctx context.Context, id int64) (*model.FooterPlugs, error) {
-	log.Printf("FETCH FOOTER PLUGS id=%d", id)
+	fetchFooterPlugs.Add(1)
 	row := s.db.QueryRowContext(ctx, `SELECT id, name, version FROM footer_plug_sets WHERE id = $1`, id)
 	var setID, version int64
 	var name string
@@ -162,6 +165,7 @@ func (s *DBStorage) DeleteFooterPlugSet(ctx context.Context, id int64) error {
 var _ AppStorage = &DBStorage{}
 var _ SiteStorage = &DBStorage{}
 var _ UserStorage = &DBStorage{}
+var _ TournamentStorage = &DBStorage{}
 
 type cloudEnvSettings struct {
 	dbUser,
@@ -425,6 +429,7 @@ func (s *DBStorage) FetchOverview(ctx context.Context, offset, limit int) (*mode
 }
 
 func (s *DBStorage) FetchTournament(ctx context.Context, id int64) (*model.Tournament, error) {
+	fetchTournament.Add(1)
 	var lock int64
 	var bytes []byte
 
@@ -488,7 +493,7 @@ func (s *DBStorage) SaveTournament(
 	ctx context.Context,
 	tm *model.Tournament) error {
 
-	saveTournaments.Add(1)
+	saveTournament.Add(1)
 
 	cpy := *tm
 
@@ -662,6 +667,7 @@ func (s *DBStorage) CreateUser(ctx context.Context, nick string, emailAddress st
 
 // TODO: This is broken in the case of multiple passwords.
 func (s *DBStorage) FetchUserRow(ctx context.Context, nick string) (*model.UserRow, error) {
+	log.Printf("FetchUserRow nick=%q", nick)
 	var row model.UserRow
 	rows, err := s.db.QueryContext(ctx,
 		`SELECT user_id, hashed_password, expires, is_admin, nick FROM users
@@ -695,6 +701,7 @@ func (s *DBStorage) FetchUserRow(ctx context.Context, nick string) (*model.UserR
 }
 
 func (s *DBStorage) FetchUserByUserID(ctx context.Context, id int64) (*model.UserIdentity, error) {
+	fetchUserByID.Add(1)
 	row := &model.UserIdentity{ID: id}
 	err := s.db.QueryRowContext(ctx,
 		"SELECT nick, is_admin FROM users WHERE user_id=$1;", id).Scan(

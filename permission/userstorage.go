@@ -59,6 +59,8 @@ func (s *UserStorage) CreateUser(ctx context.Context, nick string, emailAddress 
 	})
 }
 
+// TODO this should use a non-user context, as this is the hook that is used for
+// validating cookies.
 func (s *UserStorage) FetchUserByUserID(ctx context.Context, id int64) (*model.UserIdentity, error) {
 	return s.next.FetchUserByUserID(ctx, id)
 }

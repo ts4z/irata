@@ -59,13 +59,16 @@ func main() {
 
 	paytableStorage := state.NewDefaultPaytableStorage()
 
+	userStorage := permission.NewUserStorage(
+		dbcache.NewUserStorage(128, unprotectedStorage))
+
 	app := webapp.New(ctx, &webapp.Config{
 		AppStorage:        appStorage,
 		TournamentStorage: tournamentStorage,
 		SiteStorage:       unprotectedStorage,
 		PaytableStorage:   paytableStorage,
 		SoundStorage:      soundStorage,
-		UserStorage:       unprotectedStorage,
+		UserStorage:       userStorage,
 		FormProcessor:     mutator,
 		SubFS:             subFS,
 		BakeryFactory:     bakeryFactory,
