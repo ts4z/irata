@@ -72,6 +72,7 @@ type editTournamentArgs struct {
 	IsNew      bool
 	SiteConfig *model.SiteConfig
 	Sounds     []*soundmodel.SoundEffectSlug
+	Nick       string
 }
 
 // Config holds the configuration for creating a new IrataApp.
@@ -206,6 +207,15 @@ func (app *App) fetchTournament(ctx context.Context, id int64) (*model.Tournamen
 	return t, nil
 }
 
+// currentUserNick returns the nick of the currently logged-in user, or empty string if not logged in
+func (app *App) currentUserNick(ctx context.Context) string {
+	user := permission.UserFromContext(ctx)
+	if user == nil {
+		return ""
+	}
+	return user.Nick
+}
+
 func (app *App) handleFunc(pattern string, handler func(context.Context, http.ResponseWriter, *http.Request)) {
 	app.mux.HandleFunc(pattern, func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
@@ -237,6 +247,31 @@ func (app *App) requiringAdminTakingIDHandleFunc(pattern string, handler func(co
 	app.mux.HandleFunc(pattern, func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 		if !permission.IsAdmin(ctx) {
+			he.SendErrorToHTTPClient(w, "authorize", he.HTTPCodedErrorf(http.StatusUnauthorized, "permission denied"))
+			return
+		}
+		id, err := idPathValue(w, r)
+		if err != nil {
+			he.SendErrorToHTTPClient(w, "parse url", err)
+		}
+		handler(ctx, id, w, r)
+	})
+}
+
+func (app *App) requiringOperatorHandleFunc(pattern string, handler func(context.Context, http.ResponseWriter, *http.Request)) {
+	app.handleFunc(pattern, func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+		if !permission.IsOperator(ctx) {
+			he.SendErrorToHTTPClient(w, "authorize", he.HTTPCodedErrorf(http.StatusUnauthorized, "permission denied"))
+			return
+		}
+		handler(ctx, w, r)
+	})
+}
+
+func (app *App) requiringOperatorTakingIDHandleFunc(pattern string, handler func(context.Context, int64, http.ResponseWriter, *http.Request)) {
+	app.mux.HandleFunc(pattern, func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		if !permission.IsOperator(ctx) {
 			he.SendErrorToHTTPClient(w, "authorize", he.HTTPCodedErrorf(http.StatusUnauthorized, "permission denied"))
 			return
 		}
@@ -299,12 +334,14 @@ func (app *App) handleManageStructures(ctx context.Context, w http.ResponseWrite
 	data := struct {
 		Structures []*model.Structure
 		Theme      string
+		Nick       string
 	}{
 		Structures: structures,
 		Theme:      sc.Theme,
+		Nick:       app.currentUserNick(ctx),
 	}
 	if err := app.templates.ExecuteTemplate(w, "manage-structures.html.tmpl", data); err != nil {
-		log.Printf("can't render manage-structure template: %v", err)
+		log.Printf("500: can't render manage-structure template: %v", err)
 	}
 }
 
@@ -324,9 +361,11 @@ func (app *App) handleManageUsers(ctx context.Context, w http.ResponseWriter, r 
 	data := struct {
 		Users []*model.UserIdentity
 		Theme string
+		Nick  string
 	}{
 		Users: users,
 		Theme: sc.Theme,
+		Nick:  app.currentUserNick(ctx),
 	}
 	if err := app.templates.ExecuteTemplate(w, "manage-users.html.tmpl", data); err != nil {
 		log.Printf("can't render manage-users template: %v", err)
@@ -335,11 +374,13 @@ func (app *App) handleManageUsers(ctx context.Context, w http.ResponseWriter, r 
 
 func (app *App) handleEditUser(ctx context.Context, id int64, w http.ResponseWriter, r *http.Request) {
 	var flash string
+	var flashType string // "yay" for success, "boo" for error
 
 	if r.Method == http.MethodPost {
 		if err := r.ParseForm(); err != nil {
 			log.Printf("error parsing form: %v", err)
 			flash = "Error parsing form"
+			flashType = "boo"
 		} else {
 			formType := r.FormValue("FormType")
 			switch formType {
@@ -347,17 +388,27 @@ func (app *App) handleEditUser(ctx context.Context, id int64, w http.ResponseWri
 				// Update user details
 				if err := app.formProcessor.EditUser(ctx, id, r.Form); err != nil {
 					flash = fmt.Sprintf("Error saving user: %v", err)
+					flashType = "boo"
 				} else {
 					flash = "User details updated successfully"
+					flashType = "yay"
 				}
 			case "email":
 				// TODO: Update email address
 				flash = "Email update not yet implemented"
+				flashType = "boo"
 			case "password":
-				// TODO: Update password
-				flash = "Password update not yet implemented"
+				// Update password
+				if err := app.formProcessor.SetUserPassword(ctx, id, r.Form); err != nil {
+					flash = fmt.Sprintf("Error updating password: %v", err)
+					flashType = "boo"
+				} else {
+					flash = "Password updated successfully"
+					flashType = "yay"
+				}
 			default:
 				flash = "Unknown form type"
+				flashType = "boo"
 			}
 		}
 	}
@@ -382,13 +433,17 @@ func (app *App) handleEditUser(ctx context.Context, id int64, w http.ResponseWri
 		EmailAddress string
 		Theme        string
 		Flash        string
+		FlashType    string
 		IsNew        bool
+		Nick         string
 	}{
 		User:         user,
 		EmailAddress: emailAddress,
 		Theme:        sc.Theme,
 		Flash:        flash,
+		FlashType:    flashType,
 		IsNew:        false,
+		Nick:         app.currentUserNick(ctx),
 	}
 
 	if err := app.templates.ExecuteTemplate(w, "edit-user.html.tmpl", data); err != nil {
@@ -404,8 +459,14 @@ func (app *App) handleCreateUser(ctx context.Context, w http.ResponseWriter, r *
 			log.Printf("error parsing form: %v", err)
 			flash = "Error parsing form"
 		} else {
-			// TODO: Implement user creation
-			flash = "User creation not yet implemented"
+			id, err := app.formProcessor.CreateUser(ctx, r.Form)
+			if err != nil {
+				flash = fmt.Sprintf("Error creating user: %v", err)
+			} else {
+				// Redirect to edit page for the newly created user
+				http.Redirect(w, r, fmt.Sprintf("/manage/user/%d/edit", id), http.StatusSeeOther)
+				return
+			}
 		}
 	}
 
@@ -421,12 +482,14 @@ func (app *App) handleCreateUser(ctx context.Context, w http.ResponseWriter, r *
 		Theme        string
 		Flash        string
 		IsNew        bool
+		Nick         string
 	}{
 		User:         &model.UserIdentity{},
 		EmailAddress: "",
 		Theme:        sc.Theme,
 		Flash:        flash,
 		IsNew:        true,
+		Nick:         app.currentUserNick(ctx),
 	}
 
 	if err := app.templates.ExecuteTemplate(w, "edit-user.html.tmpl", data); err != nil {
@@ -487,6 +550,7 @@ func (app *App) handleCreateTournament(ctx context.Context, w http.ResponseWrite
 		}},
 		Paytables: paytables,
 		Sounds:    sounds,
+		Nick:      app.currentUserNick(ctx),
 	}
 	if err := app.templates.ExecuteTemplate(w, "edit-tournament.html.tmpl", data); err != nil {
 		log.Printf("can't render edit-tournament template: %v", err)
@@ -583,12 +647,14 @@ func (app *App) handleEditStructure(ctx context.Context, id int64, w http.Respon
 		Flash      string
 		IsNew      bool
 		Theme      string
+		Nick       string
 	}{
 		Structure:  st,
 		LevelsJSON: template.JS(levelsJSON),
 		Flash:      flash,
 		IsNew:      false,
 		Theme:      sc.Theme,
+		Nick:       app.currentUserNick(ctx),
 	}
 	if err := app.templates.ExecuteTemplate(w, "edit-structure.html.tmpl", data); err != nil {
 		log.Printf("can't render edit-structure template: %v", err)
@@ -636,7 +702,13 @@ func (app *App) handleEditFooterSet(ctx context.Context, id int64, w http.Respon
 		FooterSet *model.FooterPlugs
 		Flash     string
 		IsNew     bool
-	}{FooterSet: fp, Flash: flash, IsNew: false}
+		Nick      string
+	}{
+		FooterSet: fp,
+		Flash:     flash,
+		IsNew:     false,
+		Nick:      app.currentUserNick(ctx),
+	}
 	if err := app.templates.ExecuteTemplate(w, "edit-footer-set.html.tmpl", data); err != nil {
 		log.Printf("can't render edit-footer-set template: %v", err)
 	}
@@ -758,12 +830,14 @@ func (app *App) handleCreateStructure(ctx context.Context, w http.ResponseWriter
 		Flash      string
 		IsNew      bool
 		Theme      string
+		Nick       string
 	}{
 		Structure:  structure,
 		LevelsJSON: template.JS(levelsJSON),
 		Flash:      flash,
 		IsNew:      true,
 		Theme:      sc.Theme,
+		Nick:       app.currentUserNick(ctx),
 	}
 
 	if err := app.templates.ExecuteTemplate(w, "edit-structure.html.tmpl", data); err != nil {
@@ -808,10 +882,12 @@ func (app *App) handleCreateFooterSet(ctx context.Context, w http.ResponseWriter
 		FooterSet *model.FooterPlugs
 		Flash     string
 		IsNew     bool
+		Nick      string
 	}{
 		FooterSet: &model.FooterPlugs{TextPlugs: []string{}},
 		Flash:     flash,
 		IsNew:     true,
+		Nick:      app.currentUserNick(ctx),
 	}
 	if err := app.templates.ExecuteTemplate(w, "edit-footer-set.html.tmpl", data); err != nil {
 		log.Printf("can't render edit-footer-set template: %v", err)
@@ -827,7 +903,11 @@ func (app *App) handleManageFooterSets(ctx context.Context, w http.ResponseWrite
 
 	data := struct {
 		FooterSets []*model.FooterPlugs
-	}{FooterSets: sets}
+		Nick       string
+	}{
+		FooterSets: sets,
+		Nick:       app.currentUserNick(ctx),
+	}
 	if err := app.templates.ExecuteTemplate(w, "manage-footer-sets.html.tmpl", data); err != nil {
 		log.Printf("can't render manage-footer-sets template: %v", err)
 	}
@@ -850,8 +930,14 @@ func (app *App) handleIndex(ctx context.Context, w http.ResponseWriter, r *http.
 		IsAdmin    bool
 		Overview   *model.Overview
 		SiteConfig *model.SiteConfig
+		Nick       string
 	}
-	inputs := &Inputs{IsAdmin: permission.IsAdmin(ctx), Overview: o, SiteConfig: sc}
+	inputs := &Inputs{
+		IsAdmin:    permission.IsAdmin(ctx),
+		Overview:   o,
+		SiteConfig: sc,
+		Nick:       app.currentUserNick(ctx),
+	}
 	if err := app.templates.ExecuteTemplate(w, "slash.html.tmpl", inputs); err != nil {
 		log.Printf("can't render template: %v", err)
 		return
@@ -912,11 +998,10 @@ func (app *App) handleEditTournament(ctx context.Context, id64 int64, w http.Res
 		IsNew:      false,
 		SiteConfig: sc,
 		Sounds:     sounds,
+		Nick:       app.currentUserNick(ctx),
 	}
-
 	if err := app.templates.ExecuteTemplate(w, "edit-tournament.html.tmpl", args); err != nil {
-		// don't use a.can't here, it would be a duplicate write to w
-		log.Printf("500: can't render template: %v", err)
+		log.Printf("can't render edit-tournament template: %v", err)
 	}
 }
 
@@ -975,7 +1060,11 @@ func (app *App) handleLogin(ctx context.Context, w http.ResponseWriter, r *http.
 		flash := r.URL.Query().Get("error")
 		data := struct {
 			Flash string
-		}{Flash: flash}
+			Nick  string
+		}{
+			Flash: flash,
+			Nick:  app.currentUserNick(ctx),
+		}
 		if err := app.templates.ExecuteTemplate(w, "login.html.tmpl", data); err != nil {
 			log.Printf("can't render login template: %v", err)
 		}
@@ -1161,7 +1250,13 @@ func (app *App) handleManageSite(ctx context.Context, w http.ResponseWriter, r *
 		Config *model.SiteConfig
 		Sounds []*soundmodel.SoundEffectSlug
 		Flash  string
-	}{Config: config, Flash: flash, Sounds: soundSlugs}
+		Nick   string
+	}{
+		Config: config,
+		Flash:  flash,
+		Sounds: soundSlugs,
+		Nick:   app.currentUserNick(ctx),
+	}
 	if err := app.templates.ExecuteTemplate(w, "manage-site.html.tmpl", data); err != nil {
 		log.Printf("can't render manage-site template: %v", err)
 	}
@@ -1253,9 +1348,9 @@ func (app *App) InstallHandlers() {
 	// anything in fs is a file trivially shared
 	app.mux.Handle("/fs/", http.StripPrefix("/fs/", http.FileServer(http.FS(app.subFS))))
 
-	app.requiringAdminHandleFunc("/api/keyboard-control", app.handleKeyboardControl)
+	app.requiringOperatorHandleFunc("/api/keyboard-control", app.handleKeyboardControl)
 
-	app.requiringAdminHandleFunc("/manage/structure", app.handleManageStructures)
+	app.requiringOperatorHandleFunc("/manage/structure", app.handleManageStructures)
 
 	app.requiringAdminHandleFunc("/manage/users", app.handleManageUsers)
 
@@ -1273,16 +1368,16 @@ func (app *App) InstallHandlers() {
 		http.Redirect(w, r, "/manage/users", http.StatusSeeOther)
 	})
 
-	app.requiringAdminHandleFunc("/create/tournament", app.handleCreateTournament)
+	app.requiringOperatorHandleFunc("/create/tournament", app.handleCreateTournament)
 
-	app.requiringAdminTakingIDHandleFunc("/manage/structure/{id}/edit", app.handleEditStructure)
+	app.requiringOperatorTakingIDHandleFunc("/manage/structure/{id}/edit", app.handleEditStructure)
 
-	app.requiringAdminTakingIDHandleFunc("/manage/footer-set/{id}/edit", app.handleEditFooterSet)
+	app.requiringOperatorTakingIDHandleFunc("/manage/footer-set/{id}/edit", app.handleEditFooterSet)
 
-	app.requiringAdminHandleFunc("/create/structure", app.handleCreateStructure)
+	app.requiringOperatorHandleFunc("/create/structure", app.handleCreateStructure)
 
 	// TODO: This should be a DELETE method?
-	app.requiringAdminTakingIDHandleFunc("/manage/structure/{id}/delete", func(ctx context.Context, id int64, w http.ResponseWriter, r *http.Request) {
+	app.requiringOperatorTakingIDHandleFunc("/manage/structure/{id}/delete", func(ctx context.Context, id int64, w http.ResponseWriter, r *http.Request) {
 		err := app.appStorage.DeleteStructure(ctx, id)
 		if err != nil {
 			he.SendErrorToHTTPClient(w, "delete structure", err)
@@ -1291,10 +1386,10 @@ func (app *App) InstallHandlers() {
 		http.Redirect(w, r, "/manage/structure", http.StatusSeeOther)
 	})
 
-	app.requiringAdminHandleFunc("/create/footer-set", app.handleCreateFooterSet)
+	app.requiringOperatorHandleFunc("/create/footer-set", app.handleCreateFooterSet)
 
 	// TODO: This should be a DELETE method?
-	app.requiringAdminTakingIDHandleFunc("/manage/footer-set/{id}/delete", func(ctx context.Context, id int64, w http.ResponseWriter, r *http.Request) {
+	app.requiringOperatorTakingIDHandleFunc("/manage/footer-set/{id}/delete", func(ctx context.Context, id int64, w http.ResponseWriter, r *http.Request) {
 		err := app.appStorage.DeleteFooterPlugSet(ctx, id)
 		if err != nil {
 			he.SendErrorToHTTPClient(w, "delete structure", err)
@@ -1303,12 +1398,12 @@ func (app *App) InstallHandlers() {
 		http.Redirect(w, r, "/manage/footer-set", http.StatusSeeOther)
 	})
 
-	app.requiringAdminHandleFunc("/manage/footer-set/", app.handleManageFooterSets)
+	app.requiringOperatorHandleFunc("/manage/footer-set/", app.handleManageFooterSets)
 
 	app.handleFuncTakingID("/t/{id}", app.renderTournament)
 
 	// TODO: This should be a DELETE method?
-	app.requiringAdminTakingIDHandleFunc("/t/{id}/delete", func(ctx context.Context, id64 int64, w http.ResponseWriter, r *http.Request) {
+	app.requiringOperatorTakingIDHandleFunc("/t/{id}/delete", func(ctx context.Context, id64 int64, w http.ResponseWriter, r *http.Request) {
 		if err := app.tournamentStorage.DeleteTournament(ctx, id64); err != nil {
 			he.SendErrorToHTTPClient(w, "delete tournament", err)
 		} else {
@@ -1316,7 +1411,7 @@ func (app *App) InstallHandlers() {
 		}
 	})
 
-	app.requiringAdminTakingIDHandleFunc("/t/{id}/edit", app.handleEditTournament)
+	app.requiringOperatorTakingIDHandleFunc("/t/{id}/edit", app.handleEditTournament)
 
 	app.handleFuncTakingID("/api/footerPlugs/{id}", app.handleAPIFooterPlugs)
 

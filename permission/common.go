@@ -27,7 +27,7 @@ func requireUserAdminReturning[T any](ctx context.Context, fn func() (T, error))
 func requireOperatorReturning[T any](ctx context.Context, fn func() (T, error)) (T, error) {
 	var zero T
 	u := UserFromContext(ctx)
-	if u == nil || !u.IsAdmin {
+	if u == nil || !u.IsOperator {
 		return zero, errors.New("permission denied")
 	}
 	return fn()
@@ -41,7 +41,7 @@ func requireUserAdmin(ctx context.Context, fn func() error) error {
 }
 
 func requireOperator(ctx context.Context, fn func() error) error {
-	_, err := requireUserAdminReturning(ctx, func() (struct{}, error) {
+	_, err := requireOperatorReturning(ctx, func() (struct{}, error) {
 		return struct{}{}, fn()
 	})
 	return err

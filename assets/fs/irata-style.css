@@ -159,7 +159,28 @@ input[type="submit"]:hover, button:hover {
     background: #444;
 }
 
+/* Do not use. Replace with flash-yay or flash-boo */
 .flash {
+    background: yellow;
+    color: black;
+    padding: 0.5em;
+    margin-bottom: 1em;
+    border-radius: 5px;
+    text-align: center;
+    font-size: 1.1em;
+}
+
+.flash-yay {
+    background: #227722;
+    color: #fff;
+    padding: 0.5em;
+    margin-bottom: 1em;
+    border-radius: 5px;
+    text-align: center;
+    font-size: 1.1em;
+}
+
+.flash-boo {
     background: #8b1a1a;
     color: #fff;
     padding: 0.5em;
@@ -167,6 +188,32 @@ input[type="submit"]:hover, button:hover {
     border-radius: 5px;
     text-align: center;
     font-size: 1.1em;
+}
+
+/* User bar at top of pages */
+.user-bar {
+    display: flex;
+    align-items: center;
+    background: #1a1a1a;
+    padding: 0.5em 1em;
+    margin-bottom: 1em;
+    border-radius: 4px;
+    font-size: 0.9em;
+}
+
+.user-bar-left {
+    flex: 1;
+    text-align: left;
+}
+
+.user-bar-right {
+    flex: 1;
+    text-align: right;
+}
+
+.user-bar-center {
+    flex: 1;
+    text-align: center;
 }
 
 .actions {

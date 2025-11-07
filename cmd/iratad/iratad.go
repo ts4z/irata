@@ -58,7 +58,7 @@ func main() {
 	userStorage := permission.NewUserStorage(
 		dbcache.NewUserStorage(128, unprotectedStorage))
 
-	mutator := form.NewProcessor(appStorage, tournamentStorage, userStorage, tournamentManager)
+	mutator := form.NewProcessor(appStorage, tournamentStorage, userStorage, tournamentManager, clock)
 
 	paytableStorage := state.NewDefaultPaytableStorage()
 

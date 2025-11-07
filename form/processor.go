@@ -10,6 +10,7 @@ import (
 
 	"github.com/ts4z/irata/he"
 	"github.com/ts4z/irata/model"
+	"github.com/ts4z/irata/password"
 	"github.com/ts4z/irata/state"
 	"github.com/ts4z/irata/textutil"
 	"github.com/ts4z/irata/tournament"
@@ -20,10 +21,15 @@ type FormProcessor struct {
 	ts                state.TournamentStorage
 	userStorage       state.UserStorage
 	tournamentMutator *tournament.Manager
+	clock             nower
 }
 
-func NewProcessor(as state.AppStorage, ts state.TournamentStorage, us state.UserStorage, tournamentMutator *tournament.Manager) *FormProcessor {
-	return &FormProcessor{appStorage: as, ts: ts, userStorage: us, tournamentMutator: tournamentMutator}
+type nower interface {
+	Now() time.Time
+}
+
+func NewProcessor(as state.AppStorage, ts state.TournamentStorage, us state.UserStorage, tournamentMutator *tournament.Manager, clock nower) *FormProcessor {
+	return &FormProcessor{appStorage: as, ts: ts, userStorage: us, tournamentMutator: tournamentMutator, clock: clock}
 }
 
 func maybeCopyString(form url.Values, dest *string, key string) {
@@ -225,6 +231,30 @@ func (a *FormProcessor) EditUser(ctx context.Context, id int64, form url.Values)
 }
 
 func (a *FormProcessor) CreateUser(ctx context.Context, form url.Values) (int64, error) {
-	// TODO: Implement user creation
-	return 0, he.HTTPCodedErrorf(501, "user creation not yet implemented")
+	user := &model.UserIdentity{}
+	a.ApplyFormToUserIdentity(form, user)
+
+	if user.Nick == "" {
+		return 0, he.HTTPCodedErrorf(400, "nick is required")
+	}
+
+	return a.userStorage.CreateUser(ctx, user)
+}
+
+func (a *FormProcessor) SetUserPassword(ctx context.Context, userID int64, form url.Values) error {
+	newPassword := form.Get("NewPassword")
+	confirmPassword := form.Get("ConfirmPassword")
+
+	if newPassword == "" {
+		return he.HTTPCodedErrorf(400, "password is required")
+	}
+
+	if newPassword != confirmPassword {
+		return he.HTTPCodedErrorf(400, "passwords do not match")
+	}
+
+	hashedPassword := password.Hash(newPassword)
+
+	// Expire old passwords immediately and set new password
+	return a.userStorage.ReplacePassword(ctx, userID, hashedPassword, a.clock.Now())
 }

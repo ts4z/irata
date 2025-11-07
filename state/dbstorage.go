@@ -625,7 +625,18 @@ func (s *DBStorage) SaveSiteConfig(ctx context.Context, config *model.SiteConfig
 	return nil
 }
 
-func (s *DBStorage) CreateUser(ctx context.Context, nick string, emailAddress string, passwordHash string, isAdmin bool) error {
+func (s *DBStorage) CreateUser(ctx context.Context, u *model.UserIdentity) (int64, error) {
+	var userID int64
+	err := s.db.QueryRowContext(ctx,
+		`INSERT INTO users (nick, is_admin, is_operator) VALUES ($1, $2, $3) RETURNING user_id`,
+		u.Nick, u.IsAdmin, u.IsOperator).Scan(&userID)
+	if err != nil {
+		return -1, he.HTTPCodedErrorf(500, "dadbase insert failed: %w", err)
+	}
+	return userID, nil
+}
+
+func (s *DBStorage) CreateUserWithEmailAndPassword(ctx context.Context, nick string, emailAddress string, passwordHash string, isAdmin bool) error {
 	tx, err := dbutil.NewTx(ctx, s.db, nil)
 	if err != nil {
 		return fmt.Errorf("begin tx: %w", err)

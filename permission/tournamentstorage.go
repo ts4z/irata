@@ -14,10 +14,9 @@ type TournamentStorage struct {
 var _ state.TournamentStorage = &TournamentStorage{}
 
 func (s *TournamentStorage) CreateTournament(ctx context.Context, t *model.Tournament) (int64, error) {
-	if err := CheckCreateTournamentAccess(ctx); err != nil {
-		return -1, err
-	}
-	return s.Storage.CreateTournament(ctx, t)
+	return requireOperatorReturning(ctx, func() (int64, error) {
+		return s.Storage.CreateTournament(ctx, t)
+	})
 }
 
 func (s *TournamentStorage) DeleteTournament(ctx context.Context, id int64) error {
@@ -35,10 +34,9 @@ func (s *TournamentStorage) FetchTournament(ctx context.Context, id int64) (*mod
 }
 
 func (s *TournamentStorage) SaveTournament(ctx context.Context, m *model.Tournament) error {
-	if err := CheckWriteAccessToTournamentID(ctx, m.EventID); err != nil {
-		return err
-	}
-	return s.Storage.SaveTournament(ctx, m)
+	return requireOperator(ctx, func() error {
+		return s.Storage.SaveTournament(ctx, m)
+	})
 }
 
 func (s *TournamentStorage) ListenTournamentVersion(ctx context.Context, id int64, version int64, errCh chan<- error, tournamentCh chan<- *model.Tournament) {

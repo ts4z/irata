@@ -191,7 +191,7 @@ func addUser(cmd *cobra.Command, args []string) error {
 
 	hashedPassword := password.Hash(userPassword)
 
-	err = storage.CreateUser(ctx, userNick, userEmail, hashedPassword, userIsAdmin)
+	err = storage.CreateUserWithEmailAndPassword(ctx, userNick, userEmail, hashedPassword, userIsAdmin)
 	if err != nil {
 		return fmt.Errorf("creating user: %w", err)
 	}

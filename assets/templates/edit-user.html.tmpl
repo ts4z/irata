@@ -6,6 +6,7 @@
     <link rel="stylesheet" href="/fs/{{ .Theme }}-style.css">
 </head>
 <body>
+    {{ template "user-bar" . }}
     <div class="container">
         <div class="admin-bar">
             <a href="/manage/users">&lt; Back to Users</a>
@@ -13,10 +14,9 @@
 
         <h1>{{ if .IsNew }}Create{{ else }}Edit{{ end }} User</h1>
 
-        {{ if .Flash }}
-        <div class="flash">{{ .Flash }}</div>
-        {{ end }}
-
+{{ if .Flash }}
+  <div class="flash-{{ .FlashType }}">{{ .Flash }}</div>
+{{ end }}
         <!-- User Details Form -->
         <section style="margin-bottom: 2em;">
             <h2>User Details</h2>
@@ -24,7 +24,7 @@
                 <input type="hidden" name="FormType" value="details">
                 
                 <div class="form-group">
-                    <label for="Nick">Username (Nick)</label>
+                    <label for="Nick">Nick</label>
                     <input type="text" id="Nick" name="Nick" value="{{ .User.Nick }}" required>
                 </div>
 
@@ -45,7 +45,7 @@
                 </div>
             </form>
         </section>
-
+        
         {{ if not .IsNew }}
         <!-- Email Address Form -->
         <section style="margin-bottom: 2em; border-top: 1px solid #444; padding-top: 1em;">
@@ -73,9 +73,15 @@
                 <div class="form-group">
                     <label for="NewPassword">New Password</label>
                     <input type="password" id="NewPassword" name="NewPassword" required minlength="1">
-                    <small style="opacity: 0.7;">Minimum 16 characters, must use three special characters,
-                    uppercase, lowercase, numbers, an emoji, two CJK characters, one Klingon letter, and one
-                    invalid UTF-8 octet
+                    <small style="opacity: 0.7;">
+                    {{/* note: this password policy is a joke, 
+                    do not attempt to enforce. */}}
+                    Minimum 16 characters, including 
+                    uppercase, lowercase, numbers,
+                    at least three of !@#$%^&&lt;&gt;./?[]{}() characters,
+                    an emoji, two CJK characters, one Klingon letter, and one
+                    invalid UTF-8 octet; password MUST NOT contain a space
+                    or be "null"
                     </small>
                 </div>
 
@@ -91,5 +97,42 @@
         </section>
         {{ end }}
     </div>
+
+    {{ if not .IsNew }}
+    <script>
+        // Password validation: change border color based on match status
+        (function() {
+            const newPasswordInput = document.getElementById('NewPassword');
+            const confirmPasswordInput = document.getElementById('ConfirmPassword');
+
+            function validatePasswords() {
+                const newPassword = newPasswordInput.value;
+                const confirmPassword = confirmPasswordInput.value;
+
+                // If either box is empty, use default grey color
+                if (newPassword === '' || confirmPassword === '') {
+                    newPasswordInput.style.background = '';
+                    confirmPasswordInput.style.background = '';
+                    return;
+                }
+
+                // If both boxes have content, check if they match
+                if (newPassword === confirmPassword) {
+                    // Match: green
+                    newPasswordInput.style.background = '#2d5016';
+                    confirmPasswordInput.style.background = '#2d5016';
+                } else {
+                    // No match: red
+                    newPasswordInput.style.background = '#8b0000';
+                    confirmPasswordInput.style.background = '#8b0000';
+                }
+            }
+
+            // Attach event listeners
+            newPasswordInput.addEventListener('input', validatePasswords);
+            confirmPasswordInput.addEventListener('input', validatePasswords);
+        })();
+    </script>
+    {{ end }}
 </body>
 </html>

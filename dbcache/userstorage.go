@@ -43,8 +43,12 @@ func (s *UserStorage) FetchUsers(ctx context.Context) ([]*model.UserIdentity, er
 	return s.next.FetchUsers(ctx)
 }
 
-func (s *UserStorage) CreateUser(ctx context.Context, nick string, emailAddress string, passwordHash string, isAdmin bool) error {
-	return s.next.CreateUser(ctx, nick, emailAddress, passwordHash, isAdmin)
+func (s *UserStorage) CreateUser(ctx context.Context, u *model.UserIdentity) (int64, error) {
+	return s.next.CreateUser(ctx, u)
+}
+
+func (s *UserStorage) CreateUserWithEmailAndPassword(ctx context.Context, nick string, emailAddress string, passwordHash string, isAdmin bool) error {
+	return s.next.CreateUserWithEmailAndPassword(ctx, nick, emailAddress, passwordHash, isAdmin)
 }
 
 func (s *UserStorage) FetchUserByUserID(ctx context.Context, id int64) (*model.UserIdentity, error) {

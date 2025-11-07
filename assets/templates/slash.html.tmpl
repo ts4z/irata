@@ -6,12 +6,12 @@
     <link rel="stylesheet" href="/fs/{{- .SiteConfig.Theme -}}-style.css">
 </head>
 <body>
+    {{ template "user-bar" . }}
     <div class="container">
         <h1>{{ .SiteConfig.Name }}</h1>
 
         {{ if .IsAdmin }}
         <div class="admin-bar">
-            <strong>Admin Controls</strong>
             <div style="margin-top: 0.5em;">
                 <span style="opacity: 0.7;">Create:</span> <a href="/create/tournament">Tournament</a>
             </div>
@@ -20,9 +20,6 @@
                 <a href="/manage/footer-set">Footer Plugs</a> 
                 <a href="/manage/structure">Structures</a>
                 <a href="/manage/users">Users</a>
-            </div>
-            <div style="margin-top: 0.5em; border-top: 1px solid #333; padding-top: 0.5em;">
-                <a href="/logout">Logout</a>
             </div>
         </div>
         {{ end }}
