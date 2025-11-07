@@ -54,6 +54,7 @@ type SiteStorage interface {
 }
 
 type UserStorage interface {
+	// TODO: Needs pagination + search.
 	FetchUsers(ctx context.Context) ([]*model.UserIdentity, error)
 	CreateUser(ctx context.Context, nick string, emailAddress string, passwordHash string, isAdmin bool) error
 	FetchUserByUserID(ctx context.Context, id int64) (*model.UserIdentity, error)
