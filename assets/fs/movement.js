@@ -193,14 +193,13 @@ function reset_footer_interval() {
   start_rotating_footers();
 }
 
-async function listen_and_consume_model_changes(abortSignal) {
+async function listen_and_consume_model_changes(currentVersion, abortSignal) {
   const tid = tournament_id();
   if (!tid) {
     console.log("no tournament id");
     return Promise.reject("no tournament id");
   }
-  const version = last_model?.Version ?? 0;
-  const protocol_version = last_model?.Transients?.ProtocolVersion ?? 0;
+  const protocolVersion = last_model?.Transients?.ProtocolVersion ?? 0;
 
   const response = await fetch("/api/tournament-listen", {
     signal: abortSignal,
@@ -209,7 +208,7 @@ async function listen_and_consume_model_changes(abortSignal) {
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ TournamentID: tid, Version: version, ProtocolVersion: protocol_version }),
+    body: JSON.stringify({ TournamentID: tid, Version: curentVersion, ProtocolVersion: protocolVersion }),
   });
   const model = await response.json();
   import_new_model_from_server(model);
@@ -695,30 +694,35 @@ function install_keyboard_handlers() {
 // changed since the previous call.  This way we use the same
 // object across clock ticks.
 const cached_change_listener = (() => {
-  let version = undefined, controller, cached_promise;
+  let listenerSentVersion = undefined, controller, cached_promise;
 
-  const reset_cached_promise = () => {
-
+  const abort = function (why) {
     if (controller) {
-      controller.abort("resetting cached promise");
+      console.log("aborting cached listener: " + why);
+      controller.abort(why);
     }
-
-    controller = new AbortController();
-    cached_promise = Promise.any([
-      listen_and_consume_model_changes(controller.signal),
-      sleep(60 * 1000),
-    ]).then(how => { cached_promise = undefined; return how; })
+    controller = undefined;
+    cached_promise = undefined;
   }
 
+  const reset_cached_promise = () => {
+    listenerSentVersion = last_model?.Version ?? 0;
+    controller = new AbortController();
+    cached_promise = Promise.any([
+      listen_and_consume_model_changes(listenerSentVersion, controller.signal),
+        sleep(60 * 1000).then(_ => abort("listener timed out, this is normal"))
+    ])
+      .finally(() => { cached_promise = undefined; });
+  }
+
+  // prime the pump
   reset_cached_promise();
 
   return async function () {
-    if (cached_promise === undefined) {
-      reset_cached_promise();
-    } else if (version != last_model.Version) {
-      controller.abort("new version found");
-      controller = new AbortController();
-      version = last_model.Version;
+    let lmv = last_model?.Version ?? 0;
+    // do we need an update?
+    if (listenerSentVersion !== lmv) {
+      abort("new version updated last_model");
       reset_cached_promise();
     }
     return cached_promise;
