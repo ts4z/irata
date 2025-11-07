@@ -33,6 +33,11 @@ type UserIdentity struct {
 	IsAdmin bool
 }
 
+func (ui *UserIdentity) Clone() *UserIdentity {
+	new := *ui
+	return &new
+}
+
 type CookieKeyValidity struct {
 	MintFrom   time.Time
 	MintUntil  time.Time
