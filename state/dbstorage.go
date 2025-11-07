@@ -465,10 +465,6 @@ func (s *DBStorage) CreateTournament(
 	var id int64
 
 	cpy := *t
-	cpy.Transients = nil
-	cpy.State.BuyIns = 0
-	cpy.State.AddOns = 0
-	cpy.State.CurrentPlayers = 0
 	cpy.State.IsClockRunning = false
 
 	// Set level to full time.
