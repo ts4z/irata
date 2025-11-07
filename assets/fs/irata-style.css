@@ -380,6 +380,7 @@ input[type="submit"]:hover, button:hover {
 .clock-time {
     font-size: 15vi;
     line-height: 100%;
+    padding: 10px;
 }
 
 .clock-time.clock-has-hours {
