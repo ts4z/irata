@@ -7,5 +7,5 @@ const (
 	// If the client gets a different number than it originally got here, it should reload
 	// to get a new copy of all server files.  This does not indicate any particular
 	// compatibility problem.
-	Version = 11
+	Version = 12
 )
