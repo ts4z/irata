@@ -142,11 +142,14 @@ To Do
   connections.  This looks like a server bug but isn't.
 * SSL isn't supported.  Since I am running this in a Cloud Run instance,
   this is not currently a problem.  Also, Let's Encrypt should be supported.
-* Pagination isn't supported in many places where it should be.
+* QUIC would be fun, but doesn't seem relevant while running in Cloud Run.*
+ Pagination isn't supported in many places where it should be.
   Since we have only a trivial number of users, this isn't a problem that
   has risen to the top of the stack yet.
-* Changing anything in site config means restarting the server, but this
-  could be detected automatically.
+* Changing most thing in site config means restarting the server, but this
+  could be detected automatically.  (Writes to these objects are cached
+  and the write path is instrumented to invalidate the cache, we just need
+  more of this.)
 * Database doesn't notify for changes, so we can really only have a single
   server instance if we want things to work reliably.  (The database code
   has proper locks against write-write conflicts.)
@@ -158,4 +161,7 @@ To Do
 * There should be more than one pay table, and some pay table should scale to 
   at least 500 players.
 * Errors (particularly pay table errors) aren't reported well.
+* Cache coherence is a big issue.  For a single-instance server, tournament
+  are almost cached properly.  Users aren't, which will be an issue once
+  user records have mutable fields.
 * This list keeps getting longer.
