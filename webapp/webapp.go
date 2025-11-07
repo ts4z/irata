@@ -262,13 +262,13 @@ func (app *App) renderTournament(ctx context.Context, id int64, w http.ResponseW
 	}
 
 	args := struct {
-		Tournament              *model.Tournament
-		InstallKeyboardHandlers bool
-		Theme                   string
+		Tournament                      *model.Tournament
+		InstallOperatorKeyboardHandlers bool
+		Theme                           string
 	}{
-		Tournament:              t,
-		InstallKeyboardHandlers: permission.CheckWriteAccessToTournamentID(ctx, id) == nil,
-		Theme:                   sc.Theme,
+		Tournament:                      t,
+		InstallOperatorKeyboardHandlers: permission.CheckWriteAccessToTournamentID(ctx, id) == nil,
+		Theme:                           sc.Theme,
 	}
 	log.Printf("render with args: %+v", args)
 	if err := app.templates.ExecuteTemplate(w, "view-tournament.html.tmpl", args); err != nil {

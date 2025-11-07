@@ -182,8 +182,12 @@
     </div>
 
     <script src="/fs/movement.js"></script>
-    {{ if .InstallKeyboardHandlers }}
-    <script> install_keyboard_handlers(); </script>
+    <script>
+    {{ if .InstallOperatorKeyboardHandlers }}
+    installKeyboardHandlers('operator');
+    {{ else }}
+    installKeyboardHandlers('pleeb');
     {{ end }}
+    </script>
   </body>
 </html>

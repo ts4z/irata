@@ -276,17 +276,6 @@ function import_new_model_from_server(model) {
   setNextDescription();
 }
 
-function next_break_level_number() {
-  let cln = last_model.State.CurrentLevelNumber;
-  let levels = last_model.Structure.Levels;
-  for (let i = cln + 1; i < levels.length; i++) {
-    if (levels[i].IsBreak) {
-      return i;
-    }
-  }
-  return undefined;
-}
-
 function is_clock_running() {
   return last_model.State.IsClockRunning;
 }
@@ -508,8 +497,8 @@ function footer_message(message_html) {
   set_html("footer", message_html);
 }
 
-function install_keyboard_handlers() {
-  console.log("installing keyboard handlers");
+function installKeyboardHandlers(forWhom) {
+  var isOp = (forWhom === 'operator');
 
   function toggle_clock_controls_lock(_) {
     clock_controls_locked = !clock_controls_locked;
@@ -630,7 +619,13 @@ function install_keyboard_handlers() {
     redirect(window.location.pathname + "/edit");
   }
 
-  var keycode_to_handler = {
+  const unauth_keycode_to_handler = {
+    'KeyM': toggle_mute,
+    'KeyF': next_footer_key,
+    'KeyG': playNextLevelSound,
+    'Escape': handle_escape,
+  };
+  const operator_keycode_to_handler = {
     'Space': toggle_pause,
     'ArrowLeft': ipcusmwa('PreviousLevel'),
     'ArrowRight': ipcusmwa('SkipLevel'),
@@ -658,13 +653,21 @@ function install_keyboard_handlers() {
     'KeyR': smwa('Restart'),
   }
 
-  document.addEventListener('keydown', (event) => {
-    if (event.key === 'F1') {
-      event.preventDefault();
-    }
-  }, false);
+  if (isOp) {
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'F1') {
+        event.preventDefault();
+      }
+    }, false);
+  }
 
   document.addEventListener('keyup', (event) => {
+    let keycode_to_handler;
+    if (isOp) {
+      keycode_to_handler = operator_keycode_to_handler;
+    } else {
+      keycode_to_handler = unauth_keycode_to_handler;
+    }
     let code = event.code;
     if (event.key === 'F1') {
       event.preventDefault();
@@ -678,18 +681,20 @@ function install_keyboard_handlers() {
     }
   }, false);
 
-  // mouse left/right = -/+ player
-  // TODO: Make this optional, it makes debugging weird because
-  // clicking in the browser re-syncs the model (becasue it jacks
-  // up the player counter).
-  document.addEventListener('click', (event) => {
-    toggle_pause();
-  }, false);
+  if (isOp) {
+    // mouse left/right = -/+ player
+    // TODO: Make this optional, it makes debugging weird because
+    // clicking in the browser re-syncs the model (becasue it jacks
+    // up the player counter).
+    document.addEventListener('click', (_) => {
+      toggle_pause();
+    }, false);
 
-  document.addEventListener('contextmenu', (event) => {
-    event.preventDefault();
-    send_modify('RemovePlayer', event.shiftKey);
-  }, false);
+    document.addEventListener('contextmenu', (event) => {
+      event.preventDefault();
+      send_modify('RemovePlayer', event.shiftKey);
+    }, false);
+  }
 }
 
 // Listen to changes to the current version.
