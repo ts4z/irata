@@ -1,6 +1,11 @@
 // A movement is what makes a clock go.  movement.js makes this poker clock go.
 
+// TODO: Rationalize naming, this is schizophrenic about the naming convention.
+// (Copilot isn't helping, it didn't follow the convention and I made it worse.)
+
 "use strict";
+
+const LISTENER_TIMEOUT = 4 * 60 * 1000;
 
 var next_level_sound = null;
 
@@ -148,10 +153,8 @@ let cached_fetch_footers_promise = function () {
   // can restart this (notably, not updating the globals and resetting
   // the caching paramaters back to values likely to recreate the request).
   return function () {
-    console.log("cached_fetch_footers_promise called...");
     let want_footer_plugs_id = last_model.FooterPlugsID;
     if (want_footer_plugs_id == cached_promise_fetches_id) {
-      console.log("returning cached promise for id ", want_footer_plugs_id);
       return cached_promise;
     }
 
@@ -208,7 +211,7 @@ async function listen_and_consume_model_changes(currentVersion, abortSignal) {
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ TournamentID: tid, Version: curentVersion, ProtocolVersion: protocolVersion }),
+    body: JSON.stringify({ TournamentID: tid, Version: currentVersion, ProtocolVersion: protocolVersion }),
   });
   const model = await response.json();
   import_new_model_from_server(model);
@@ -694,11 +697,10 @@ function install_keyboard_handlers() {
 // changed since the previous call.  This way we use the same
 // object across clock ticks.
 const cached_change_listener = (() => {
-  let listenerSentVersion = undefined, controller, cached_promise;
+  let listenerSentVersion, controller, cached_promise;
 
   const abort = function (why) {
     if (controller) {
-      console.log("aborting cached listener: " + why);
       controller.abort(why);
     }
     controller = undefined;
@@ -708,23 +710,45 @@ const cached_change_listener = (() => {
   const reset_cached_promise = () => {
     listenerSentVersion = last_model?.Version ?? 0;
     controller = new AbortController();
-    cached_promise = Promise.any([
-      listen_and_consume_model_changes(listenerSentVersion, controller.signal),
-        sleep(60 * 1000).then(_ => abort("listener timed out, this is normal"))
-    ])
+
+    let timeout = sleep(LISTENER_TIMEOUT).then(_ => abort("listener timed out normally"));
+    let listener = 
+          listen_and_consume_model_changes(listenerSentVersion, controller.signal)
+          .catch((e) => {
+            if (e.name === 'AbortError') {
+              return Promise.reject("normal abort");
+            } else {
+              console.log(`cached_change_listener listen threw unexpected exception: ${e}`);
+              return Promise.reject(e);
+            }
+          });
+
+    cached_promise = Promise.any([timeout, listener])
+      .catch((e) => {
+        console.log(`cached_change_listener promise threw up: ${e}`);
+      })
       .finally(() => { cached_promise = undefined; });
   }
 
   // prime the pump
   reset_cached_promise();
 
-  return async function () {
+  const maybeResetCachedPromise = () => {
+    if (!cached_promise) {
+      reset_cached_promise();
+      return;
+    }
+
     let lmv = last_model?.Version ?? 0;
     // do we need an update?
     if (listenerSentVersion !== lmv) {
       abort("new version updated last_model");
       reset_cached_promise();
     }
+  }
+
+  return async function () {
+    maybeResetCachedPromise();
     return cached_promise;
   }
 })();
@@ -745,6 +769,7 @@ const setTickTimer = function() {
     let c = ++counter;
     setTimeout(() => {
       if (counter !== c) {
+        console.log(`skipping tick timer ${c}, counter is now ${counter}`);
         return;
       }
       tick();
