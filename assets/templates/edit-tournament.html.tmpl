@@ -42,22 +42,19 @@
                 <h2> Tournament Details </h2>
                 <div class="form-group">
                     <label for="EventName">Name</label>
-                    <input type="text" id="EventName" name="EventName" class="field-text" maxlength="30" required{{ if
-                        not .IsNew }} value="{{ .Tournament.EventName }}" {{ end }}>
+                    <input type="text" id="EventName" name="EventName" class="field-text" maxlength="30" required value="{{ .Tournament.EventName }}">
                 </div>
 
                 <div class="form-group">
                     <label for="Description">Description</label>
-                    <input type="text" id="Description" name="Description" class="field-text" maxlength="50" {{ if not
-                        .IsNew }} value="{{ .Tournament.Description }}" {{ end }}>
+                    <input type="text" id="Description" name="Description" class="field-text" maxlength="50" value="{{ .Tournament.Description }}">
                 </div>
 
                 <div class="form-group">
                     <label for="FooterPlugsID">Footer Plugs</label>
                     <select id="FooterPlugsID" name="FooterPlugsID" required>
                         {{ range .FooterSets }}
-                        <option value="{{ .FooterPlugsID }}" {{ if and (not $.IsNew) (eq .FooterPlugsID
-                            $.Tournament.FooterPlugsID) }} selected{{ end }}>{{ .Name }}</option>
+                        <option value="{{ .FooterPlugsID }}" {{ if eq .FooterPlugsID $.Tournament.FooterPlugsID }} selected{{ end }}>{{ .Name }}</option>
                         {{ end }}
                     </select>
                 </div>
@@ -69,8 +66,7 @@
                             <option value="-1" data-path="">Silent</option>
                             {{ range .Sounds }}
                             <option value="{{ .ID }}" data-path="{{ .Path }}"
-                                {{- if and (not $.IsNew) (eq .ID $.Tournament.NextLevelSoundID)}} selected {{ end -}}
-                                {{- if and $.IsNew (eq .ID 1 $.SiteConfig.DefaultNextLevelSoundID 1) }} selected {{ end -}}>
+                                {{- if eq .ID $.Tournament.NextLevelSoundID }} selected {{ end -}}>
                             {{ .Name }} ({{ .Description }})
                             </option>
                             {{ end }}
@@ -98,7 +94,7 @@
                     <option value="{{ .ID }}" 
                         data-chips-per-buyin="{{ .ChipsPerBuyIn }}" 
                         data-chips-per-addon="{{ .ChipsPerAddOn }}"
-                        {{ if and (not $.IsNew) (eq .ID $.Tournament.FromStructureID) }}selected{{ end }}>
+                        {{ if eq .ID $.Tournament.FromStructureID }}selected{{ end }}>
                         {{ .Name }}
                     </option>
                     {{ end }}
@@ -126,8 +122,7 @@
                                 <td>
                                     <input type="text" id="ChipsPerBuyIn" name="ChipsPerBuyIn"
                                         class="field-medium editable" maxlength="30" pattern="[0-9,]+"
-                                        placeholder="T/Buy-in" {{ if not .IsNew }}
-                                        value="{{ .Tournament.Structure.ChipsPerBuyIn }}" {{ end }}>
+                                        placeholder="T/Buy-in" value="{{ .Tournament.Structure.ChipsPerBuyIn }}">
                                 </td>
                                 <td> × </td>
                                 <td>
@@ -144,8 +139,7 @@
                                 <td>
                                     <input type="text" id="ChipsPerAddOn" name="ChipsPerAddOn"
                                         class="field-medium editable" maxlength="30" pattern="[0-9,]+"
-                                        placeholder="T/Add-on" {{ if not .IsNew }}
-                                        value="{{ .Tournament.Structure.ChipsPerAddOn }}" {{ end }}> </td>
+                                        placeholder="T/Add-on" value="{{ .Tournament.Structure.ChipsPerAddOn }}"> </td>
                                 <td> × </td>
                                 <td>
                                     <input type="text" id="ChipSetupAddOns" class="field-small editable" maxlength="6"
@@ -170,8 +164,7 @@
                 <div class="form-group">
                     <label for="TotalChipsOverride">Total Chips Override</label>
                     <input type="text" id="TotalChipsOverride" name="TotalChipsOverride" class="field-large"
-                        maxlength="30" pattern="[0-9,]+" placeholder="0 to auto-compute" {{ if not .IsNew }}
-                        value="{{ .Tournament.State.TotalChipsOverride }}" {{ end }}>
+                        maxlength="30" pattern="[0-9,]+" placeholder="0 to auto-compute" value="{{ .Tournament.State.TotalChipsOverride }}">
                     <small>Leave at 0 to use calculated value above</small>
                 </div>
             </div>
@@ -197,8 +190,7 @@
                                 <td>
                                     <input type="text" id="PrizePoolPerBuyIn" name="PrizePoolPerBuyIn"
                                         class="field-medium editable" maxlength="7" pattern="[0-9,]+"
-                                        placeholder="$/Buy-in" {{ if not .IsNew }}
-                                        value="{{ .Tournament.PrizePoolPerBuyIn }}" {{ end }}> 
+                                        placeholder="$/Buy-in" value="{{ .Tournament.PrizePoolPerBuyIn }}"> 
                                 <td> × </td>
                                 <td>
                                     <input type="text" id="PrizePoolBuyIns" class="field-small editable" maxlength="6"
@@ -214,8 +206,7 @@
                                 <td>
                                     <input type="text" id="PrizePoolPerAddOn" name="PrizePoolPerAddOn"
                                         class="field-medium editable" maxlength="7" pattern="[0-9,]+"
-                                        placeholder="$/Add-on" {{ if not .IsNew }}
-                                        value="{{ .Tournament.PrizePoolPerAddOn }}" {{ end }}>
+                                        placeholder="$/Add-on" value="{{ .Tournament.PrizePoolPerAddOn }}">
                                 </td>
                                 <td> × </td>
                                 <td>
@@ -265,8 +256,7 @@
                     <label title="Set this to override the automatic computation of the prize pool."
                         for="TotalPrizePoolOverride">Total Prize Pool Override</label>
                     <input type="text" id="TotalPrizePoolOverride" name="TotalPrizePoolOverride" class="field-large"
-                        maxlength="30" pattern="[0-9,]+" placeholder="0 to auto-compute" {{ if not .IsNew }}
-                        value="{{ .Tournament.State.TotalPrizePoolOverride }}" {{ end }}>
+                        maxlength="30" pattern="[0-9,]+" placeholder="0 to auto-compute" value="{{ .Tournament.State.TotalPrizePoolOverride }}">
                     <small>Leave at 0 to use calculated value above</small>
                 </div>
 
@@ -297,14 +287,13 @@
                 <div class="form-group">
                     <label title="Prize pool displayed on right rail of tourney view page." for="PrizePool">Prize
                         Pool</label>
-                    <small id="PrizePoolHelp">{{ if and (not .IsNew) .Tournament.State.AutoComputePrizePool
+                    <small id="PrizePoolHelp">{{ if .Tournament.State.AutoComputePrizePool
                         }}Automatically calculated
                         based on
                         buy-ins,
                         add-ons, and selected paytable{{ else }}Free-form text. No HTML tags.{{ end }}</small>
-                    <textarea id="PrizePool" name="PrizePool" rows="12" cols="20" style="width: auto;" {{ if and (not
-                        .IsNew) .Tournament.State.AutoComputePrizePool }}readonly{{ end
-                        }}>{{ if not .IsNew }}{{ .Tournament.State.PrizePool }}{{ end }}</textarea>
+                    <textarea id="PrizePool" name="PrizePool" rows="12" cols="20" style="width: auto;" {{ if .Tournament.State.AutoComputePrizePool }}readonly{{ end
+                        }}>{{ .Tournament.State.PrizePool }}</textarea>
                 </div>
             </div>
 

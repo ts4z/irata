@@ -628,6 +628,45 @@ func (app *App) handleCreateTournament(ctx context.Context, w http.ResponseWrite
 		he.SendErrorToHTTPClient(w, "fetch sound slugs", err)
 		return
 	}
+
+	// Handle template ID from query param for pre-populating
+	templateID := r.URL.Query().Get("template")
+	var tournament *model.Tournament
+	if templateID != "" {
+		if id, err := strconv.ParseInt(templateID, 10, 64); err != nil {
+			log.Printf("invalid template ID %q: %v", templateID, err)
+		} else if t, err := app.fetchTournament(ctx, id); err != nil {
+			log.Printf("error fetching template tournament %d: %v", id, err)
+		} else {
+			tournament = t.Clone()
+
+			// Make this a different tournament than the old one but keep
+			// most of the values.
+			tournament.EventID = 0
+			tournament.Version = 0
+			tournament.EventName = t.EventName + " (Copy)"
+
+			// Reset state to the beginning.
+			tournament.State = &model.State{
+				AutoComputePrizePool:   t.State.AutoComputePrizePool,
+				TotalChipsOverride:     t.State.TotalChipsOverride,
+				TotalPrizePoolOverride: t.State.TotalPrizePoolOverride,
+
+				// Reset clock/level state for new tournament
+				CurrentLevelNumber: 0,
+			}
+		}
+	}
+
+	// If no template or error loading template, create empty tournament
+	if tournament == nil {
+		tournament = &model.Tournament{
+			NextLevelSoundID: sc.DefaultNextLevelSoundID,
+			State: &model.State{
+				AutoComputePrizePool: true,
+			}}
+	}
+
 	data := &editTournamentArgs{
 		Structures: structures,
 		FooterSets: footers,
@@ -636,12 +675,10 @@ func (app *App) handleCreateTournament(ctx context.Context, w http.ResponseWrite
 		IsNew:      true,
 		IsOperator: permission.IsOperator(ctx),
 		SiteConfig: sc,
-		Tournament: &model.Tournament{State: &model.State{
-			AutoComputePrizePool: true,
-		}},
-		Paytables: paytables,
-		Sounds:    sounds,
-		Nick:      app.currentUserNick(ctx),
+		Tournament: tournament,
+		Paytables:  paytables,
+		Sounds:     sounds,
+		Nick:       app.currentUserNick(ctx),
 	}
 	if err := app.templates.ExecuteTemplate(w, "edit-tournament.html.tmpl", data); err != nil {
 		log.Printf("can't render edit-tournament template: %v", err)
