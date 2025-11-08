@@ -28,9 +28,9 @@
                     <td>{{ .Name }}</td>
                     <td>{{ .Version }}</td>
                     <td>
-                        <a href="/manage/footer-set/{{ .FooterPlugsID }}/edit">Edit</a>
-                        <a href="/create/footer-set?template={{ .FooterPlugsID }}">Copy</a>
-                        <a href="#" style="color:#f88;" onclick="showDeleteModal({{-  .FooterPlugsID -}})">Delete</a>
+                        <a href="/manage/footer-set/{{ .FooterPlugsID }}/edit" class="no-underline" title="Edit">✎</a>
+                        <a href="/create/footer-set?template={{ .FooterPlugsID }}" class="no-underline" title="Copy">📋</a>
+                        <a href="#" class="no-underline" style="color:#f88;" title="Delete" onclick="showDeleteModal({{-  .FooterPlugsID -}})">❌</a>
                     </td>
                 </tr>
                 {{ else }}

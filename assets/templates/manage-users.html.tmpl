@@ -33,8 +33,8 @@
                     <td>{{ if .IsAdmin }}&#x2705;{{ else }}&nbsp;{{ end }}</td>
                     <td>{{ if .IsOperator }}&#x2705;{{ else }}&nbsp;{{ end }}</td>
                     <td>
-                        <a href="/manage/user/{{ .ID }}/edit" class="no-underline">✎</a>
-                        <a href="#" class="no-underline" style="color:#f88;" onclick="showDeleteModal('{{ .Nick }}', {{ .ID }})">❌</a>
+                        <a href="/manage/user/{{ .ID }}/edit" class="no-underline" title="Edit">✎</a>
+                        <a href="#" class="no-underline" style="color:#f88;" title="Delete" onclick="showDeleteModal('{{ .Nick }}', {{ .ID }})">❌</a>
                     </td>
                 </tr>
                 {{ end }}
