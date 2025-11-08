@@ -46,3 +46,13 @@ func requireOperator(ctx context.Context, fn func() error) error {
 	})
 	return err
 }
+
+func requireSiteAdmin(ctx context.Context, fn func() error) error {
+	// todo: we need site admin permission here
+	return requireUserAdmin(ctx, fn)
+}
+
+func requireSiteAdminReturning[T any](ctx context.Context, fn func() (T, error)) (T, error) {
+	// TODO: we need site admin permission here
+	return requireUserAdminReturning(ctx, fn)
+}

@@ -10,16 +10,25 @@
     <div class="container">
         <h1>{{ .SiteConfig.Name }}</h1>
 
-        {{ if .IsAdmin }}
+        {{ if or .IsOperator .IsAdmin }}
         <div class="admin-bar">
+            {{ if .IsOperator }}
             <div style="margin-top: 0.5em;">
                 <span style="opacity: 0.7;">Create:</span> <a href="/create/tournament">Tournament</a>
             </div>
+            {{ end }}
             <div style="margin-top: 0.3em;">
-                <span style="opacity: 0.7;">Manage:</span> <a href="/manage/site">Site</a> 
+                <span style="opacity: 0.7;">Manage:</span> 
+                {{ if .IsAdmin }}
+                <a href="/manage/site">Site</a> 
+                {{ end }}
+                {{ if .IsOperator }}
                 <a href="/manage/footer-set">Footer Plugs</a> 
                 <a href="/manage/structure">Structures</a>
+                {{ end }}
+                {{ if .IsAdmin }}
                 <a href="/manage/users">Users</a>
+                {{ end }}
             </div>
         </div>
         {{ end }}

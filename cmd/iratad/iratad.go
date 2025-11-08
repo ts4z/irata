@@ -39,9 +39,11 @@ func main() {
 	}
 	defer unprotectedStorage.Close()
 
-	siteConfigStorage := dbcache.NewSiteConfigCache(unprotectedStorage, clock)
+	cachedSiteConfigStorage := dbcache.NewSiteConfigStorage(unprotectedStorage, clock)
+	siteStorageReader := permission.NewSiteConfigStorageReader(cachedSiteConfigStorage)
+	protectedSiteConfigStorage := permission.NewSiteConfigStorage(cachedSiteConfigStorage)
 
-	bakeryFactory := permission.NewBakeryFactory(clock, siteConfigStorage)
+	bakeryFactory := permission.NewBakeryFactory(clock, cachedSiteConfigStorage)
 	if err != nil {
 		log.Fatalf("can't create bakery: %v", err)
 	}
@@ -65,7 +67,8 @@ func main() {
 	app := webapp.New(ctx, &webapp.Config{
 		AppStorage:        appStorage,
 		TournamentStorage: tournamentStorage,
-		SiteStorage:       unprotectedStorage,
+		SiteStorage:       protectedSiteConfigStorage,
+		SiteStorageReader: siteStorageReader,
 		PaytableStorage:   paytableStorage,
 		SoundStorage:      soundStorage,
 		UserStorage:       userStorage,

@@ -165,6 +165,7 @@ func (s *DBStorage) DeleteFooterPlugSet(ctx context.Context, id int64) error {
 
 var _ AppStorage = &DBStorage{}
 var _ SiteStorage = &DBStorage{}
+var _ SiteStorageReader = &DBStorage{}
 var _ UserStorage = &DBStorage{}
 var _ TournamentStorage = &DBStorage{}
 

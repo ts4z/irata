@@ -80,6 +80,7 @@ type Config struct {
 	TournamentStorage state.TournamentListenerStorage
 	AppStorage        state.AppStorage
 	SiteStorage       state.SiteStorage
+	SiteStorageReader state.SiteStorageReader
 	UserStorage       state.UserStorage
 	PaytableStorage   state.PaytableStorage
 	SoundStorage      state.SoundEffectStorage
@@ -100,6 +101,7 @@ type App struct {
 	tournamentStorage state.TournamentListenerStorage
 	appStorage        state.AppStorage
 	siteStorage       state.SiteStorage
+	siteStorageReader state.SiteStorageReader
 	userStorage       state.UserStorage
 	paytableStorage   state.PaytableStorage
 	soundStorage      state.SoundEffectStorage
@@ -143,7 +145,9 @@ func allowedOrigins(sc *model.SiteConfig) []string {
 // New creates a new IrataApp with the given configuration.
 func New(ctx context.Context, config *Config) *App {
 	// Prime this so we can check for errors.
-	sc, err := config.SiteStorage.FetchSiteConfig(context.Background())
+	// (This looks weird, should we be calling unprotected storage instead?
+	// Do we need this at all?)
+	sc, err := config.SiteStorageReader.FetchSiteConfig(context.Background())
 	if err != nil {
 		log.Fatalf("can't get SiteConfig: %v", err)
 	}
@@ -155,7 +159,7 @@ func New(ctx context.Context, config *Config) *App {
 	app := &App{
 		appStorage:        dep.Required(config.AppStorage),
 		tournamentStorage: dep.Required(config.TournamentStorage),
-		siteStorage:       dep.Required(config.SiteStorage),
+		siteStorageReader: dep.Required(config.SiteStorageReader),
 		userStorage:       dep.Required(config.UserStorage),
 		paytableStorage:   dep.Required(config.PaytableStorage),
 		soundStorage:      dep.Required(config.SoundStorage),
@@ -284,7 +288,7 @@ func (app *App) requiringOperatorTakingIDHandleFunc(pattern string, handler func
 }
 
 func (app *App) renderTournament(ctx context.Context, id int64, w http.ResponseWriter, _ *http.Request) {
-	sc, err := app.siteStorage.FetchSiteConfig(ctx)
+	sc, err := app.siteStorageReader.FetchSiteConfig(ctx)
 	if err != nil {
 		he.SendErrorToHTTPClient(w, "fetch site config", err)
 		return
@@ -312,7 +316,7 @@ func (app *App) renderTournament(ctx context.Context, id int64, w http.ResponseW
 }
 
 func (app *App) handleManageStructures(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-	sc, err := app.siteStorage.FetchSiteConfig(ctx)
+	sc, err := app.siteStorageReader.FetchSiteConfig(ctx)
 	if err != nil {
 		he.SendErrorToHTTPClient(w, "fetch site config", err)
 		return
@@ -346,7 +350,7 @@ func (app *App) handleManageStructures(ctx context.Context, w http.ResponseWrite
 }
 
 func (app *App) handleManageUsers(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-	sc, err := app.siteStorage.FetchSiteConfig(ctx)
+	sc, err := app.siteStorageReader.FetchSiteConfig(ctx)
 	if err != nil {
 		he.SendErrorToHTTPClient(w, "fetch site config", err)
 		return
@@ -413,7 +417,7 @@ func (app *App) handleEditUser(ctx context.Context, id int64, w http.ResponseWri
 		}
 	}
 
-	sc, err := app.siteStorage.FetchSiteConfig(ctx)
+	sc, err := app.siteStorageReader.FetchSiteConfig(ctx)
 	if err != nil {
 		he.SendErrorToHTTPClient(w, "fetch site config", err)
 		return
@@ -470,7 +474,7 @@ func (app *App) handleCreateUser(ctx context.Context, w http.ResponseWriter, r *
 		}
 	}
 
-	sc, err := app.siteStorage.FetchSiteConfig(ctx)
+	sc, err := app.siteStorageReader.FetchSiteConfig(ctx)
 	if err != nil {
 		he.SendErrorToHTTPClient(w, "fetch site config", err)
 		return
@@ -494,6 +498,89 @@ func (app *App) handleCreateUser(ctx context.Context, w http.ResponseWriter, r *
 
 	if err := app.templates.ExecuteTemplate(w, "edit-user.html.tmpl", data); err != nil {
 		log.Printf("can't render edit-user template: %v", err)
+	}
+}
+
+func (app *App) handleEditOwnAccount(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	var flash string
+	var flashType string
+
+	// Get the current user from context
+	currentUser := permission.UserFromContext(ctx)
+	if currentUser == nil {
+		he.SendErrorToHTTPClient(w, "authorize", he.HTTPCodedErrorf(http.StatusUnauthorized, "not logged in"))
+		return
+	}
+
+	if r.Method == http.MethodPost {
+		if err := r.ParseForm(); err != nil {
+			log.Printf("error parsing form: %v", err)
+			flash = "Error parsing form"
+			flashType = "boo"
+		} else {
+			formType := r.FormValue("FormType")
+			switch formType {
+			case "nick":
+				// Update nick
+				newNick := r.FormValue("Nick")
+				if newNick == "" {
+					flash = "Nick cannot be empty"
+					flashType = "boo"
+				} else {
+					currentUser.Nick = newNick
+					if err := app.userStorage.SaveUser(ctx, currentUser); err != nil {
+						flash = fmt.Sprintf("Error updating nick: %v", err)
+						flashType = "boo"
+					} else {
+						flash = "Nick updated successfully"
+						flashType = "yay"
+					}
+				}
+			case "password":
+				// Update password
+				if err := app.formProcessor.SetUserPassword(ctx, currentUser.ID, r.Form); err != nil {
+					flash = fmt.Sprintf("Error updating password: %v", err)
+					flashType = "boo"
+				} else {
+					flash = "Password updated successfully"
+					flashType = "yay"
+				}
+			default:
+				flash = "Unknown form type"
+				flashType = "boo"
+			}
+		}
+	}
+
+	sc, err := app.siteStorageReader.FetchSiteConfig(ctx)
+	if err != nil {
+		he.SendErrorToHTTPClient(w, "fetch site config", err)
+		return
+	}
+
+	// Re-fetch user to get latest data
+	user, err := app.userStorage.FetchUserByUserID(ctx, currentUser.ID)
+	if err != nil {
+		he.SendErrorToHTTPClient(w, "fetch user", err)
+		return
+	}
+
+	data := struct {
+		User      *model.UserIdentity
+		Theme     string
+		Flash     string
+		FlashType string
+		Nick      string
+	}{
+		User:      user,
+		Theme:     sc.Theme,
+		Flash:     flash,
+		FlashType: flashType,
+		Nick:      app.currentUserNick(ctx),
+	}
+
+	if err := app.templates.ExecuteTemplate(w, "edit-own-account.html.tmpl", data); err != nil {
+		log.Printf("can't render edit-own-account template: %v", err)
 	}
 }
 
@@ -523,7 +610,7 @@ func (app *App) handleCreateTournament(ctx context.Context, w http.ResponseWrite
 		he.SendErrorToHTTPClient(w, "fetch footer plug sets", err)
 		return
 	}
-	sc, err := app.siteStorage.FetchSiteConfig(ctx)
+	sc, err := app.siteStorageReader.FetchSiteConfig(ctx)
 	if err != nil {
 		he.SendErrorToHTTPClient(w, "fetch site config", err)
 		return
@@ -625,7 +712,7 @@ func (app *App) handleEditStructure(ctx context.Context, id int64, w http.Respon
 			}
 		}
 	}
-	sc, err := app.siteStorage.FetchSiteConfig(ctx)
+	sc, err := app.siteStorageReader.FetchSiteConfig(ctx)
 	if err != nil {
 		he.SendErrorToHTTPClient(w, "fetch site config", err)
 		return
@@ -813,7 +900,7 @@ func (app *App) handleCreateStructure(ctx context.Context, w http.ResponseWriter
 		}
 	}
 
-	sc, err := app.siteStorage.FetchSiteConfig(ctx)
+	sc, err := app.siteStorageReader.FetchSiteConfig(ctx)
 	if err != nil {
 		he.SendErrorToHTTPClient(w, "fetch site config", err)
 		return
@@ -914,7 +1001,7 @@ func (app *App) handleManageFooterSets(ctx context.Context, w http.ResponseWrite
 }
 
 func (app *App) handleIndex(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-	sc, err := app.siteStorage.FetchSiteConfig(ctx)
+	sc, err := app.siteStorageReader.FetchSiteConfig(ctx)
 	if err != nil {
 		he.SendErrorToHTTPClient(w, "fetch site config", err)
 		return
@@ -928,12 +1015,14 @@ func (app *App) handleIndex(ctx context.Context, w http.ResponseWriter, r *http.
 	}
 	type Inputs struct {
 		IsAdmin    bool
+		IsOperator bool
 		Overview   *model.Overview
 		SiteConfig *model.SiteConfig
 		Nick       string
 	}
 	inputs := &Inputs{
 		IsAdmin:    permission.IsAdmin(ctx),
+		IsOperator: permission.IsOperator(ctx),
 		Overview:   o,
 		SiteConfig: sc,
 		Nick:       app.currentUserNick(ctx),
@@ -984,7 +1073,7 @@ func (app *App) handleEditTournament(ctx context.Context, id64 int64, w http.Res
 		return
 	}
 
-	sc, err := app.siteStorage.FetchSiteConfig(ctx)
+	sc, err := app.siteStorageReader.FetchSiteConfig(ctx)
 	if err != nil {
 		he.SendErrorToHTTPClient(w, "fetch site config", err)
 		return
@@ -1357,6 +1446,9 @@ func (app *App) InstallHandlers() {
 	app.requiringAdminTakingIDHandleFunc("/manage/user/{id}/edit", app.handleEditUser)
 
 	app.requiringAdminHandleFunc("/create/user", app.handleCreateUser)
+
+	// Self-service account management (no admin required)
+	app.handleFunc("/account/edit", app.handleEditOwnAccount)
 
 	// TODO: This should be a DELETE method?
 	app.requiringAdminTakingIDHandleFunc("/manage/user/{id}/delete", func(ctx context.Context, id int64, w http.ResponseWriter, r *http.Request) {

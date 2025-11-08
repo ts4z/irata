@@ -1,0 +1,10 @@
+{{ define "user-bar" }}
+<div class="user-bar">
+    {{ if .Nick }}
+        <div class="user-bar-left">hello, <a href="/account/edit">{{ .Nick }}</a></div>
+        <div class="user-bar-right"><a href="/logout">logout</a></div>
+    {{ else }}
+        <div class="user-bar-center"><a href="/login">login</a></div>
+    {{ end }}
+</div>
+{{ end }}

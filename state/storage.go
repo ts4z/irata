@@ -48,8 +48,12 @@ type AppStorage interface {
 	CreateStructure(ctx context.Context, s *model.Structure) (int64, error)
 }
 
-type SiteStorage interface {
+type SiteStorageReader interface {
 	FetchSiteConfig(ctx context.Context) (*model.SiteConfig, error)
+}
+
+type SiteStorage interface {
+	SiteStorageReader
 	SaveSiteConfig(ctx context.Context, config *model.SiteConfig) error
 }
 

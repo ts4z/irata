@@ -35,7 +35,7 @@ var (
 	siteStorageCacheMisses = varz.NewInt("siteStoragecacheMisses")
 )
 
-func NewSiteConfigCache(next state.SiteStorage, clock Nower) *SiteStorage {
+func NewSiteConfigStorage(next state.SiteStorage, clock Nower) *SiteStorage {
 	return &SiteStorage{
 		next:  next,
 		clock: clock,
