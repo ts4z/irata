@@ -969,13 +969,33 @@ func (app *App) handleCreateFooterSet(ctx context.Context, w http.ResponseWriter
 			}
 		}
 	}
+
+	templateID := r.URL.Query().Get("template")
+	var footerSet *model.FooterPlugs
+	if templateID != "" {
+		if id, err := strconv.ParseInt(templateID, 10, 64); err != nil {
+			log.Printf("error parsing template ID: %v (ignoring parameter)", err)
+		} else if fs, err := app.appStorage.FetchPlugs(ctx, id); err != nil {
+			log.Printf("error fetching footer plug set for template ID %d: %v (ignoring parameter)", id, err)
+		} else {
+			footerSet = &model.FooterPlugs{
+				Name:      fs.Name + " (Copy)",
+				TextPlugs: fs.TextPlugs,
+			}
+		}
+	}
+
+	if footerSet == nil {
+		footerSet = &model.FooterPlugs{TextPlugs: []string{}}
+	}
+
 	data := struct {
 		FooterSet *model.FooterPlugs
 		Flash     string
 		IsNew     bool
 		Nick      string
 	}{
-		FooterSet: &model.FooterPlugs{TextPlugs: []string{}},
+		FooterSet: footerSet,
 		Flash:     flash,
 		IsNew:     true,
 		Nick:      app.currentUserNick(ctx),
