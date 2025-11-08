@@ -62,6 +62,10 @@ func (s *UserStorage) SaveUser(ctx context.Context, u *model.UserIdentity) error
 }
 
 func (s *UserStorage) DeleteUserByID(ctx context.Context, id int64) error {
+	if ui := UserFromContext(ctx); ui != nil && ui.ID == id {
+		return he.HTTPCodedErrorf(http.StatusBadRequest, "cannot delete thyself")
+	}
+
 	return requireUserAdmin(ctx, func() error {
 		return s.next.DeleteUserByID(ctx, id)
 	})
