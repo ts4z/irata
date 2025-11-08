@@ -1515,6 +1515,7 @@ func (app *App) InstallHandlers() {
 	})
 
 	app.requiringOperatorHandleFunc("/manage/footer-set", app.handleManageFooterSets)
+	app.requiringOperatorHandleFunc("/manage/footer-set/", app.handleManageFooterSets)
 
 	app.handleFuncTakingID("/t/{id}", app.renderTournament)
 
