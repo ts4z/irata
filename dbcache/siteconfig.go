@@ -53,6 +53,7 @@ func (s *SiteStorage) FetchSiteConfig(ctx context.Context) (*model.SiteConfig, e
 	if err != nil {
 		return nil, err
 	}
+	s.fetchedAt = s.clock.Now()
 	s.cachedConfig = config
 	return config, nil
 }

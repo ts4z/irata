@@ -159,6 +159,7 @@ func New(ctx context.Context, config *Config) *App {
 	app := &App{
 		appStorage:        dep.Required(config.AppStorage),
 		tournamentStorage: dep.Required(config.TournamentStorage),
+		siteStorage:       dep.Required(config.SiteStorage),
 		siteStorageReader: dep.Required(config.SiteStorageReader),
 		userStorage:       dep.Required(config.UserStorage),
 		paytableStorage:   dep.Required(config.PaytableStorage),
