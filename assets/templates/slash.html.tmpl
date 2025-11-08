@@ -57,7 +57,7 @@
                     {{ if $.IsOperator }}
                         <a href="/t/{{.TournamentID}}/edit">Edit</a>
                         <a href="/create/tournament?template={{.TournamentID}}">Copy</a>
-                        <a href="#" class="delete-btn" onclick="confirmDeleteTournament('{{.TournamentID}}', '{{.TournamentName}}'); return false;">Delete</a>
+                        <a href="#" class="delete-btn" onclick="confirmDeleteTournament('{{.TournamentID}}', '{{.TournamentName}}'); return false;">❌</a>
                     {{ else }}
                     &nbsp;
                     {{ end }}

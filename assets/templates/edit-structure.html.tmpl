@@ -41,7 +41,7 @@
        title="Mark this level as a break."
        id="Level${idx}IsBreakLabel" class="level-${isBreak?'break':'level'}"><input class="level-break-cb" type="checkbox" style="display:none;" name="Level${idx}IsBreak" id="Level${idx}IsBreak" 
                ${isBreak ? 'checked' : ''} onchange="onBreakToggle(this)">${isBreakLabelText}</label>
-      <button title="Delete this level" type="button" class="delete-btn" onclick="tryDelete(this)">&#x274c;</button>
+      <button title="Delete this level" type="button" class="delete-btn" onclick="tryDelete(this)">❌</button>
     `;
   }
 

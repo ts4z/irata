@@ -27,6 +27,10 @@ a {
     text-decoration: underline;
 }
 
+a.no-underline {
+    text-decoration: none;
+}
+
 ul {
     list-style-type: none;
 }
