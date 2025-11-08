@@ -37,9 +37,9 @@
             <thead>
                 <tr>
                     <th>Tournament</th>
-                    {{ if .IsAdmin }}
-                    <th>Actions</th>
-                    {{ end }}
+                    <th>
+                    Actions
+                    </th>
                 </tr>
             </thead>
             <tbody>
@@ -53,16 +53,18 @@
                         <span style="opacity: 0.8; font-size: 0.8em;">{{ .Description }}</span>
                         {{ end }}
                     </td>
-                    {{ if $.IsAdmin }}
                     <td>
+                    {{ if $.IsOperator }}
                         <a href="/t/{{.TournamentID}}/edit">Edit</a>
                         <a href="#" class="delete-btn" onclick="confirmDeleteTournament('{{.TournamentID}}', '{{.TournamentName}}'); return false;">Delete</a>
-                    </td>
+                    {{ else }}
+                    &nbsp;
                     {{ end }}
+                    </td>
                 </tr>
                 {{ end }}
                 {{ else }}
-                <tr><td colspan="{{ if $.IsAdmin }}2{{ else }}1{{ end }}">No tournaments found.</td></tr>
+                <tr><td> No tournaments found.</td> <td> &nbsp; </td> </tr>
                 {{ end }}
             </tbody>
         </table>
