@@ -64,11 +64,12 @@ type nower interface {
 
 type editTournamentArgs struct {
 	Flash      string
+	FlashType  string
 	Tournament *model.Tournament
 	Structures []*model.StructureSlug
 	FooterSets []*model.FooterPlugs
 	Paytables  []*paytable.PaytableSlug
-	IsAdmin    bool
+	IsOperator bool
 	IsNew      bool
 	SiteConfig *model.SiteConfig
 	Sounds     []*soundmodel.SoundEffectSlug
@@ -587,6 +588,7 @@ func (app *App) handleEditOwnAccount(ctx context.Context, w http.ResponseWriter,
 
 func (app *App) handleCreateTournament(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	var flash string
+	flashType := "boo"
 	if r.Method == http.MethodPost {
 		if err := r.ParseForm(); err != nil {
 			log.Printf("error parsing form: %v", err)
@@ -630,8 +632,9 @@ func (app *App) handleCreateTournament(ctx context.Context, w http.ResponseWrite
 		Structures: structures,
 		FooterSets: footers,
 		Flash:      flash,
+		FlashType:  flashType,
 		IsNew:      true,
-		IsAdmin:    permission.IsAdmin(ctx),
+		IsOperator: permission.IsOperator(ctx),
 		SiteConfig: sc,
 		Tournament: &model.Tournament{State: &model.State{
 			AutoComputePrizePool: true,
@@ -1080,11 +1083,12 @@ func (app *App) handleEditTournament(ctx context.Context, id64 int64, w http.Res
 		return
 	}
 	args := &editTournamentArgs{
+		FlashType:  "boo", // not used?
 		Tournament: t,
 		Structures: structures,
 		FooterSets: footers,
 		Paytables:  paytables,
-		IsAdmin:    permission.IsAdmin(ctx),
+		IsOperator: permission.IsOperator(ctx),
 		IsNew:      false,
 		SiteConfig: sc,
 		Sounds:     sounds,
@@ -1293,8 +1297,19 @@ func parseAllowedOrigins(originsRaw string) []string {
 	return origins
 }
 
+func (app *App) parseSoundID(ctx context.Context, fv string) (int64, error) {
+	id, err := strconv.ParseInt(fv, 10, 64)
+	if err != nil {
+		return -1, he.HTTPCodedErrorf(400, "can't parse int: %w", err)
+	}
+	if _, err := app.soundStorage.FetchSoundEffectByID(ctx, id); err != nil {
+		return -1, err
+	}
+	return id, nil
+}
+
 func (app *App) handleManageSite(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-	var flash string
+	var flash, flashType string
 	// Fetch config
 	config, err := app.siteStorage.FetchSiteConfig(ctx)
 	if err != nil {
@@ -1311,8 +1326,10 @@ func (app *App) handleManageSite(ctx context.Context, w http.ResponseWriter, r *
 			theme := r.FormValue("Theme")
 			cookieDomain := r.FormValue("CookieDomain")
 			allowedOriginDomains := r.FormValue("AllowedOriginDomains")
+			soundID := r.FormValue("DefaultNextLevelSoundID")
 			if name == "" || theme == "" || cookieDomain == "" || allowedOriginDomains == "" {
 				flash = "Required field missing"
+				flashType = "boo"
 			} else {
 				// Update config
 				config.Name = name
@@ -1320,11 +1337,15 @@ func (app *App) handleManageSite(ctx context.Context, w http.ResponseWriter, r *
 				config.BonusHTTPPorts = parsePorts(r.FormValue("BonusHTTPPorts"))
 				config.AllowedOriginDomains = parseAllowedOrigins(allowedOriginDomains)
 				config.Theme = theme
+				if config.DefaultNextLevelSoundID, err = app.parseSoundID(ctx, soundID); err != nil {
+					he.SendErrorToHTTPClient(w, "get default sound ID", err)
+				}
 				err := app.siteStorage.SaveSiteConfig(ctx, config)
 				if err != nil {
 					flash = "Error saving config"
 				} else {
 					flash = "Saved!"
+					flashType = "yay"
 				}
 			}
 		}
@@ -1337,15 +1358,17 @@ func (app *App) handleManageSite(ctx context.Context, w http.ResponseWriter, r *
 	}
 
 	data := struct {
-		Config *model.SiteConfig
-		Sounds []*soundmodel.SoundEffectSlug
-		Flash  string
-		Nick   string
+		Config    *model.SiteConfig
+		Sounds    []*soundmodel.SoundEffectSlug
+		Flash     string
+		FlashType string
+		Nick      string
 	}{
-		Config: config,
-		Flash:  flash,
-		Sounds: soundSlugs,
-		Nick:   app.currentUserNick(ctx),
+		Config:    config,
+		Flash:     flash,
+		FlashType: flashType,
+		Sounds:    soundSlugs,
+		Nick:      app.currentUserNick(ctx),
 	}
 	if err := app.templates.ExecuteTemplate(w, "manage-site.html.tmpl", data); err != nil {
 		log.Printf("can't render manage-site template: %v", err)
@@ -1491,7 +1514,7 @@ func (app *App) InstallHandlers() {
 		http.Redirect(w, r, "/manage/footer-set", http.StatusSeeOther)
 	})
 
-	app.requiringOperatorHandleFunc("/manage/footer-set/", app.handleManageFooterSets)
+	app.requiringOperatorHandleFunc("/manage/footer-set", app.handleManageFooterSets)
 
 	app.handleFuncTakingID("/t/{id}", app.renderTournament)
 
@@ -1514,7 +1537,7 @@ func (app *App) InstallHandlers() {
 
 	app.handleFunc("/api/tournament-listen", app.handleAPITournamentListen)
 
-	app.requiringAdminHandleFunc("/api/prizePoolCalculator", app.handlePrizePoolCalculator)
+	app.requiringOperatorHandleFunc("/api/prizePoolCalculator", app.handlePrizePoolCalculator)
 
 	app.requiringAdminHandleFunc("/manage/site", app.handleManageSite)
 }

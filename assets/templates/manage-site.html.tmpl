@@ -12,6 +12,8 @@
             <a href="/">&lt; Back to Home</a>
         </div>
 
+        {{ if .Flash }}<div class="flash-{{ .FlashType }}">{{ .Flash }}</div>{{ end }}
+
         <h1>Manage Site Info</h1>
         <form method="POST">
             <label for="Name">Site Name</label>
@@ -48,7 +50,7 @@
                 <button type="submit">Save</button>
             </div>
         </form>
-        {{ if .Flash }}<div class="flash">{{ .Flash }}</div>{{ end }}
+        {{ if .Flash }}<div class="flash-{{ .FlashType }}">{{ .Flash }}</div>{{ end }}
     </div>
 
     <script>

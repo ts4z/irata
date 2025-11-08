@@ -613,7 +613,7 @@
             </script>
 
             <div class="actions">
-                {{ if not .IsAdmin }}
+                {{ if not .IsOperator }}
                 <p>You can look but you can't touch</p>
                 {{ else if .IsNew }}
                 <button type="submit">Create Tournament</button>
