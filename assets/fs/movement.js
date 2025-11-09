@@ -545,27 +545,11 @@ function installKeyboardHandlers(forWhom) {
   }
 
   function stopClock() {
-    // Stop advancing the clock.  We'll probably lose a second once the server
-    // responds, but this makes the application feel like it's listening.
     send_modify('StopClock');
-    if (last_model.State.IsClockRunning) {
-      last_model.CurrentLevelEndsAt = undefined;
-      last_model.State.TimeRemainingMillis = millis_remaining_in_level();
-      last_model.State.IsClockRunning = false;
-    }
   }
 
   function startClock() {
     send_modify('StartClock');
-    // Start advancing the clock without waiting for the server response.
-    // It's disconcerting when it isn't responsive.
-    if (!last_model.State.IsClockRunning) {
-      let now = Date.now();
-      last_model.State.CurrentLevelEndsAt = now + millis_remaining_in_level();
-      last_model.State.TimeRemainingMillis = undefined;
-      last_model.State.IsClockRunning = true;
-      tick();
-    }
   }
 
   function toggle_pause(_) {
