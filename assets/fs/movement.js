@@ -7,7 +7,7 @@
 
 function randN(n) { return Math.floor(Math.random() * n); }
 
-const LISTENER_TIMEOUT = 25 * 1000 + randN(10000);
+const LISTENER_TIMEOUT = 55 * 1000 + randN(10000);
 
 var next_level_sound = null;
 
