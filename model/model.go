@@ -162,6 +162,7 @@ type StructureSlug struct {
 type State struct {
 	SoundMuted         bool
 	IsClockRunning     bool
+	Slideshow          bool
 	CurrentLevelNumber int
 	CurrentPlayers     int
 	BuyIns             int

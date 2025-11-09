@@ -49,6 +49,16 @@ type KeyboardShortcutDispatcher struct {
 
 func NewKeyboardShortcutDispatcher(tm *tournament.Manager, ts state.TournamentStorage) *KeyboardShortcutDispatcher {
 	k2m := map[string]func(ctx context.Context, t *model.Tournament, bb *modifiers) error{
+		"StopSlideshow": func(ctx context.Context, t *model.Tournament, bb *modifiers) error {
+			log.Printf("StopSlideshow")
+			t.State.Slideshow = false
+			return nil
+		},
+		"StartSlideshow": func(ctx context.Context, t *model.Tournament, bb *modifiers) error {
+			log.Printf("StartSlideshow")
+			t.State.Slideshow = true
+			return nil
+		},
 		"PreviousLevel": func(ctx context.Context, t *model.Tournament, bb *modifiers) error { return tm.PreviousLevel(t) },
 		"SkipLevel":     func(ctx context.Context, t *model.Tournament, bb *modifiers) error { return tm.AdvanceLevel(t) },
 		"StopClock":     func(ctx context.Context, t *model.Tournament, bb *modifiers) error { return tm.StopClock(t) },

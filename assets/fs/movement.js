@@ -267,14 +267,6 @@ function stop_slideshow() {
   }
 }
 
-function toggle_slideshow() {
-  if (slideshow_enabled) {
-    stop_slideshow();
-  } else {
-    start_slideshow();
-  }
-}
-
 async function listen_and_consume_model_changes(currentVersion, abortSignal) {
   const tid = tournament_id();
   if (!tid) {
@@ -316,6 +308,12 @@ function updateClockClassAndBannerFromLevel() {
 // Server sent a whole new model.  Update all the fields.
 function import_new_model_from_server(model) {
   console.log(`new model protocol=${model.Transients.ProtocolVersion} model.Version=${model.Version}`)
+
+  if (model.State.Slideshow) {
+    start_slideshow();
+  } else {
+    stop_slideshow();
+  }
 
   if (model.NextLevelSoundID !== last_model.NextLevelSoundID) {
     if (model.Transients.NextLevelSoundPath) {
@@ -597,6 +595,16 @@ function installKeyboardHandlers(forWhom) {
     footer_interval_id = setInterval(next_footer, next_footer_interval_ms);
   }
 
+  function toggle_slideshow(_) {
+    if (last_model === undefined) {
+      console.log("last_model undefined")
+    } else if (last_model.State.Slideshow) {
+      send_modify('StopSlideshow');
+    } else {
+      send_modify('StartSlideshow');
+    }
+  }
+  
   function send_modify(event, shift) {
     fetch('/api/keyboard-control', {
       method: 'POST',
