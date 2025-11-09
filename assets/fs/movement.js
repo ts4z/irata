@@ -647,6 +647,10 @@ function installKeyboardHandlers(forWhom) {
   }
 
   document.addEventListener('keyup', (event) => {
+    if (event.ctrlKey) {
+      console.log("not sending event, you're holding control");
+      return;
+    }
     let keycode_to_handler;
     if (isOp) {
       keycode_to_handler = operator_keycode_to_handler;
