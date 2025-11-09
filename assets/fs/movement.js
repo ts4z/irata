@@ -116,7 +116,6 @@ var fetched_footer_plugs_id = undefined;
 function want_footers() {
   var want_id = last_model.FooterPlugsID
   if (!want_id) {
-    console.log("no id, no footers wanted");
     return false;
   }
   if (fetched_footer_plugs_id && want_id === fetched_footer_plugs_id) {
