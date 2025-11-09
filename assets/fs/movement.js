@@ -194,6 +194,88 @@ function reset_footer_interval() {
   start_rotating_footers();
 }
 
+// Slideshow management
+const slideshow_interval_ms = 30000;
+let slideshow_enabled = false;
+let slideshow_interval_id = undefined;
+let current_slide_index = 0;
+
+function count_slides() {
+  return document.querySelectorAll('.slideshow-slide').length;
+}
+
+function show_slide(index) {
+  const slides = document.querySelectorAll('.slideshow-slide');
+  if (slides.length === 0) {
+    return;
+  }
+  
+  // Hide all slides
+  slides.forEach(slide => slide.style.display = 'none');
+  
+  // Show the requested slide
+  if (index >= 0 && index < slides.length) {
+    slides[index].style.display = 'block';
+  }
+}
+
+function next_slide() {
+  const slideCount = count_slides();
+  if (slideCount === 0) {
+    return;
+  }
+  
+  current_slide_index = (current_slide_index + 1) % slideCount;
+  show_slide(current_slide_index);
+}
+
+function start_slideshow() {
+  const slideCount = count_slides();
+  if (slideCount === 0) {
+    console.log("No slides available");
+    return;
+  }
+  
+  slideshow_enabled = true;
+  current_slide_index = 0;
+  
+  // Show overlay and first slide
+  const overlay = document.getElementById('slideshow-overlay');
+  if (overlay) {
+    overlay.style.display = 'block';
+  }
+  show_slide(current_slide_index);
+  
+  // Start rotation
+  if (typeof slideshow_interval_id === 'undefined') {
+    slideshow_interval_id = setInterval(next_slide, slideshow_interval_ms);
+  }
+}
+
+function stop_slideshow() {
+  slideshow_enabled = false;
+  
+  // Hide overlay
+  const overlay = document.getElementById('slideshow-overlay');
+  if (overlay) {
+    overlay.style.display = 'none';
+  }
+  
+  // Stop rotation
+  if (typeof slideshow_interval_id === 'number') {
+    clearInterval(slideshow_interval_id);
+    slideshow_interval_id = undefined;
+  }
+}
+
+function toggle_slideshow() {
+  if (slideshow_enabled) {
+    stop_slideshow();
+  } else {
+    start_slideshow();
+  }
+}
+
 async function listen_and_consume_model_changes(currentVersion, abortSignal) {
   const tid = tournament_id();
   if (!tid) {
@@ -593,7 +675,9 @@ function installKeyboardHandlers(forWhom) {
   }
 
   function handle_escape(_) {
-    if (showing_help) {
+    if (slideshow_enabled) {
+      stop_slideshow();
+    } else if (showing_help) {
       hide_help_dialog();
     } else {
       redirect('/');
@@ -608,6 +692,7 @@ function installKeyboardHandlers(forWhom) {
     'KeyM': toggle_mute,
     'KeyF': next_footer_key,
     'KeyG': playNextLevelSound,
+    'KeyS': toggle_slideshow,
     'Escape': handle_escape,
   };
   const operator_keycode_to_handler = {
@@ -629,6 +714,7 @@ function installKeyboardHandlers(forWhom) {
     'KeyF': next_footer_key,
     'KeyG': playNextLevelSound,
     'KeyM': toggle_mute,
+    'KeyS': toggle_slideshow,
     'Backspace': toggle_clock_controls_lock,
     'Escape': handle_escape,
     'Slash': show_help_dialog,

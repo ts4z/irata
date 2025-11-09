@@ -103,6 +103,12 @@
       </tbody>
     </table>
 
+    <div id="slideshow-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background-color:rgba(0,0,0,0.95); z-index:9999;">
+      {{- range $i, $url := .Slides }}
+      <div class="slideshow-slide" id="slide-{{ $i }}" style="display:none; position:absolute; top:0; left:0; width:100%; height:100%; background-image:url('{{ $url }}'); background-size:contain; background-repeat:no-repeat; background-position:center;"></div>
+      {{- end }}
+    </div>
+
     <div id="help-dialog" class="clock-help-dialog-overlay">
       <div class="clock-help-dialog-content">
         <table style="width:100%; border-collapse:collapse; margin:0; font-size:1.3vi;">

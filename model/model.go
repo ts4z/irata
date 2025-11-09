@@ -60,6 +60,7 @@ type SiteConfig struct {
 	Theme                   string
 	DefaultNextLevelSoundID int64
 	CookieKeys              []CookieKeyPair
+	Slides                  []string
 }
 
 type Level struct {

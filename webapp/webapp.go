@@ -10,6 +10,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -306,10 +307,12 @@ func (app *App) renderTournament(ctx context.Context, id int64, w http.ResponseW
 		Tournament                      *model.Tournament
 		InstallOperatorKeyboardHandlers bool
 		Theme                           string
+		Slides                          []string
 	}{
 		Tournament:                      t,
 		InstallOperatorKeyboardHandlers: permission.CheckWriteAccessToTournamentID(ctx, id) == nil,
 		Theme:                           sc.Theme,
+		Slides:                          sc.Slides,
 	}
 	log.Printf("render with args: %+v", args)
 	if err := app.templates.ExecuteTemplate(w, "view-tournament.html.tmpl", args); err != nil {
@@ -1354,6 +1357,19 @@ func parseAllowedOrigins(originsRaw string) []string {
 	return origins
 }
 
+var splitSpace = regexp.MustCompile(`\s+`)
+
+func parseSlides(slidesRaw string) []string {
+	slides := []string{}
+	for _, slide := range splitSpace.Split(slidesRaw, -1) {
+		slide = strings.TrimSpace(slide)
+		if slide != "" {
+			slides = append(slides, slide)
+		}
+	}
+	return slides
+}
+
 func (app *App) parseSoundID(ctx context.Context, fv string) (int64, error) {
 	id, err := strconv.ParseInt(fv, 10, 64)
 	if err != nil {
@@ -1384,6 +1400,7 @@ func (app *App) handleManageSite(ctx context.Context, w http.ResponseWriter, r *
 			cookieDomain := r.FormValue("CookieDomain")
 			allowedOriginDomains := r.FormValue("AllowedOriginDomains")
 			soundID := r.FormValue("DefaultNextLevelSoundID")
+			slidesRaw := r.FormValue("Slides")
 			if name == "" || theme == "" || cookieDomain == "" || allowedOriginDomains == "" {
 				flash = "Required field missing"
 				flashType = "boo"
@@ -1394,6 +1411,7 @@ func (app *App) handleManageSite(ctx context.Context, w http.ResponseWriter, r *
 				config.BonusHTTPPorts = parsePorts(r.FormValue("BonusHTTPPorts"))
 				config.AllowedOriginDomains = parseAllowedOrigins(allowedOriginDomains)
 				config.Theme = theme
+				config.Slides = parseSlides(slidesRaw)
 				if config.DefaultNextLevelSoundID, err = app.parseSoundID(ctx, soundID); err != nil {
 					he.SendErrorToHTTPClient(w, "get default sound ID", err)
 				}

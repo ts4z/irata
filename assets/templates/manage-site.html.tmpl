@@ -46,6 +46,9 @@
                 <button type="button" id="PlaySoundBtn" class="sound-play-btn" title="Play selected sound">▶</button>
             </div>
 
+            <label for="Slides">Slideshow URLs</label>
+            <textarea id="Slides" name="Slides" rows="10" placeholder="Enter URLs for slideshow mode, one per line">{{ join .Config.Slides "\n" }}</textarea>
+
             <div class="actions">
                 <button type="submit">Save</button>
             </div>
