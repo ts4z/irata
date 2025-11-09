@@ -5,7 +5,9 @@
 
 "use strict";
 
-const LISTENER_TIMEOUT = 4 * 60 * 1000;
+function randN(n) { return Math.floor(Math.random() * n); }
+
+const LISTENER_TIMEOUT = 25 * 1000 + randN(10000);
 
 var next_level_sound = null;
 
@@ -17,8 +19,6 @@ function tournament_id() {
   var parts = window.location.pathname.split("/");
   return parseInt(parts[parts.length - 1]);
 }
-
-function randN(n) { return Math.floor(Math.random() * n); }
 
 function playNextLevelSound(_ = undefined) {
   if (next_level_sound && last_model.State.SoundMuted !== true) {
