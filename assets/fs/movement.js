@@ -696,39 +696,39 @@ function installKeyboardHandlers(forWhom) {
   }
 
   const unauth_keycode_to_handler = {
-    'KeyM': toggle_mute,
+    'Escape': handle_escape,
     'KeyF': next_footer_key,
     'KeyG': playNextLevelSound,
+    'KeyM': toggle_mute,
     'KeyS': toggle_slideshow,
-    'Escape': handle_escape,
   };
   const operator_keycode_to_handler = {
-    'Space': toggle_pause,
+    'ArrowDown': ipcusmwa('MinusMinute'),
     'ArrowLeft': ipcusmwa('PreviousLevel'),
     'ArrowRight': ipcusmwa('SkipLevel'),
-    'ArrowDown': ipcusmwa('MinusMinute'),
     'ArrowUp': ipcusmwa('PlusMinute'),
-    'PageUp': smwa('AddPlayer'),
-    'PageDown': smwa('RemovePlayer'),
-    'Enter': toggle_pause,
-    'Home': smwa('AddBuyIn'),
-    'End': smwa('RemoveBuyIn'),
-    'Equal': smwa('AddBuyIn'),
-    'Minus': smwa('RemoveBuyIn'),
+    'Backspace': toggle_clock_controls_lock,
     'Comma': smwa('RemoveBuyIn'),
-    'Period': smwa('AddBuyIn'),
+    'Delete': smwa('RemoveAddOn'),
+    'End': smwa('RemoveBuyIn'),
+    'Enter': toggle_pause,
+    'Equal': smwa('AddBuyIn'),
+    'Escape': handle_escape,
+    'F1': show_help_dialog,
+    'Home': smwa('AddBuyIn'),
+    'Insert': smwa('AddAddOn'),
     'KeyE': redirect_to_edit,
     'KeyF': next_footer_key,
     'KeyG': playNextLevelSound,
     'KeyM': toggle_mute,
-    'KeyS': toggle_slideshow,
-    'Backspace': toggle_clock_controls_lock,
-    'Escape': handle_escape,
-    'Slash': show_help_dialog,
-    'F1': show_help_dialog,
-    'Insert': smwa('AddAddOn'),
-    'Delete': smwa('RemoveAddOn'),
     'KeyR': smwa('Restart'),
+    'KeyS': toggle_slideshow,
+    'Minus': smwa('RemoveBuyIn'),
+    'PageDown': smwa('RemovePlayer'),
+    'PageUp': smwa('AddPlayer'),
+    'Period': smwa('AddBuyIn'),
+    'Slash': show_help_dialog,
+    'Space': toggle_pause,
   }
 
   if (isOp) {
@@ -786,7 +786,7 @@ function installKeyboardHandlers(forWhom) {
 const cached_change_listener = (() => {
   let listenerSentVersion, controller, cached_promise;
 
-  const abort = function (why) {
+  function abort(why) {
     if (controller) {
       controller.abort(why);
     }
@@ -794,7 +794,7 @@ const cached_change_listener = (() => {
     cached_promise = undefined;
   }
 
-  const reset_cached_promise = () => {
+  function reset_cached_promise() {
     listenerSentVersion = last_model?.Version ?? 0;
     controller = new AbortController();
 
@@ -820,7 +820,7 @@ const cached_change_listener = (() => {
   // prime the pump
   reset_cached_promise();
 
-  const maybeResetCachedPromise = () => {
+  function maybeResetCachedPromise() {
     if (!cached_promise) {
       reset_cached_promise();
       return;
@@ -834,7 +834,7 @@ const cached_change_listener = (() => {
     }
   }
 
-  return async function () {
+  return function () {
     maybeResetCachedPromise();
     return cached_promise;
   }
@@ -883,7 +883,6 @@ function tick() {
     setTickTimer(10);
   });
 }
-
 
 start_rotating_footers();
 tick();
