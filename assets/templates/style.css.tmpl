@@ -1,0 +1,730 @@
+@font-face {
+    font-family: irata-mono;
+    src: url('/fs/{{.MonoFont}}') format('truetype');
+}
+
+@font-face {
+    font-family: irata-display;
+    src: url('/fs/{{.SansFont}}') format('truetype');
+}
+
+html, body {
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: irata-display, monospace;
+    font-weight: {{.BodyFontWeight}};
+    background-color: #000000;
+    color: #ffffff;
+    line-height: {{.LineHeight}};
+}
+
+a {
+    color: #fff;
+    text-decoration: underline;
+}
+
+a.no-underline {
+    text-decoration: none;
+}
+
+ul {
+    list-style-type: none;
+}
+
+/* Container for form/admin pages */
+.container {
+    max-width: max(50vw, 800px);
+    margin: 2em auto;
+    background: #111;
+    padding: 2em;
+    border-radius: 8px;
+}
+
+h1 {
+    margin-bottom: 1em;
+}
+
+h2 {
+    margin-bottom: 0.8em;
+}
+
+.nowrap {
+  white-space: nowrap;    
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Data table styling - add this class to tables that need borders/hover */
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 2em;
+}
+
+.data-table th,
+.data-table td {
+    padding: 0.5em;
+    border-bottom: 1px solid #333;
+    text-align: left;
+}
+
+.data-table th {
+    background: #222;
+}
+
+.data-table tr:hover {
+    background: #222;
+}
+
+label {
+    display: block;
+    margin-top: 1em;
+    font-weight: bold;
+    font-size: 1.1em;
+}
+
+.form-section {
+    margin: 10px;
+    padding: 10px;
+    border-width: 1px;
+    border-radius: 5px;
+    border-style: solid;
+    border-color: #aaa;
+}
+
+.form-group {
+    margin-bottom: 1.5em;
+}
+
+.form-group small {
+    display: block;
+    opacity: 0.7;
+    font-size: 0.8em;
+    margin-bottom: 0.3em;
+}
+
+input, select, textarea {
+    font-family: irata-mono, monospace;
+    font-size: 1em;
+    background: #222;
+    color: #fff;
+    border: 1px solid #444;
+    padding: 0.5em;
+    margin: 0.2em 0;
+    border-radius: 4px;
+    box-sizing: border-box;
+    width: 100%;
+}
+
+/* Field sizing classes */
+.field-small {
+    max-width: 6ch;
+}
+
+.field-medium {
+    max-width: 9ch;
+}
+
+.field-large {
+    max-width: 13ch;
+}
+
+.field-text {
+    max-width: 40ch;
+}
+
+.field-full {
+    max-width: 100%;
+}
+
+/* Input field styling classes */
+.editable {
+    background-color: #222222;
+}
+
+.uneditable {
+    background-color: #000000;
+    text-align: right;
+}
+
+/* Calculator table styling */
+.calc-table td,
+.calc-table th {
+    padding: 0.3em;
+}
+
+input[type="submit"], button {
+    font-family: irata-mono, monospace;
+    background: #333;
+    color: #fff;
+    border: none;
+    padding: 0.5em 1em;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+input[type="submit"]:hover, button:hover {
+    background: #444;
+}
+
+/* Do not use. Replace with flash-yay or flash-boo */
+.flash {
+    background: yellow;
+    color: black;
+    padding: 0.5em;
+    margin-bottom: 1em;
+    border-radius: 5px;
+    text-align: center;
+    font-size: 1.1em;
+}
+
+.flash-yay {
+    background: #227722;
+    color: #fff;
+    padding: 0.5em;
+    margin-bottom: 1em;
+    border-radius: 5px;
+    text-align: center;
+    font-size: 1.1em;
+}
+
+.flash-boo {
+    background: #8b1a1a;
+    color: #fff;
+    padding: 0.5em;
+    margin-bottom: 1em;
+    border-radius: 5px;
+    text-align: center;
+    font-size: 1.1em;
+}
+
+/* User bar at top of pages */
+.user-bar {
+    display: flex;
+    align-items: center;
+    background: #1a1a1a;
+    padding: 0.5em 1em;
+    margin-bottom: 1em;
+    border-radius: 4px;
+    font-size: 0.9em;
+}
+
+.user-bar-left {
+    flex: 1;
+    text-align: left;
+}
+
+.user-bar-right {
+    flex: 1;
+    text-align: right;
+}
+
+.user-bar-center {
+    flex: 1;
+    text-align: center;
+}
+
+.actions {
+    margin-top: 1em;
+    padding-top: 1em;
+    border-top: 1px solid #333;
+}
+
+.level-row {
+    display: flex;
+    align-items: center;
+    gap: 0.3em;
+    margin-bottom: 0.5em;
+    padding: 0.1em 0.2em;
+    border: 1px solid #333;
+    border-radius: 4px;
+}
+
+.level-row input[type="number"] {
+    flex: 0 0 auto;
+}
+
+.level-row input[type="text"] {
+    flex: 1;
+    min-width: 0;
+}
+
+.level-row label {
+    flex: 0 0 auto;
+    margin-top: 0;
+}
+
+.level-row button {
+    flex: 0 0 auto;
+}
+
+/* Level row input field classes */
+.level-duration-input {
+    max-width: 5em;
+}
+
+.level-banner-input {
+    min-width: 10em;
+}
+
+.level-description-input {
+    min-width: 14em;
+}
+
+.admin-bar {
+    background: #222;
+    padding: 1em;
+    margin-bottom: 2em;
+    border-radius: 4px;
+}
+
+.admin-bar a {
+    margin: 0 0.5em;
+}
+
+/* Plug editor specific styles */
+.plug-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5em;
+    margin-bottom: 1em;
+}
+
+.plug-row textarea {
+    flex: 1;
+}
+
+.delete-btn {
+    color: #f88 !important;
+}
+
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.8);
+}
+
+.modal-content {
+    position: relative;
+    background-color: #111;
+    margin: 15% auto;
+    padding: 2em;
+    border: 1px solid #444;
+    width: 80%;
+    max-width: 500px;
+    border-radius: 8px;
+}
+
+.modal-buttons {
+    display: flex;
+    gap: 1em;
+    justify-content: flex-end;
+    margin-top: 2em;
+}
+
+#add-plug-btn {
+    margin-top: 1em;
+    padding: 0.7em 2em;
+    background: #333;
+}
+
+#add-plug-btn:hover {
+    background: #444;
+}
+
+/* Login page specific styles */
+.login-box {
+    margin: 10% auto;
+    width: 400px;
+    max-width: 90%;
+    padding: 2em;
+    background: #222;
+    border-radius: 10px;
+    box-shadow: 0 0 10px #444;
+}
+
+.login-box h2 {
+    margin-top: 0;
+    text-align: center;
+}
+
+.login-box label {
+    font-size: 1.2em;
+}
+
+.login-box input[type="text"],
+.login-box input[type="password"] {
+    font-size: 1.2em;
+    width: 100%;
+}
+
+.login-box .actions {
+    margin-top: 1.5em;
+    padding-top: 0;
+    border-top: none;
+}
+
+.login-box button {
+    width: 100%;
+    padding: 0.7em;
+    font-size: 1.1em;
+}
+
+.login-box p {
+    text-align: center;
+    margin-top: 1.5em;
+}
+
+/* Clock display styles */
+.clock-page body {
+    line-height: 1;
+    position: relative;
+}
+
+.clock-page html,
+.clock-page body {
+    height: 100%;
+    overflow: hidden;
+}
+
+.clock-page table {
+    table-layout: fixed;
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0;
+}
+
+.clock-page td {
+    text-align: center;
+    line-height: 110%;
+    vertical-align: middle;
+    padding: 0;
+    border: none;
+}
+
+.clock-full-height {
+    height: 100%;
+}
+
+.clock-container {
+    position: relative;
+    text-align: center;
+    vertical-align: middle;
+    padding: 15vh 0;
+}
+
+.clock-container.clock-td-running {
+    color: #22ff22;
+}
+
+.clock-container.clock-td-break {
+    color: #ffffff;
+    background-color: #8b1a1a;
+}
+
+.clock-level {
+    font-size: calc(3vi * {{.FontScaleFactor}});
+    color: yellow;
+    text-align: center;
+}
+
+.clock-time {
+    font-family: irata-mono;
+    font-size: calc(15vi * {{.FontScaleFactor}});
+    line-height: 100%;
+    padding: 10px;
+}
+
+.clock-time.clock-has-hours {
+    font-size: calc(11vi * {{.FontScaleFactor}}) !important;
+}
+
+.clock-td-running {
+    color: #22ff22;
+}
+
+.clock-td-break {
+    color: #ffffff;
+    background-color: #8b1a1a;
+}
+
+.clock-blinds {
+    font-size: calc(4vi * {{.FontScaleFactor}});
+    color: #cc0099;
+}
+
+.clock-footer {
+    font-size: calc(2vi * {{.FontScaleFactor}});
+    color: #aaaaaa;
+}
+
+.clock-title {
+    font-size: calc(1.8vi * {{.FontScaleFactor}});
+    text-align: center;
+    color: #ffffff;
+}
+
+.clock-current-players {
+    font-size: calc(4vi * {{.FontScaleFactor}});
+    text-align: center;
+    line-height: 110%;
+}
+
+.clock-current-players-label {
+    font-size: calc(1.7vi * {{.FontScaleFactor}});
+    text-align: center;
+    line-height: 110%;
+}
+
+.clock-buyins {
+    font-size: calc(2.0vi * {{.FontScaleFactor}});
+    text-align: center;
+    line-height: 120%;
+}
+
+.clock-addons {
+    line-height: 120%;
+    font-size: calc(1.5vi * {{.FontScaleFactor}});
+    text-align: center;
+}
+
+.clock-avg-chips {
+    font-size: calc(2.5vi * {{.FontScaleFactor}});
+    text-align: center;
+}
+
+.clock-next-level {
+    font-size: calc(2vi * {{.FontScaleFactor}});
+    text-align: center;
+    color: #ffffff;
+}
+
+.clock-next-break {
+    font-size: calc(2.5vi * {{.FontScaleFactor}});
+    text-align: center;
+}
+
+.clock-rr {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    width: 100%;
+    line-height: 120%;
+    justify-content: center;
+}
+
+.clock-rr > * {
+    width: 100%;
+}
+
+.clock-rr-prize-pool {
+    flex: 1 1 auto;
+    border-top: 3px solid white;
+    border-bottom: 3px solid white;
+    padding-top: 2px;
+    padding-bottom: 2px;
+    overflow-y: hidden;
+    width: 100%;
+    align-self: stretch;
+}
+
+.clock-prize-pool {
+    display: block;
+    width: 100%;
+    font-size: calc(1.7vi * {{.FontScaleFactor}});
+    line-height: 120%;
+    text-align: center;
+    overflow-y: auto;
+    height: 30vi;
+}
+
+.clock-rr-top-box {
+    padding: 1rem;
+    line-height: 120%;
+    width: 100%;
+    align-self: stretch;
+}
+
+.clock-rr-bottom-box {
+    width: 100%;
+    align-self: stretch;
+}
+
+.clock-rr-label {
+    font-size: calc(1.7vi * {{.FontScaleFactor}});
+    line-height: {{ .LineHeight }};
+}
+
+.clock-rr-data {
+    font-size: calc(2.5vi * {{.FontScaleFactor}});
+    text-align: center;
+    line-height: {{ .LineHeight }};
+}
+
+.clock-rr-rotate-container {
+    display: block;
+}
+
+.clock-help-dialog-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.95);
+    color: #fff;
+    z-index: 9999;
+    font-family: irata-mono, monospace;
+    font-size: calc(2vi * {{.FontScaleFactor}});
+}
+
+.clock-help-dialog-content {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: #222;
+    border: 2px solid #aaaaff;
+    border-radius: 1vi;
+    padding: 2vi;
+    text-align: left;
+    color: #fff;
+    width: 60vw;
+    max-width: 800px;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.clock-help-dialog-close {
+    font-size: calc(1.5vi * {{.FontScaleFactor}});
+    color: #aaaaff;
+    margin-top: 2vi;
+}
+
+.clock-help-dialog-table-key {
+    width: 18%;
+    text-align: right;
+    padding: 0.1vi 0.4vi 0.1vi 0;
+}
+
+.clock-help-dialog-table-desc {
+    text-align: left;
+    padding: 0.1vi 0 0.1vi 1vi;
+}
+
+.mute-bouncer {
+  position: absolute;
+  font-size: 8vi;
+  z-index: 11;
+  left: 20;
+  top: 20;
+  transform: translate(-50%, -50%);
+  text-shadow: -0.7vi -0.7vi 1vi #000, 
+    0.7vi -0.7vi 1vi #000,
+    -0.7vi 0.7vi 1vi #000,
+    0.7vi 0.7vi 1vi #000,
+    0 0 2vi #000;
+  pointer-events: none;
+}
+
+.clock-paused-overlay {
+    display: none;
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%) rotate(-33deg);
+    font-size: calc(8vi * {{.FontScaleFactor}});
+    color: #ffffff;
+    text-shadow: -0.7vi -0.7vi 1vi #000, 
+        0.7vi -0.7vi 1vi #000,
+        -0.7vi 0.7vi 1vi #000,
+        0.7vi 0.7vi 1vi #000,
+        0 0 2vi #000;
+    font-family: irata-mono, monospace;
+    pointer-events: none;
+    z-index: 10;
+    white-space: nowrap;
+    letter-spacing: 0.1em;
+    font-weight: bold;
+}
+
+.level-break-cb {
+    display: none;
+}
+
+.level-break {
+    display: flex;
+    max-width: 5em;
+    background-color: #700;
+    border: 1px solid #a00;
+    padding: 0.3em 0.6em;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.level-level {
+    border: 1px solid #000;
+    padding: 0.3em 0.6em;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.level-autopause {
+    display: flex;
+    max-width: 5em;
+    background-color: #700;
+    border: 1px solid #a00;
+    padding: 0.3em 0.6em;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.level-run {
+    border: 1px solid #0d0;
+    background-color: #070;
+    padding: 0.3em 0.6em;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+/* Sound preview button */
+.sound-select-container {
+    display: flex;
+    align-items: center;
+    gap: 0.5em;
+}
+
+.sound-select-container select {
+    flex: 1;
+}
+
+.sound-play-btn {
+    flex: 0 0 auto;
+    min-width: 2.5em;
+    padding: 0.5em;
+    background: #333;
+    border: 1px solid #444;
+    color: #fff;
+    cursor: pointer;
+    border-radius: 4px;
+    font-size: 1em;
+    transition: background 0.2s;
+}
+
+.sound-play-btn:hover {
+    background: #444;
+}
+
+.sound-play-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
