@@ -8,7 +8,7 @@ import (
 )
 
 type TournamentStorage struct {
-	Storage state.TournamentListenerStorage
+	Storage state.TournamentStorage
 }
 
 var _ state.TournamentStorage = &TournamentStorage{}
@@ -37,8 +37,4 @@ func (s *TournamentStorage) SaveTournament(ctx context.Context, m *model.Tournam
 	return requireOperator(ctx, func() error {
 		return s.Storage.SaveTournament(ctx, m)
 	})
-}
-
-func (s *TournamentStorage) ListenTournamentVersion(ctx context.Context, id int64, version int64, errCh chan<- error, tournamentCh chan<- *model.Tournament) {
-	s.Storage.ListenTournamentVersion(ctx, id, version, errCh, tournamentCh)
 }

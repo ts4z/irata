@@ -35,8 +35,23 @@ func NewUserStorage(size int, nx state.UserStorage) *UserStorage {
 }
 
 // TODO: We need to be able to call this for multiple-writer changes.
-func (s *UserStorage) InvalidateCache(userID int64) {
-	s.cache.Remove(userID)
+//
+// TODO: We need to consume the version here; this will invalidate it too often.
+// However, the UserIdentity field doesn't have a Version yet.
+func (s *UserStorage) CacheInvalidate(_ context.Context, userID int64, version int64) {
+	if version < 0 {
+		s.cache.Remove(userID)
+	} else {
+		_, ok := s.cache.Get(userID)
+		if ok {
+			// TODO: Add Version to UserIdentity and check it.
+			s.cache.Remove(userID)
+		}
+	}
+}
+
+func (s *UserStorage) Fetch(ctx context.Context, id int64) (*model.UserIdentity, error) {
+	return s.FetchUserByUserID(ctx, id)
 }
 
 func (s *UserStorage) FetchUsers(ctx context.Context) ([]*model.UserIdentity, error) {
@@ -82,7 +97,8 @@ func (s *UserStorage) SaveUser(ctx context.Context, u *model.UserIdentity) error
 func (s *UserStorage) DeleteUserByID(ctx context.Context, id int64) error {
 	err := s.next.DeleteUserByID(ctx, id)
 	if err == nil {
-		s.InvalidateCache(id)
+		// TODO: Remove, this should get handled by gossip.
+		s.CacheInvalidate(ctx, id, -1)
 	}
 	return err
 }

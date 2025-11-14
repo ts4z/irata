@@ -1,8 +1,6 @@
 module github.com/ts4z/irata
 
-go 1.24.0
-
-toolchain go1.24.4
+go 1.25.2
 
 require (
 	cloud.google.com/go/cloudsqlconn v1.18.1

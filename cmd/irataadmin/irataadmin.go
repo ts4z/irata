@@ -18,6 +18,7 @@ import (
 	"maze.io/x/duration"
 
 	"github.com/ts4z/irata/config"
+	"github.com/ts4z/irata/dbutil"
 	"github.com/ts4z/irata/model"
 	"github.com/ts4z/irata/password"
 	"github.com/ts4z/irata/state"
@@ -46,16 +47,25 @@ var (
 // Should return a Userstorage, but that hides Close.
 func newUserStorage(ctx context.Context) *state.DBStorage {
 	config.Init()
-	storage, err := state.NewDBStorage(ctx, config.DBURL())
+	db, err := dbutil.Connect()
 	if err != nil {
 		log.Fatalf("can't connect to database: %v", err)
+	}
+	storage, err := state.NewDBStorage(ctx, db)
+	if err != nil {
+		log.Fatalf("can't build DBStorage object: %v", err)
 	}
 	return storage
 }
 
 // Should return a SiteStorage, but that hides Close.
 func newSiteStorage(ctx context.Context) *state.DBStorage {
-	storage, err := state.NewDBStorage(ctx, config.DBURL())
+	config.Init()
+	db, err := dbutil.Connect()
+	if err != nil {
+		log.Fatalf("can't connect to database: %v", err)
+	}
+	storage, err := state.NewDBStorage(ctx, db)
 	if err != nil {
 		log.Fatalf("can't connect to database: %v", err)
 	}

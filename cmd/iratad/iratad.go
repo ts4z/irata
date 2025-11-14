@@ -10,8 +10,10 @@ import (
 	"github.com/ts4z/irata/assets"
 	"github.com/ts4z/irata/config"
 	"github.com/ts4z/irata/dbcache"
+	"github.com/ts4z/irata/dbnotify"
+	"github.com/ts4z/irata/dbutil"
 	"github.com/ts4z/irata/form"
-	"github.com/ts4z/irata/listener"
+	"github.com/ts4z/irata/gossip"
 	"github.com/ts4z/irata/permission"
 	"github.com/ts4z/irata/state"
 	"github.com/ts4z/irata/tournament"
@@ -33,7 +35,12 @@ func main() {
 
 	tournamentManager := tournament.NewManager(clock, state.NewDefaultPaytableStorage(), soundStorage)
 
-	unprotectedStorage, err := state.NewDBStorage(context.Background(), viper.GetString("db_url"))
+	db, err := dbutil.Connect()
+	if err != nil {
+		log.Fatalf("can't connect to database: %v", err)
+	}
+
+	unprotectedStorage, err := state.NewDBStorage(context.Background(), db)
 	if err != nil {
 		log.Fatalf("can't configure database: %v", err)
 	}
@@ -51,32 +58,52 @@ func main() {
 	appStorage := &permission.AppStorage{
 		Storage: dbcache.NewAppStorage(16, unprotectedStorage),
 	}
+	cachedTournamentStorage := dbcache.NewTournamentStorage(128, unprotectedStorage)
+	tournamentGossiper := gossip.NewTournamentGossiper(cachedTournamentStorage, tournamentManager)
 	tournamentStorage := &permission.TournamentStorage{
-		Storage: listener.NewTournamentStorage(
-			dbcache.NewTournamentStorage(128, unprotectedStorage),
-			tournamentManager),
+		Storage: gossip.NewTournamentStorage(
+			cachedTournamentStorage,
+			tournamentGossiper),
 	}
 
-	userStorage := permission.NewUserStorage(
-		dbcache.NewUserStorage(128, unprotectedStorage))
+	cachedUserStorage := dbcache.NewUserStorage(128, unprotectedStorage)
+	userStorage := permission.NewUserStorage(cachedUserStorage)
+
+	userGossiper := gossip.NewUserGossiper(cachedUserStorage)
+
+	userDispatcher := dbnotify.NewChangeDispatcher("users", userGossiper, cachedUserStorage, cachedUserStorage)
 
 	mutator := form.NewProcessor(appStorage, tournamentStorage, userStorage, tournamentManager, clock)
 
 	paytableStorage := state.NewDefaultPaytableStorage()
 
+	// TODO: This doesn't look right.
+
+	tourneyDispatcher := dbnotify.NewChangeDispatcher("tournaments",
+		tournamentGossiper, cachedTournamentStorage, cachedTournamentStorage)
+
+	// TODO: site config dispatcher, footer plug dispatcher, etc.
+
+	dbListener, err := dbnotify.NewDBNotifyListener(db, tourneyDispatcher, userDispatcher)
+	if err != nil {
+		log.Fatalf("can't create db notificationlistener: %v", err)
+	}
+
 	app := webapp.New(ctx, &webapp.Config{
-		AppStorage:        appStorage,
-		TournamentStorage: tournamentStorage,
-		SiteStorage:       protectedSiteConfigStorage,
-		SiteStorageReader: siteStorageReader,
-		PaytableStorage:   paytableStorage,
-		SoundStorage:      soundStorage,
-		UserStorage:       userStorage,
-		FormProcessor:     mutator,
-		SubFS:             subFS,
-		BakeryFactory:     bakeryFactory,
-		Clock:             clock,
-		TournamentManager: tournamentManager,
+		TournamentGossiper: tournamentGossiper,
+		DBListener:         dbListener,
+		AppStorage:         appStorage,
+		TournamentStorage:  tournamentStorage,
+		SiteStorage:        protectedSiteConfigStorage,
+		SiteStorageReader:  siteStorageReader,
+		PaytableStorage:    paytableStorage,
+		SoundStorage:       soundStorage,
+		UserStorage:        userStorage,
+		FormProcessor:      mutator,
+		SubFS:              subFS,
+		BakeryFactory:      bakeryFactory,
+		Clock:              clock,
+		TournamentManager:  tournamentManager,
 	})
 
 	if err := app.Serve(ctx, viper.GetString("listen_address")); err != nil {

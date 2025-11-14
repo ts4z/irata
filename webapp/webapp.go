@@ -21,8 +21,10 @@ import (
 
 	"github.com/ts4z/irata/app/handlers"
 	"github.com/ts4z/irata/assets"
+	"github.com/ts4z/irata/dbnotify"
 	"github.com/ts4z/irata/dep"
 	"github.com/ts4z/irata/form"
+	"github.com/ts4z/irata/gossip"
 	"github.com/ts4z/irata/he"
 	"github.com/ts4z/irata/middleware"
 	"github.com/ts4z/irata/middleware/c2ctx"
@@ -79,18 +81,20 @@ type editTournamentArgs struct {
 
 // Config holds the configuration for creating a new IrataApp.
 type Config struct {
-	TournamentStorage state.TournamentListenerStorage
-	AppStorage        state.AppStorage
-	SiteStorage       state.SiteStorage
-	SiteStorageReader state.SiteStorageReader
-	UserStorage       state.UserStorage
-	PaytableStorage   state.PaytableStorage
-	SoundStorage      state.SoundEffectStorage
-	FormProcessor     *form.FormProcessor
-	SubFS             fs.FS
-	BakeryFactory     *permission.BakeryFactory
-	Clock             nower
-	TournamentManager *tournament.Manager
+	DBListener         *dbnotify.DBNotifyListener
+	TournamentGossiper *gossip.TournamentGossiper
+	TournamentStorage  state.TournamentStorage
+	AppStorage         state.AppStorage
+	SiteStorage        state.SiteStorage
+	SiteStorageReader  state.SiteStorageReader
+	UserStorage        state.UserStorage
+	PaytableStorage    state.PaytableStorage
+	SoundStorage       state.SoundEffectStorage
+	FormProcessor      *form.FormProcessor
+	SubFS              fs.FS
+	BakeryFactory      *permission.BakeryFactory
+	Clock              nower
+	TournamentManager  *tournament.Manager
 }
 
 // App is the main web application.
@@ -100,17 +104,19 @@ type App struct {
 	subFS     fs.FS
 
 	// dependencies
-	tournamentStorage state.TournamentListenerStorage
-	appStorage        state.AppStorage
-	siteStorage       state.SiteStorage
-	siteStorageReader state.SiteStorageReader
-	userStorage       state.UserStorage
-	paytableStorage   state.PaytableStorage
-	soundStorage      state.SoundEffectStorage
-	formProcessor     *form.FormProcessor
-	bakeryFactory     *permission.BakeryFactory
-	clock             nower
-	tm                *tournament.Manager
+	dbListener         *dbnotify.DBNotifyListener
+	tournamentGossiper *gossip.TournamentGossiper
+	tournamentStorage  state.TournamentStorage
+	appStorage         state.AppStorage
+	siteStorage        state.SiteStorage
+	siteStorageReader  state.SiteStorageReader
+	userStorage        state.UserStorage
+	paytableStorage    state.PaytableStorage
+	soundStorage       state.SoundEffectStorage
+	formProcessor      *form.FormProcessor
+	bakeryFactory      *permission.BakeryFactory
+	clock              nower
+	tm                 *tournament.Manager
 
 	// internals
 	mux     *http.ServeMux
@@ -159,19 +165,21 @@ func New(ctx context.Context, config *Config) *App {
 	}
 
 	app := &App{
-		appStorage:        dep.Required(config.AppStorage),
-		tournamentStorage: dep.Required(config.TournamentStorage),
-		siteStorage:       dep.Required(config.SiteStorage),
-		siteStorageReader: dep.Required(config.SiteStorageReader),
-		userStorage:       dep.Required(config.UserStorage),
-		paytableStorage:   dep.Required(config.PaytableStorage),
-		soundStorage:      dep.Required(config.SoundStorage),
-		formProcessor:     dep.Required(config.FormProcessor),
-		subFS:             dep.Required(config.SubFS),
-		bakeryFactory:     dep.Required(config.BakeryFactory),
-		clock:             dep.Required(config.Clock),
-		tm:                dep.Required(config.TournamentManager),
-		mux:               dep.Required(http.DefaultServeMux),
+		dbListener:         dep.Required(config.DBListener),
+		tournamentGossiper: dep.Required(config.TournamentGossiper),
+		appStorage:         dep.Required(config.AppStorage),
+		tournamentStorage:  dep.Required(config.TournamentStorage),
+		siteStorage:        dep.Required(config.SiteStorage),
+		siteStorageReader:  dep.Required(config.SiteStorageReader),
+		userStorage:        dep.Required(config.UserStorage),
+		paytableStorage:    dep.Required(config.PaytableStorage),
+		soundStorage:       dep.Required(config.SoundStorage),
+		formProcessor:      dep.Required(config.FormProcessor),
+		subFS:              dep.Required(config.SubFS),
+		bakeryFactory:      dep.Required(config.BakeryFactory),
+		clock:              dep.Required(config.Clock),
+		tm:                 dep.Required(config.TournamentManager),
+		mux:                dep.Required(http.DefaultServeMux),
 	}
 
 	// Stack the handlers together.
@@ -1224,8 +1232,15 @@ func (app *App) handleLogin(ctx context.Context, w http.ResponseWriter, r *http.
 		}
 		return
 	case http.MethodPost:
+		const sleepyTime = 2 * time.Second
 		nope := func() {
+			time.Sleep(sleepyTime)
 			http.Redirect(w, r, "/login?error=internal+error", http.StatusSeeOther)
+		}
+		badLogin := func() {
+			log.Printf("bad password")
+			time.Sleep(sleepyTime)
+			http.Redirect(w, r, "/login?error=invalid+user+or+password", http.StatusSeeOther)
 		}
 		if err := r.ParseForm(); err != nil {
 			he.SendErrorToHTTPClient(w, "parse login form", err)
@@ -1240,17 +1255,19 @@ func (app *App) handleLogin(ctx context.Context, w http.ResponseWriter, r *http.
 
 		row, err := app.userStorage.FetchUserRow(ctx, nick)
 		if err != nil {
-			nope()
+			log.Printf("error fetching user row for login: %v", err)
+			badLogin()
 			return
 		}
 		checker, err := password.NewChecker(app.clock, row)
 		if err != nil {
+			log.Printf("error creating password checker: %v", err)
 			nope()
 			return
 		}
 		identity, err := checker.Validate(pw)
 		if err != nil {
-			http.Redirect(w, r, "/login?error=invalid+user+or+password", http.StatusSeeOther)
+			badLogin()
 			return
 		}
 		bakery, err := app.bakeryFactory.Bakery(ctx)
@@ -1299,7 +1316,7 @@ func (app *App) handleAPITournamentListen(ctx context.Context, w http.ResponseWr
 		// have to reload
 		version = -1
 	}
-	go app.tournamentStorage.ListenTournamentVersion(ctx, req.TournamentID, version, errCh, tournamentCh)
+	go app.tournamentGossiper.ListenTournamentVersion(ctx, req.TournamentID, version, errCh, tournamentCh)
 	select {
 	case err := <-errCh:
 		errorListening.Add(1)
@@ -1646,8 +1663,13 @@ func (app *App) Serve(ctx context.Context, listenAddress string) error {
 
 	ch := make(chan *result)
 
-	wg.Add(1)
-	go func() {
+	wg.Go(func() {
+		err := app.dbListener.Listen(ctx)
+		ch <- &result{"dbListener", err}
+		wg.Done()
+	})
+
+	wg.Go(func() {
 		server := &http.Server{
 			Addr:         listenAddress,
 			Handler:      app.handler,
@@ -1658,8 +1680,10 @@ func (app *App) Serve(ctx context.Context, listenAddress string) error {
 		}
 		ch <- &result{"http", server.ListenAndServe()}
 		wg.Done()
-	}()
+	})
 
+	// In a seperate thread, wait for the waitgroup, then close the channel
+	// to signal the main collector below that we're done with all the things.
 	go func() {
 		wg.Wait()
 		close(ch)
@@ -1671,6 +1695,10 @@ func (app *App) Serve(ctx context.Context, listenAddress string) error {
 			log.Printf("server %s exited: %v", res.name, res.err)
 			errors = append(errors, res.err)
 		}
+	}
+
+	if len(errors) == 0 {
+		return nil
 	}
 
 	return fmt.Errorf("servers exited: %v", errors)

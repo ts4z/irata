@@ -13,8 +13,9 @@ import (
 )
 
 var (
-	tournamentStorageCacheHits   = varz.NewInt("tournamentStoragecacheHits")
-	tournamentStorageCacheMisses = varz.NewInt("tournamentStoragecacheMisses")
+	tournamentStorageCacheHits            = varz.NewInt("tournamentStoragecacheHits")
+	tournamentStorageCacheMisses          = varz.NewInt("tournamentStoragecacheMisses")
+	tournamentStorageCacheDuplicateUpdate = varz.NewInt("tournamentStoragecacheDuplicateUpdate")
 )
 
 type TournamentStorage struct {
@@ -42,7 +43,41 @@ func (s *TournamentStorage) FetchOverview(ctx context.Context, offset int, limit
 	return s.next.FetchOverview(ctx, offset, limit)
 }
 
-// FetchTournament implements state.TournamentStorage.
+// Alternate name, making this suitable for dbnotify CacheStorage interface.
+// (This is probably a better name, since we already know we're talking about tournaments.)
+func (s *TournamentStorage) Fetch(ctx context.Context, id int64) (*model.Tournament, error) {
+	return s.FetchTournament(ctx, id)
+}
+
+func (s *TournamentStorage) CacheInvalidate(_ context.Context, id int64, version int64) {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	if t, ok := s.cache.Get(id); ok {
+		if t.Version <= version {
+			s.cache.Remove(id)
+		}
+	}
+}
+
+func (s *TournamentStorage) CacheStore(ctx context.Context, t *model.Tournament) {
+	id := t.EventID
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	cached, ok := s.cache.Get(id)
+	if ok {
+
+		if cached.Version > t.Version {
+			log.Printf("cache: have version %d, incoming %d, ignoring", cached.Version, t.Version)
+			return
+		} else if cached.Version == t.Version {
+			tournamentStorageCacheDuplicateUpdate.Add(1)
+			log.Printf("cache: already have version %d, ignoring", cached.Version)
+			return
+		}
+	}
+	s.cache.Add(id, t)
+}
+
 func (s *TournamentStorage) FetchTournament(ctx context.Context, id int64) (*model.Tournament, error) {
 	if t, ok := s.cache.Get(id); ok {
 		tournamentStorageCacheHits.Add(1)
@@ -54,26 +89,18 @@ func (s *TournamentStorage) FetchTournament(ctx context.Context, id int64) (*mod
 	if err != nil {
 		return nil, err
 	}
-	s.cache.Add(id, t)
+	log.Printf("cache store from fetch tournament id=%d version=%d", t.EventID, t.Version)
+	s.CacheStore(ctx, t)
 	return t, nil
 }
 
-// SaveTournament implements state.TournamentStorage.
 func (s *TournamentStorage) SaveTournament(ctx context.Context, m *model.Tournament) error {
 	err := s.next.SaveTournament(ctx, m)
 	if err != nil {
 		return err
 	}
-	s.lock.Lock()
-	defer s.lock.Unlock()
-	oldVersion := int64(0)
-	if cached, ok := s.cache.Get(m.EventID); ok {
-		oldVersion = cached.Version
-	}
-	if oldVersion < m.Version {
-		s.cache.Add(m.EventID, m)
-	}
-	s.cache.Add(m.EventID, m)
+	log.Printf("cache store from save tournament id=%d version=%d", m.EventID, m.Version)
+	s.CacheStore(ctx, m)
 	return nil
 }
 

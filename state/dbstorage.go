@@ -17,6 +17,10 @@ import (
 	"github.com/ts4z/irata/varz"
 )
 
+const (
+	ConfKey = 1
+)
+
 var (
 	fetchFooterPlugs = varz.NewInt("fetchFooterPlugs")
 	fetchUserByID    = varz.NewInt("fetchUserByID")
@@ -162,11 +166,7 @@ var _ SiteStorageReader = &DBStorage{}
 var _ UserStorage = &DBStorage{}
 var _ TournamentStorage = &DBStorage{}
 
-func NewDBStorage(ctx context.Context, url string) (*DBStorage, error) {
-	db, err := dbutil.Connect()
-	if err != nil {
-		return nil, err
-	}
+func NewDBStorage(ctx context.Context, db *sql.DB) (*DBStorage, error) {
 	return &DBStorage{
 		db:                  db,
 		tournamentListeners: make(map[int64][]chan<- *model.Tournament),
@@ -177,8 +177,9 @@ func (s *DBStorage) Close() {
 	s.db.Close()
 }
 
+// TODO: Looks like this could be simpler since we only ever store one row.
 func (s *DBStorage) FetchSiteConfig(ctx context.Context) (*model.SiteConfig, error) {
-	rows, err := s.db.Query("SELECT key, value from site_info;")
+	rows, err := s.db.Query("SELECT id, value from site_config;")
 	if err != nil {
 		return nil, err
 	}
@@ -187,12 +188,13 @@ func (s *DBStorage) FetchSiteConfig(ctx context.Context) (*model.SiteConfig, err
 	readSiteConfig := false
 	config := &model.SiteConfig{}
 	for rows.Next() {
-		var key, value string
-		if err := rows.Scan(&key, &value); err != nil {
+		var id int64
+		var value string
+		if err := rows.Scan(&id, &value); err != nil {
 			return nil, err
 		}
-		switch key {
-		case "conf":
+		switch id {
+		case ConfKey:
 			if readSiteConfig {
 				return nil, errors.New("duplicate site config")
 			}
@@ -201,6 +203,8 @@ func (s *DBStorage) FetchSiteConfig(ctx context.Context) (*model.SiteConfig, err
 			} else {
 				readSiteConfig = true
 			}
+		default:
+			log.Fatalf("unknown site_config key %d", id)
 		}
 	}
 	if rows.Err() != nil {
@@ -511,10 +515,10 @@ func (s *DBStorage) SaveSiteConfig(ctx context.Context, config *model.SiteConfig
 	}
 
 	result, err := s.db.ExecContext(ctx,
-		`UPDATE site_info SET value=$1 WHERE key='conf'`,
-		bytes)
+		`UPDATE site_config SET value=$1 WHERE key=$2`,
+		bytes, ConfKey)
 	if err != nil {
-		return fmt.Errorf("updating site_info: %w", err)
+		return fmt.Errorf("updating site_config: %w", err)
 	}
 
 	rows, err := result.RowsAffected()
