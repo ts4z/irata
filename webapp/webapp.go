@@ -325,7 +325,6 @@ func (app *App) renderTournament(ctx context.Context, id int64, w http.ResponseW
 		Theme:                           sc.Theme,
 		Slides:                          sc.Slides,
 	}
-	log.Printf("render with args: %+v", args)
 	if err := app.templates.ExecuteTemplate(w, "view-tournament.html.tmpl", args); err != nil {
 		log.Printf("can't render template: %v", err)
 	}
