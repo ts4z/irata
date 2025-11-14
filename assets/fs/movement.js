@@ -332,49 +332,54 @@ const moveMuteBouncer = function () {
   let dy = pixelsToMove-dx;
   dx *= randSign();
   dy *= randSign();
-
+  
   const el = document.getElementById("mute-bouncer");
-    
+  
   return function() {
     if (!el || el.style.display === "none") {
       return;
     }
     
-    // Get viewport dimensions
-    const viewportWidth = window.innerWidth;
-    const viewportHeight = window.innerHeight;
-    
-    // Get element dimensions
-    const rect = el.getBoundingClientRect();
-    const elWidth = rect.width;
-    const elHeight = rect.height;
-    
-    // Move by velocity
-    x += dx;
-    y += dy;
-    
-    // Check boundaries and bounce
-    // Left/right edges
-    if (x - elWidth/2 <= 0) {
-      x = elWidth/2;
-      dx = Math.abs(dx);  // Bounce right
-    } else if (x + elWidth/2 >= viewportWidth) {
-      x = viewportWidth - elWidth/2;
-      dx = -Math.abs(dx);  // Bounce left
+    try {
+      // Get viewport dimensions
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+      
+      // Get element dimensions
+      const rect = el.getBoundingClientRect();
+      const elWidth = rect.width;
+      const elHeight = rect.height;
+      
+      // Move by velocity
+      x += dx;
+      y += dy;
+      
+      // Check boundaries and bounce
+      // Left/right edges
+      if (x - elWidth/2 <= 0) {
+        x = elWidth/2;
+        dx = Math.abs(dx);  // Bounce right
+      } else if (x + elWidth/2 >= viewportWidth) {
+        x = viewportWidth - elWidth/2;
+        dx = -Math.abs(dx);  // Bounce left
+      }
+      
+      // Top/bottom edges
+      if (y - elHeight/2 <= 0) {
+        y = elHeight/2;
+        dy = Math.abs(dy);  // Bounce down
+      } else if (y + elHeight/2 >= viewportHeight) {
+        y = viewportHeight - elHeight/2;
+        dy = -Math.abs(dy);  // Bounce up
+      }
+      
+      // Update element position
+      el.style.left = x + "px";
+      el.style.top = y + "px";
+    } catch (e) {
+      console.log("mute bouncer error: " + e);
+      maybeStopMuteBouncer();
     }
-    
-    // Top/bottom edges
-    if (y - elHeight/2 <= 0) {
-      y = elHeight/2;
-      dy = Math.abs(dy);  // Bounce down
-    } else if (y + elHeight/2 >= viewportHeight) {
-      y = viewportHeight - elHeight/2;
-      dy = -Math.abs(dy);  // Bounce up
-    }
-    
-    // Update element position
-    el.style.left = x + "px";
-    el.style.top = y + "px";
   }
 }();
 
