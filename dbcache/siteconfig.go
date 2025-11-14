@@ -60,6 +60,9 @@ func (s *SiteStorage) FetchSiteConfig(ctx context.Context) (*model.SiteConfig, e
 
 // SaveSiteConfig implements state.SiteStorage.
 func (s *SiteStorage) SaveSiteConfig(ctx context.Context, config *model.SiteConfig) error {
-	s.cachedConfig = config
-	return s.next.SaveSiteConfig(ctx, config)
+	err := s.next.SaveSiteConfig(ctx, config)
+	if err == nil {
+		s.cachedConfig = config
+	}
+	return err
 }

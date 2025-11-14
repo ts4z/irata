@@ -3,7 +3,7 @@
 <head>
     <meta name="viewport" content="width=device-width,initial-scale=1.0">
     <title>{{ .SiteConfig.Name }}</title>
-    <link rel="stylesheet" href="/fs/{{- .SiteConfig.Theme -}}-style.css">
+    <link rel="stylesheet" href="/style/{{ .SiteConfig.Theme }}/css">
 </head>
 <body>
     {{ template "user-bar" . }}

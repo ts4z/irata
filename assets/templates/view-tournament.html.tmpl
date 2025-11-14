@@ -5,10 +5,15 @@
     <title>
       Irata Poker Clock: {{ .Tournament.EventName }}
     </title>
-    <link rel="stylesheet" href="/fs/{{ .Theme }}-style.css">
+    <link rel="stylesheet" href="/style/{{ .Theme }}/css">
   </head>
   
   <body class="clock-page">
+    <div id="mute-bouncer" class="mute-bouncer">
+    <!-- TODO: Make this in a different layer and bounce around the screen like
+         the DVD screensaver of yore. -->
+      🔇
+    </div>
     <table class="clock-full-height">
       <tbody>
       <tr>

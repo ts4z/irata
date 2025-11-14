@@ -515,7 +515,7 @@ func (s *DBStorage) SaveSiteConfig(ctx context.Context, config *model.SiteConfig
 	}
 
 	result, err := s.db.ExecContext(ctx,
-		`UPDATE site_config SET value=$1 WHERE key=$2`,
+		`UPDATE site_config SET value=$1 WHERE id=$2`,
 		bytes, ConfKey)
 	if err != nil {
 		return fmt.Errorf("updating site_config: %w", err)

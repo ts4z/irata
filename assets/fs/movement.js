@@ -305,6 +305,79 @@ function updateClockClassAndBannerFromLevel() {
   set_text("level", level_banner);
 }
 
+var bouncerID = undefined;
+
+function maybeStopMuteBouncer() {
+  if (bouncerID) {
+    clearInterval(bouncerID);
+    bouncerID = undefined;
+  }
+}
+
+function maybeStartMuteBouncer() {
+  if (bouncerID) {
+    return;
+  }
+  bouncerID = setInterval(moveMuteBouncer, 1000/30);
+}
+
+// oh this is so dumb
+const moveMuteBouncer = function () {
+  // State for bouncer position and velocity (all in pixels)
+  let x = window.innerWidth / 2;
+  let y = window.innerHeight / 2;
+  const pixelsToMove = 6;
+  function randSign() { return randN(2)? 1 : -1 }
+  let dx = 1+randN(pixelsToMove-2);
+  let dy = pixelsToMove-dx;
+  dx *= randSign();
+  dy *= randSign();
+
+  const el = document.getElementById("mute-bouncer");
+    
+  return function() {
+    if (!el || el.style.display === "none") {
+      return;
+    }
+    
+    // Get viewport dimensions
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    
+    // Get element dimensions
+    const rect = el.getBoundingClientRect();
+    const elWidth = rect.width;
+    const elHeight = rect.height;
+    
+    // Move by velocity
+    x += dx;
+    y += dy;
+    
+    // Check boundaries and bounce
+    // Left/right edges
+    if (x - elWidth/2 <= 0) {
+      x = elWidth/2;
+      dx = Math.abs(dx);  // Bounce right
+    } else if (x + elWidth/2 >= viewportWidth) {
+      x = viewportWidth - elWidth/2;
+      dx = -Math.abs(dx);  // Bounce left
+    }
+    
+    // Top/bottom edges
+    if (y - elHeight/2 <= 0) {
+      y = elHeight/2;
+      dy = Math.abs(dy);  // Bounce down
+    } else if (y + elHeight/2 >= viewportHeight) {
+      y = viewportHeight - elHeight/2;
+      dy = -Math.abs(dy);  // Bounce up
+    }
+    
+    // Update element position
+    el.style.left = x + "px";
+    el.style.top = y + "px";
+  }
+}();
+
 // Server sent a whole new model.  Update all the fields.
 function import_new_model_from_server(model) {
   console.log(`new model protocol=${model.Transients.ProtocolVersion} model.Version=${model.Version}`)
@@ -313,6 +386,17 @@ function import_new_model_from_server(model) {
     start_slideshow();
   } else {
     stop_slideshow();
+  }
+
+  let el = document.getElementById("mute-bouncer");
+  if (el) {
+    if (model.State.SoundMuted) {
+      el.style.display = "block";
+      maybeStartMuteBouncer();
+    } else {
+      el.style.display = "none";
+      maybeStopMuteBouncer();
+    }
   }
 
   if (model.NextLevelSoundID !== last_model.NextLevelSoundID) {

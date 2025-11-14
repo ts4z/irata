@@ -21,6 +21,7 @@ import (
 
 	"github.com/ts4z/irata/app/handlers"
 	"github.com/ts4z/irata/assets"
+	"github.com/ts4z/irata/builtins"
 	"github.com/ts4z/irata/dbnotify"
 	"github.com/ts4z/irata/dep"
 	"github.com/ts4z/irata/form"
@@ -99,7 +100,7 @@ type Config struct {
 
 // App is the main web application.
 type App struct {
-	// storage
+	// file-based application bits
 	templates *template.Template
 	subFS     fs.FS
 
@@ -117,6 +118,7 @@ type App struct {
 	bakeryFactory      *permission.BakeryFactory
 	clock              nower
 	tm                 *tournament.Manager
+	themeStorage       *builtins.ThemeStorage
 
 	// internals
 	mux     *http.ServeMux
@@ -180,6 +182,7 @@ func New(ctx context.Context, config *Config) *App {
 		clock:              dep.Required(config.Clock),
 		tm:                 dep.Required(config.TournamentManager),
 		mux:                dep.Required(http.DefaultServeMux),
+		themeStorage:       builtins.NewThemeStorage(),
 	}
 
 	// Stack the handlers together.
@@ -837,15 +840,22 @@ func (app *App) handleEditFooterSet(ctx context.Context, id int64, w http.Respon
 		he.SendErrorToHTTPClient(w, "fetch footer plug set", err)
 		return
 	}
+	sc, err := app.siteStorageReader.FetchSiteConfig(ctx)
+	if err != nil {
+		he.SendErrorToHTTPClient(w, "fetch site config", err)
+		return
+	}
 	data := struct {
 		FooterSet *model.FooterPlugs
 		Flash     string
 		IsNew     bool
+		Theme     string
 		Nick      string
 	}{
 		FooterSet: fp,
 		Flash:     flash,
 		IsNew:     false,
+		Theme:     sc.Theme,
 		Nick:      app.currentUserNick(ctx),
 	}
 	if err := app.templates.ExecuteTemplate(w, "edit-footer-set.html.tmpl", data); err != nil {
@@ -1037,15 +1047,23 @@ func (app *App) handleCreateFooterSet(ctx context.Context, w http.ResponseWriter
 		footerSet = &model.FooterPlugs{TextPlugs: []string{}}
 	}
 
+	sc, err := app.siteStorageReader.FetchSiteConfig(ctx)
+	if err != nil {
+		he.SendErrorToHTTPClient(w, "fetch site config", err)
+		return
+	}
+
 	data := struct {
 		FooterSet *model.FooterPlugs
 		Flash     string
 		IsNew     bool
+		Theme     string
 		Nick      string
 	}{
 		FooterSet: footerSet,
 		Flash:     flash,
 		IsNew:     true,
+		Theme:     sc.Theme,
 		Nick:      app.currentUserNick(ctx),
 	}
 	if err := app.templates.ExecuteTemplate(w, "edit-footer-set.html.tmpl", data); err != nil {
@@ -1060,11 +1078,19 @@ func (app *App) handleManageFooterSets(ctx context.Context, w http.ResponseWrite
 		return
 	}
 
+	sc, err := app.siteStorageReader.FetchSiteConfig(ctx)
+	if err != nil {
+		he.SendErrorToHTTPClient(w, "fetch site config", err)
+		return
+	}
+
 	data := struct {
 		FooterSets []*model.FooterPlugs
+		Theme      string
 		Nick       string
 	}{
 		FooterSets: sets,
+		Theme:      sc.Theme,
 		Nick:       app.currentUserNick(ctx),
 	}
 	if err := app.templates.ExecuteTemplate(w, "manage-footer-sets.html.tmpl", data); err != nil {
@@ -1220,11 +1246,18 @@ func (app *App) handleLogin(ctx context.Context, w http.ResponseWriter, r *http.
 		return
 	case http.MethodGet:
 		flash := r.URL.Query().Get("error")
+		sc, err := app.siteStorageReader.FetchSiteConfig(ctx)
+		if err != nil {
+			he.SendErrorToHTTPClient(w, "fetch site config", err)
+			return
+		}
 		data := struct {
 			Flash string
+			Theme string
 			Nick  string
 		}{
 			Flash: flash,
+			Theme: sc.Theme,
 			Nick:  app.currentUserNick(ctx),
 		}
 		if err := app.templates.ExecuteTemplate(w, "login.html.tmpl", data); err != nil {
@@ -1434,7 +1467,9 @@ func (app *App) handleManageSite(ctx context.Context, w http.ResponseWriter, r *
 				}
 				err := app.siteStorage.SaveSiteConfig(ctx, config)
 				if err != nil {
+					log.Printf("error saving config: %v", err)
 					flash = "Error saving config"
+					flashType = "boo"
 				} else {
 					flash = "Saved!"
 					flashType = "yay"
@@ -1534,6 +1569,33 @@ func (app *App) handlePrizePoolCalculator(ctx context.Context, w http.ResponseWr
 	}
 }
 
+func (app *App) handleThemedCSS(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	// Extract theme name from URL path
+	themeName := r.PathValue("theme")
+	if themeName == "" {
+		http.Error(w, "theme name required", http.StatusBadRequest)
+		return
+	}
+
+	// Get theme from storage
+	theme := app.themeStorage.GetTheme(themeName)
+	if theme == nil {
+		http.Error(w, "theme not found", http.StatusNotFound)
+		return
+	}
+
+	// Set content type
+	w.Header().Set("Content-Type", "text/css; charset=utf-8")
+	// w.Header().Set("Cache-Control", "public, max-age=3600")
+
+	// Render CSS template with theme data
+	if err := app.templates.ExecuteTemplate(w, "style.css.tmpl", theme); err != nil {
+		log.Printf("error rendering CSS template: %v", err)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+}
+
 // InstallHandlers registers all HTTP routes.
 func (app *App) InstallHandlers() {
 
@@ -1549,6 +1611,9 @@ func (app *App) InstallHandlers() {
 	})
 
 	app.handleFunc("/robots.txt", handlers.HandleRobotsTXT)
+
+	// Themed CSS route
+	app.handleFunc("/style/{theme}/css", app.handleThemedCSS)
 
 	// anything in fs is a file trivially shared
 	app.mux.Handle("/fs/", http.StripPrefix("/fs/", http.FileServer(http.FS(app.subFS))))
