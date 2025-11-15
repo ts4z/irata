@@ -28,14 +28,12 @@ the Postgres location.  `Dockerfile` will provide some hints.
 Import the data in `schema.sql`.  This is, in theory, the current database schema.
 Importing `example.sql` will provide some useful sample data.
 
-`go build cmd/iratad/iratad.go` to build the server.
-
-`go build cmd/irataadmin/irataadmin.go` to build the command-line utility.
-(This needs direct access to the database.)
+Run ./BUILD to build iratad, the server, and irataadmin, an administration utility.
 
 Use `irataadmin` to create an administrator account for yourself:
 `irataadmin --admin --email devnull@your.domain --nick your-nickname` and
-pick a password.
+pick a password.  Look at `connect.go` for configuring the database location from
+the environment.
 
 Run the server and connect a web browser to it.  Hopefully it's straightforward.
 Maybe log in.
@@ -49,11 +47,17 @@ Productionizing
 
 TBD.
 
-`Dockerfile` will build an image that can host the server, perhaps in Google's
-Cloud Run environment.  (This helps work around the lack of SSL and logging
-support, but Cloud Run is not particularly amenable to the long-polls the JS
-client uses to connect to the server.  It seems to work at low-scale, but the
-graphs are hysterically terrible.)
+My production instance is hosted on a cloud server in an ad-hoc fashion, so I
+don't have advice here.
+
+`Dockerfile` will build an image that can host the server, but the server doesn't
+support SSL (much less Let's Encrypt).  I am currently fronting the server with a
+proxy, but this shouldn't be necessary.
+
+Deploying in Google's Cloud Run environment works, but Cloud Run will gratuitously
+restart the server, and it really isn't designed for that.  Dropped client connections
+will re-sync after a minute, but sometimes that minute matters.  This is actually
+a bit stateful, so you probably want a real server.  (Also, it's cheaper.)
 
 
 Operation
@@ -140,28 +144,18 @@ To Do
   actually not that big of a problem, but if you load a whole bunch of browser
   tabs up at the same clock, eventually the browser will starve for
   connections.  This looks like a server bug but isn't.
-* SSL isn't supported.  Since I am running this in a Cloud Run instance,
-  this is not currently a problem.  Also, Let's Encrypt should be supported.
+* SSL isn't supported.  My server is fronted with an nginx which does SSL.
+  But the server doesn't know how to get IP addresses correctly.
 * QUIC would be fun, but doesn't seem relevant while running in Cloud Run.*
- Pagination isn't supported in many places where it should be.
+* Pagination isn't supported in many places where it should be.
   Since we have only a trivial number of users, this isn't a problem that
   has risen to the top of the stack yet.
-* Changing most thing in site config means restarting the server, but this
-  could be detected automatically.  (Writes to these objects are cached
-  and the write path is instrumented to invalidate the cache, we just need
-  more of this.)
-* Database doesn't notify for changes, so we can really only have a single
-  server instance if we want things to work reliably.  (The database code
-  has proper locks against write-write conflicts.)
+* Changing some things in site config requires a restart.
 * We need a kiosk mode so we can remote-control clients that are just loading
   one of our URLs.
-* Theme support is *very* poor, and limited to selecting a CSS file.
-  Only the "irata" theme is allegedly well tested.
+* Theme support is limited.
 * Sounds should be in the database, I guess.
 * There should be more than one pay table, and some pay table should scale to 
   at least 500 players.
 * Errors (particularly pay table errors) aren't reported well.
-* Cache coherence is a big issue.  For a single-instance server, tournament
-  are almost cached properly.  Users aren't, which will be an issue once
-  user records have mutable fields.
 * This list keeps getting longer.
