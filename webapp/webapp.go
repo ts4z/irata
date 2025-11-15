@@ -1615,7 +1615,16 @@ func (app *App) InstallHandlers() {
 	app.handleFunc("/style/{theme}/css", app.handleThemedCSS)
 
 	// anything in fs is a file trivially shared
-	app.mux.Handle("/fs/", http.StripPrefix("/fs/", http.FileServer(http.FS(app.subFS))))
+	fileServer := http.FileServer(http.FS(app.subFS))
+	cachedFileServer := middleware.NewCacheHeaderAdder(&middleware.CacheHeaderAdderConfig{
+		Maybe: func(r *http.Request) bool {
+			// Don't cache js files while debugging.
+			return !strings.HasSuffix(r.URL.Path, ".js")
+		},
+		MaxAge: 1 * time.Hour,
+		Next:   fileServer,
+	})
+	app.mux.Handle("/fs/", http.StripPrefix("/fs/", cachedFileServer))
 
 	app.requiringOperatorHandleFunc("/api/keyboard-control", app.handleKeyboardControl)
 
