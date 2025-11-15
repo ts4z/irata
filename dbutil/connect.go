@@ -6,8 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"maps"
 	"net"
 	"os"
+	"slices"
 
 	"cloud.google.com/go/cloudsqlconn"
 	"github.com/jackc/pgx/v5"
@@ -101,7 +103,7 @@ func Connect() (*sql.DB, error) {
 	}
 	factory, ok := factories[config.SQLConnector()]
 	if !ok {
-		log.Fatalf("unknown value for config.SQLConnector(): %q", config.SQLConnector())
+		log.Fatalf("unknown value for config.SQLConnector(): %q; known values are %v", config.SQLConnector(), slices.Collect(maps.Keys(factories)))
 	}
 	return factory()
 }
