@@ -6,6 +6,7 @@ type Theme struct {
 	MonoFont        string  // Monospace font filename (e.g., "PressStart2P-vaV7.ttf")
 	SansFont        string  // Sans-serif font filename (e.g., "RedHatDisplay-VariableFont_wght.ttf")
 	LineHeight      string  // CSS line-height value (e.g., "1.7" or "1")
+	BaseFontSize    string  // CSS font-size for base text
 	BodyFontWeight  string  // CSS font-weight for body (e.g., "normal" or "800")
 	FontScaleFactor float64 // Fudge factor, essentially relative to PressStart2P font, to adjust font sizes.
 }
@@ -24,6 +25,7 @@ func NewThemeStorage() *ThemeStorage {
 				MonoFont:        "PressStart2P-vaV7.ttf",
 				SansFont:        "PressStart2P-vaV7.ttf",
 				LineHeight:      "1.7",
+				BaseFontSize:    "1vi",
 				BodyFontWeight:  "normal",
 				FontScaleFactor: 1.0,
 			},
@@ -32,6 +34,7 @@ func NewThemeStorage() *ThemeStorage {
 				MonoFont:        "RedHatMono-VariableFont_wght.ttf",
 				SansFont:        "RedHatDisplay-VariableFont_wght.ttf",
 				LineHeight:      "1.1",
+				BaseFontSize:    "1.2vi",
 				BodyFontWeight:  "800",
 				FontScaleFactor: 1.4,
 			},
