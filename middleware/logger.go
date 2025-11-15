@@ -22,11 +22,18 @@ func NewRequestLogger(next http.Handler, clock Clock) *RequestLogger {
 	return &RequestLogger{next: next, clock: clock}
 }
 
+func remoteAddr(r *http.Request) string {
+	if r.Header.Get("X-Forwarded-For") != "" {
+		return r.Header.Get("X-Forwarded-For")
+	}
+	return r.RemoteAddr
+}
+
 func (rl *RequestLogger) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	start := rl.clock.Now()
 	ww := &codeWatcher{w: w}
 	rl.next.ServeHTTP(ww, r)
 	code := ww.Code()
 	duration := time.Since(start)
-	log.Printf("[access log] %d %v %v (%v)", code, r.RemoteAddr, r.URL.Path, duration)
+	log.Printf("[access log] %d %v %v (%v)", code, remoteAddr(r), r.URL.Path, duration)
 }
