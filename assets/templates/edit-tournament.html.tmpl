@@ -38,7 +38,7 @@
             <input type="hidden" id="BuyIns" name="BuyIns" value="{{ .Tournament.State.BuyIns }}">
             <input type="hidden" id="AddOns" name="AddOns" value="{{ .Tournament.State.AddOns }}">
 
-            <div class="form-section">
+            <section class="form-section">
                 <h2> Tournament Details </h2>
                 <div class="form-group">
                     <label for="EventName">Name</label>
@@ -74,9 +74,9 @@
                         <button type="button" id="PlaySoundBtn" class="sound-play-btn" title="Play selected sound">▶</button>
                     </div>
                 </div>
-            </div>
+            </section>
 
-            <div class="form-section">
+            <section class="form-section">
                 <h2> {{ if .IsNew }}Structure{{ else }}Change Structure{{ end }} </h2>
                                 {{ if .IsNew }}
                 <input type="hidden" id="ChangeStructure" name="ChangeStructure" value="on">
@@ -99,9 +99,9 @@
                     </option>
                     {{ end }}
                 </select>
-            </div>
+            </section>
 
-            <div class="form-section">
+            <section class="form-section">
                 <h2> Chip Setup </h2>
 
                 <div class="form-group">
@@ -167,9 +167,9 @@
                         maxlength="30" pattern="[0-9,]+" placeholder="0 to auto-compute" value="{{ .Tournament.State.TotalChipsOverride }}">
                     <small>Leave at 0 to use calculated value above</small>
                 </div>
-            </div>
+            </section>
 
-            <div class="form-section">
+            <section class="form-section">
                 <h2> Prize Pool </h2>
 
                 <div class="form-group">
@@ -295,9 +295,9 @@
                     <textarea id="PrizePool" name="PrizePool" rows="12" cols="20" style="width: auto;" {{ if .Tournament.State.AutoComputePrizePool }}readonly{{ end
                         }}>{{ .Tournament.State.PrizePool }}</textarea>
                 </div>
-            </div>
+            </section>
 
-            <div class="form-section">
+            <section class="form-section">
                 <h2> Tournament State </h2>
                 {{ if not .IsNew }}
                 <small>
@@ -348,7 +348,7 @@
                         placeholder="HH:MM:SS" value="">
                 </div>
                 {{ end }}
-            </div>
+            </section>
 
             <script>
                 // Utility function to parse number inputs that may contain commas

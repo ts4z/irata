@@ -10,7 +10,6 @@
     <div class="container">
         <div class="admin-bar">
             <a href="/">&lt; Back to Home</a>
-            <a href="/create/structure">Create New Structure</a>
         </div>
 
         <h1>Manage Structures</h1>
@@ -24,6 +23,9 @@
                 </tr>
             </thead>
             <tbody>
+                <tr>
+                    <td colspan="3" style="text-align: center;"><a href="/create/structure">✨ Create New</a></td>
+                </tr>
                 {{ range $i, $s := .Structures }}
                 <tr>
                     <td>{{ $s.Name }}</td>

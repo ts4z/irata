@@ -10,7 +10,6 @@
     <div class="container">
         <div class="admin-bar">
             <a href="/">&lt; Back to Home</a>
-            <a href="/create/footer-set">Create New Footer Plug Set</a>
         </div>
 
         <h1>Manage Footer Plug Sets</h1>
@@ -23,6 +22,9 @@
                 </tr>
             </thead>
             <tbody>
+                <tr>
+                    <td colspan="3" style="text-align: center;"><a href="/create/footer-set">✨ Create New</a></td>
+                </tr>
                 {{ range .FooterSets }}
                 <tr>
                     <td>{{ .Name }}</td>

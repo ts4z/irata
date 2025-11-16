@@ -22,14 +22,14 @@
             <label for="CookieDomain">Cookie Domain</label>
             <input type="text" id="CookieDomain" name="CookieDomain" value="{{ .Config.CookieDomain }}" required>
 
-            <div class="form-section">
+            <section class="form-section">
             <h2>CORS</h2>
             <label for="AllowedOriginDomains">Allowed Origins (comma-separated)</label>
             <input type="text" id="AllowedOriginDomains" name="AllowedOriginDomains" value="{{ join .Config.AllowedOriginDomains "," }}" required>
 
             <label for="BonusHTTPPorts">Bonus HTTP Ports (comma-separated)</label>
             <input type="text" id="BonusHTTPPorts" name="BonusHTTPPorts" value="{{ joinInts .Config.BonusHTTPPorts "," }}">
-            </div>
+            </section>
 
             <label for="Theme">Theme</label>
             <input type="text" id="Theme" name="Theme" value="{{ .Config.Theme }}" required>

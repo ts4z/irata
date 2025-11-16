@@ -18,7 +18,7 @@
   <div class="flash-{{ .FlashType }}">{{ .Flash }}</div>
 {{ end }}
         <!-- User Details Form -->
-        <section style="margin-bottom: 2em;">
+        <section class="form-section">
             <h2>User Details</h2>
             <form method="POST" action="{{ if .IsNew }}/create/user{{ else }}/manage/user/{{ .User.ID }}/edit{{ end }}">
                 <input type="hidden" name="FormType" value="details">
@@ -28,7 +28,7 @@
                     <input type="text" id="Nick" name="Nick" value="{{ .User.Nick }}" required>
                 </div>
 
-                <div class="form-section">
+                <section class="form-section">
                 <h3>Permissions</h3>
                 <label style="display: inline-flex; align-items: center; white-space: nowrap;"><input type="checkbox" id="IsAdmin" name="IsAdmin" value="true" {{ if .User.IsAdmin }}checked{{ end }} style="margin-right: 0.5em;"> Administrator
                 <small>&nbsp;(may manage users and permissions) </small>
@@ -37,7 +37,7 @@
                 <label style="display: inline-flex; align-items: center; white-space: nowrap;"><input type="checkbox" id="IsOperator" name="IsOperator" value="true" {{ if .User.IsOperator }}checked{{ end }} style="margin-right: 0.5em;"> Operator
                 <small>&nbsp;(may create and edit tournaments) </small>
                 </label>
-                </div>
+                </section>
 
                 <div class="actions">
                     <button type="submit">{{ if .IsNew }}Create User{{ else }}Save Details{{ end }}</button>
@@ -48,7 +48,7 @@
         
         {{ if not .IsNew }}
         <!-- Email Address Form -->
-        <section style="margin-bottom: 2em; border-top: 1px solid #444; padding-top: 1em;">
+        <section class="form-section">
             <h2>Email Address</h2>
             <form method="POST" action="/manage/user/{{ .User.ID }}/edit">
                 <input type="hidden" name="FormType" value="email">
@@ -65,7 +65,7 @@
         </section>
 
         <!-- Password Form -->
-        <section style="margin-bottom: 2em; border-top: 1px solid #444; padding-top: 1em;">
+        <section class="form-section">
             <h2>Password</h2>
             <form method="POST" action="/manage/user/{{ .User.ID }}/edit">
                 <input type="hidden" name="FormType" value="password">
