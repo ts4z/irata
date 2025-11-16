@@ -10,7 +10,7 @@
         const idx = plugsDiv.children.length;
         const row = document.createElement('div');
         row.className = 'plug-row';
-        row.innerHTML = `<textarea name="Plug${idx}" required></textarea> <button type="button" class="delete-btn" onclick="this.parentNode.remove()">Delete</button>`;
+        row.innerHTML = `<textarea name="Plug${idx}" required></textarea> <button type="button" class="delete-btn" onclick="this.parentNode.remove()">❌</button>`;
         plugsDiv.appendChild(row);
       }
     </script>
@@ -35,7 +35,7 @@
                     {{ range $i, $plug := .FooterSet.TextPlugs }}
                     <div class="plug-row">
                         <textarea name="Plug{{ $i }}" required>{{ $plug }}</textarea>
-                        <button type="button" class="delete-btn" onclick="this.parentNode.remove()">Delete</button>
+                        <button type="button" class="delete-btn" onclick="this.parentNode.remove()">❌</button>
                     </div>
                     {{ end }}
                 </div>

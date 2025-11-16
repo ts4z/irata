@@ -42,7 +42,7 @@
                     <td>
                         <a href="/manage/structure/{{ $s.ID }}/edit" class="no-underline" title="Edit">✏️</a>
                         <a href="/create/structure?template={{ $s.ID }}" class="no-underline" title="Copy">📋</a>
-                        <a href="#" class="no-underline" style="color:#f88;" title="Delete" onclick="showDeleteModal('{{ $s.Name }}', {{ $s.ID }})">❌</a>
+                        <a href="#" class="delete-btn" title="Delete" onclick="showDeleteModal('{{ $s.Name }}', {{ $s.ID }})">❌</a>
                     </td>
                 </tr>
                 {{ end }}

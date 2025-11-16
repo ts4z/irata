@@ -32,7 +32,7 @@
                     <td>
                         <a href="/manage/footer-set/{{ .FooterPlugsID }}/edit" class="no-underline" title="Edit">✏️</a>
                         <a href="/create/footer-set?template={{ .FooterPlugsID }}" class="no-underline" title="Copy">📋</a>
-                        <a href="#" class="no-underline" style="color:#f88;" title="Delete" onclick="showDeleteModal({{-  .FooterPlugsID -}})">❌</a>
+                        <a href="#" class="delete-btn" title="Delete" onclick="showDeleteModal({{-  .FooterPlugsID -}})">❌</a>
                     </td>
                 </tr>
                 {{ else }}
