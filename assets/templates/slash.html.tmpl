@@ -55,7 +55,7 @@
                     </td>
                     <td>
                     {{ if $.IsOperator }}
-                        <a href="/t/{{.TournamentID}}/edit" class="no-underline" title="Edit">✎</a>
+                        <a href="/t/{{.TournamentID}}/edit" class="no-underline" title="Edit">✏️</a>
                         <a href="/create/tournament?template={{.TournamentID}}" class="no-underline" title="Copy">📋</a>
                         <a href="#" class="no-underline delete-btn" title="Delete" onclick="confirmDeleteTournament('{{.TournamentID}}', '{{.TournamentName}}'); return false;">❌</a>
                     {{ else }}
