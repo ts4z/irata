@@ -3,12 +3,18 @@ package builtins
 // Theme defines the visual styling parameters for a theme.
 type Theme struct {
 	Name            string
+	Description     string
 	MonoFont        string  // Monospace font filename (e.g., "PressStart2P-vaV7.ttf")
 	SansFont        string  // Sans-serif font filename (e.g., "RedHatDisplay-VariableFont_wght.ttf")
 	LineHeight      string  // CSS line-height value (e.g., "1.7" or "1")
 	BaseFontSize    string  // CSS font-size for base text
 	BodyFontWeight  string  // CSS font-weight for body (e.g., "normal" or "800")
 	FontScaleFactor float64 // Fudge factor, essentially relative to PressStart2P font, to adjust font sizes.
+}
+
+type ThemeSlug struct {
+	Name        string
+	Description string
 }
 
 // ThemeStorage holds all available themes.
@@ -22,6 +28,7 @@ func NewThemeStorage() *ThemeStorage {
 		themes: map[string]*Theme{
 			"irata": {
 				Name:            "irata",
+				Description:     "Block arcade font",
 				MonoFont:        "PressStart2P-vaV7.ttf",
 				SansFont:        "PressStart2P-vaV7.ttf",
 				LineHeight:      "1.7",
@@ -31,6 +38,7 @@ func NewThemeStorage() *ThemeStorage {
 			},
 			"gambler": {
 				Name:            "gambler",
+				Description:     "A gambler is a type of hat",
 				MonoFont:        "RedHatMono-VariableFont_wght.ttf",
 				SansFont:        "RedHatDisplay-VariableFont_wght.ttf",
 				LineHeight:      "1.1",
@@ -58,4 +66,15 @@ func (ts *ThemeStorage) ListThemes() []string {
 		names = append(names, name)
 	}
 	return names
+}
+
+func (ts *ThemeStorage) FetchThemeSlugs() []*ThemeSlug {
+	slugs := make([]*ThemeSlug, 0, len(ts.themes))
+	for _, theme := range ts.themes {
+		slugs = append(slugs, &ThemeSlug{
+			Name:        theme.Name,
+			Description: theme.Description,
+		})
+	}
+	return slugs
 }

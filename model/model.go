@@ -99,6 +99,7 @@ type Tournament struct {
 	Description      string
 	FooterPlugsID    int64
 	NextLevelSoundID int64
+	Theme            string // Theme override; empty string means use SiteConfig.Theme
 
 	PrizePoolPerBuyIn int // amount to prize pool per buy-in
 	PrizePoolPerAddOn int // amount to prize pool per add-on

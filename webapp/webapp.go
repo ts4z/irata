@@ -85,6 +85,7 @@ type editTournamentArgs struct {
 	Structures []*model.StructureSlug
 	FooterSets []*model.FooterPlugs
 	Paytables  []*paytable.PaytableSlug
+	ThemeSlugs []*builtins.ThemeSlug
 	IsOperator bool
 	IsNew      bool
 	SiteConfig *model.SiteConfig
@@ -326,6 +327,12 @@ func (app *App) renderTournament(ctx context.Context, id int64, w http.ResponseW
 		return
 	}
 
+	// Use tournament's theme if set, otherwise fall back to site config theme
+	theme := t.Theme
+	if theme == "" {
+		theme = sc.Theme
+	}
+
 	args := struct {
 		Tournament                      *model.Tournament
 		InstallOperatorKeyboardHandlers bool
@@ -334,7 +341,7 @@ func (app *App) renderTournament(ctx context.Context, id int64, w http.ResponseW
 	}{
 		Tournament:                      t,
 		InstallOperatorKeyboardHandlers: permission.CheckWriteAccessToTournamentID(ctx, id) == nil,
-		Theme:                           sc.Theme,
+		Theme:                           theme,
 		Slides:                          sc.Slides,
 	}
 	if err := app.templates.ExecuteTemplate(w, "view-tournament.html.tmpl", args); err != nil {
@@ -654,6 +661,8 @@ func (app *App) handleCreateTournament(ctx context.Context, w http.ResponseWrite
 		return
 	}
 
+	themeSlugs := app.themeStorage.FetchThemeSlugs()
+
 	// Handle template ID from query param for pre-populating
 	templateID := r.URL.Query().Get("template")
 	var tournament *model.Tournament
@@ -702,6 +711,7 @@ func (app *App) handleCreateTournament(ctx context.Context, w http.ResponseWrite
 		SiteConfig: sc,
 		Tournament: tournament,
 		Paytables:  paytables,
+		ThemeSlugs: themeSlugs,
 		Sounds:     sounds,
 		Nick:       app.currentUserNick(ctx),
 	}
@@ -1182,6 +1192,8 @@ func (app *App) handleEditTournament(ctx context.Context, id64 int64, w http.Res
 		return
 	}
 
+	themeSlugs := app.themeStorage.FetchThemeSlugs()
+
 	sc, err := app.siteStorageReader.FetchSiteConfig(ctx)
 	if err != nil {
 		he.SendErrorToHTTPClient(w, "fetch site config", err)
@@ -1193,6 +1205,7 @@ func (app *App) handleEditTournament(ctx context.Context, id64 int64, w http.Res
 		Structures: structures,
 		FooterSets: footers,
 		Paytables:  paytables,
+		ThemeSlugs: themeSlugs,
 		IsOperator: permission.IsOperator(ctx),
 		IsNew:      false,
 		SiteConfig: sc,
@@ -1508,18 +1521,22 @@ func (app *App) handleManageSite(ctx context.Context, w http.ResponseWriter, r *
 		return
 	}
 
+	themeSlugs := app.themeStorage.FetchThemeSlugs()
+
 	data := struct {
-		Config    *model.SiteConfig
-		Sounds    []*soundmodel.SoundEffectSlug
-		Flash     string
-		FlashType string
-		Nick      string
+		Config     *model.SiteConfig
+		Sounds     []*soundmodel.SoundEffectSlug
+		ThemeSlugs []*builtins.ThemeSlug
+		Flash      string
+		FlashType  string
+		Nick       string
 	}{
-		Config:    config,
-		Flash:     flash,
-		FlashType: flashType,
-		Sounds:    soundSlugs,
-		Nick:      app.currentUserNick(ctx),
+		Config:     config,
+		Flash:      flash,
+		FlashType:  flashType,
+		Sounds:     soundSlugs,
+		ThemeSlugs: themeSlugs,
+		Nick:       app.currentUserNick(ctx),
 	}
 	if err := app.templates.ExecuteTemplate(w, "manage-site.html.tmpl", data); err != nil {
 		log.Printf("can't render manage-site template: %v", err)

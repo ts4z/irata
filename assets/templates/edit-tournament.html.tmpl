@@ -60,6 +60,20 @@
                 </div>
 
                 <div class="form-group">
+                    <label for="Theme">Theme</label>
+                    <select id="Theme" name="Theme">
+                        <option value=""
+                          {{- if eq $.Tournament.Theme "" }} selected{{ end -}}
+                          >Use Site Default Theme ({{ .SiteConfig.Theme }})</option>
+                        {{- range $_, $theme := .ThemeSlugs }}
+                        <option value="{{ $theme.Name }}"
+                          {{- if eq $theme.Name $.Tournament.Theme }} selected{{ end -}}
+                          >{{ $theme.Name }} - {{ $theme.Description }}</option>
+                        {{- end }}
+                    </select>
+                </div>
+
+                <div class="form-group">
                     <label for="NextLevelSoundID">Next Level Sound</label>
                     <div class="sound-select-container">
                         <select id="NextLevelSoundID" name="NextLevelSoundID">
