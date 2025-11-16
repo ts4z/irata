@@ -49,6 +49,9 @@
             <label for="Slides">Slideshow URLs</label>
             <textarea id="Slides" name="Slides" rows="10" placeholder="Enter URLs for slideshow mode, one per line">{{ join .Config.Slides "\n" }}</textarea>
 
+            <label for="Motd">Message of the Day (Markdown)</label>
+            <textarea id="Motd" name="Motd" rows="10" placeholder="Enter message displayed on root page. Markdown format.">{{ .Config.Motd }}</textarea>
+
             <div class="actions">
                 <button type="submit">Save</button>
             </div>

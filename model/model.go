@@ -61,6 +61,7 @@ type SiteConfig struct {
 	DefaultNextLevelSoundID int64
 	CookieKeys              []CookieKeyPair
 	Slides                  []string
+	Motd                    string // Message of the day in Markdown
 }
 
 type Level struct {

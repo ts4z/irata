@@ -1,6 +1,7 @@
 package webapp
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -18,6 +19,7 @@ import (
 
 	"github.com/jonboulle/clockwork"
 	"github.com/rs/cors"
+	"github.com/yuin/goldmark"
 
 	"github.com/ts4z/irata/app/handlers"
 	"github.com/ts4z/irata/assets"
@@ -54,8 +56,18 @@ var (
 )
 
 var templateFuncs template.FuncMap = template.FuncMap{
-	"join":     textutil.Join,
-	"joinInts": textutil.JoinInts,
+	"join":           textutil.Join,
+	"joinInts":       textutil.JoinInts,
+	"markdownToHTML": markdownToHTML,
+}
+
+func markdownToHTML(markdown string) template.HTML {
+	var buf bytes.Buffer
+	if err := goldmark.Convert([]byte(markdown), &buf); err != nil {
+		log.Printf("error converting markdown to HTML: %v", err)
+		return template.HTML("<p>Error rendering Markdown</p>")
+	}
+	return template.HTML(buf.String())
 }
 
 func idPathValue(w http.ResponseWriter, r *http.Request) (int64, error) {
@@ -1450,6 +1462,7 @@ func (app *App) handleManageSite(ctx context.Context, w http.ResponseWriter, r *
 			allowedOriginDomains := r.FormValue("AllowedOriginDomains")
 			soundID := r.FormValue("DefaultNextLevelSoundID")
 			slidesRaw := r.FormValue("Slides")
+			motd := r.FormValue("Motd")
 			if name == "" || theme == "" || cookieDomain == "" || allowedOriginDomains == "" {
 				flash = "Required field missing"
 				flashType = "boo"
@@ -1461,6 +1474,7 @@ func (app *App) handleManageSite(ctx context.Context, w http.ResponseWriter, r *
 				config.AllowedOriginDomains = parseAllowedOrigins(allowedOriginDomains)
 				config.Theme = theme
 				config.Slides = parseSlides(slidesRaw)
+				config.Motd = motd
 				if config.DefaultNextLevelSoundID, err = app.parseSoundID(ctx, soundID); err != nil {
 					he.SendErrorToHTTPClient(w, "get default sound ID", err)
 				}
