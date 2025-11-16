@@ -1442,6 +1442,14 @@ func (app *App) parseSoundID(ctx context.Context, fv string) (int64, error) {
 	return id, nil
 }
 
+func validateMarkdown(markdown string) error {
+	if markdown == "" {
+		return nil
+	}
+	var buf bytes.Buffer
+	return goldmark.Convert([]byte(markdown), &buf)
+}
+
 func (app *App) handleManageSite(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	var flash, flashType string
 	// Fetch config
@@ -1465,6 +1473,9 @@ func (app *App) handleManageSite(ctx context.Context, w http.ResponseWriter, r *
 			motd := r.FormValue("Motd")
 			if name == "" || theme == "" || cookieDomain == "" || allowedOriginDomains == "" {
 				flash = "Required field missing"
+				flashType = "boo"
+			} else if validateMarkdown(motd) != nil {
+				flash = fmt.Sprintf("Invalid Markdown in MOTD: %v", err)
 				flashType = "boo"
 			} else {
 				// Update config
