@@ -70,10 +70,10 @@
             </tbody>
         </table>
 
-        {{ if not .Nick }}
-        <p>
-            <a href="/login">LOGIN</a> to manage tournaments and other data.
-        </p>
+        {{ if .SiteConfig.Motd }}
+        <div class="motd">
+            {{ markdownToHTML .SiteConfig.Motd }}
+        </div>
         {{ end }}
     </div>
 
