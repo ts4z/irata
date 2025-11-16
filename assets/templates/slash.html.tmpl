@@ -12,11 +12,6 @@
 
         {{ if or .IsOperator .IsAdmin }}
         <div class="admin-bar">
-            {{ if .IsOperator }}
-            <div style="margin-top: 0.5em;">
-                <span style="opacity: 0.7;">Create:</span> <a href="/create/tournament">Tournament</a>
-            </div>
-            {{ end }}
             <div style="margin-top: 0.3em;">
                 <span style="opacity: 0.7;">Manage:</span> 
                 {{ if .IsAdmin }}
@@ -38,11 +33,18 @@
                 <tr>
                     <th>Tournament</th>
                     <th>
+                    {{- if .IsOperator -}}
                     Actions
+                    {{- end -}}
                     </th>
                 </tr>
             </thead>
             <tbody>
+                {{ if .IsOperator }}
+                <tr>
+                    <td colspan="2" style="text-align: center;"><a href="/create/tournament">✨ Create New</a></td>
+                </tr>
+                {{ end }}
                 {{ range .Overview.Slugs }}
                 {{ with . }}
                 <tr>
