@@ -11,7 +11,14 @@ func HandleRobotsTXT(_ context.Context, w http.ResponseWriter, r *http.Request) 
 	data := []string{
 		"User-agent: *",
 		"Allow: /",
-		"Disallow: /*",
+		"Disallow: /t/*",
+		"Disallow: /login",
+		"Disallow: /manage/*",
+		"Disallow: /create/*",
+		"Disallow: /sqladmin",
+		"Disallow: /wp-admin/*",
+		"Disallow: /xmlrpc.php",
+		"Disallow: /wordpress/*",
 	}
 	for _, line := range data {
 		io.WriteString(w, line)
