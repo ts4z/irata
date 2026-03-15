@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta name="viewport" content="width=device-width,initial-scale=1.0">
+    <title>Payout Calculator</title>
+    <link rel="stylesheet" href="/style/{{ .Theme }}/css">
+</head>
+<body>
+    {{ template "user-bar" . }}
+    <div class="container">
+        <div class="admin-bar">
+            <a href="/">&lt; Back to Home</a>
+        </div>
+
+        <h1>Payout Calculator</h1>
+        <form method="POST">
+            <label for="PaytableID">Payout Table</label>
+            <select id="PaytableID" name="PaytableID" required>
+                {{- range $_, $pt := .Paytables }}
+                <option value="{{ $pt.ID }}"
+                  {{- if eq $pt.ID $.SelectedPaytableID }} selected{{ end -}}
+                  >{{ $pt.Name }}</option>
+                {{- end }}
+            </select>
+
+            <label for="NumPlayers">Number of Players</label>
+            <input type="number" id="NumPlayers" name="NumPlayers" min="1" value="{{ .NumPlayers }}" required>
+
+            <label for="PrizePool">Prize Pool ($)</label>
+            <input type="number" id="PrizePool" name="PrizePool" min="1" value="{{ .PrizePool }}" required>
+
+            <div class="actions">
+                <button type="submit">Calculate</button>
+            </div>
+        </form>
+
+        {{ if .Results }}
+        <h2>Payouts</h2>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Place</th>
+                    <th>Prize</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{ range .Results }}
+                <tr>
+                    <td>{{ .Place }}</td>
+                    <td>${{ .Prize }}</td>
+                </tr>
+                {{ end }}
+            </tbody>
+        </table>
+        {{ end }}
+
+        {{ if .Error }}
+        <div class="flash-boo">{{ .Error }}</div>
+        {{ end }}
+    </div>
+</body>
+</html>

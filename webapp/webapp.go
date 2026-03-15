@@ -1552,6 +1552,86 @@ func (app *App) handleKeyboardControl(ctx context.Context, w http.ResponseWriter
 	}
 }
 
+func (app *App) handlePayoutCalculatorPage(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	sc, err := app.siteStorageReader.FetchSiteConfig(ctx)
+	if err != nil {
+		he.SendErrorToHTTPClient(w, "fetch site config", err)
+		return
+	}
+
+	paytables, err := app.paytableStorage.FetchPaytableSlugs(ctx)
+	if err != nil {
+		he.SendErrorToHTTPClient(w, "fetch paytable slugs", err)
+		return
+	}
+
+	type PayoutResult struct {
+		Place string
+		Prize int
+	}
+
+	data := struct {
+		Theme              string
+		Nick               string
+		Paytables          []*paytable.PaytableSlug
+		SelectedPaytableID int64
+		NumPlayers         int
+		PrizePool          int
+		Results            []PayoutResult
+		Error              string
+	}{
+		Theme:     sc.Theme,
+		Nick:      app.currentUserNick(ctx),
+		Paytables: paytables,
+	}
+
+	if r.Method == http.MethodPost {
+		if err := r.ParseForm(); err != nil {
+			data.Error = "Error parsing form"
+		} else {
+			paytableID, err := strconv.ParseInt(r.FormValue("PaytableID"), 10, 64)
+			if err != nil {
+				data.Error = "Invalid payout table selection"
+			} else {
+				numPlayers, err := strconv.Atoi(r.FormValue("NumPlayers"))
+				if err != nil || numPlayers < 1 {
+					data.Error = "Invalid number of players"
+				} else {
+					prizePool, err := strconv.Atoi(r.FormValue("PrizePool"))
+					if err != nil || prizePool < 1 {
+						data.Error = "Invalid prize pool amount"
+					} else {
+						data.SelectedPaytableID = paytableID
+						data.NumPlayers = numPlayers
+						data.PrizePool = prizePool
+
+						pt, err := app.paytableStorage.FetchPaytableByID(ctx, paytableID)
+						if err != nil {
+							data.Error = "Payout table not found"
+						} else {
+							prizes, err := pt.Payout(prizePool, numPlayers)
+							if err != nil {
+								data.Error = fmt.Sprintf("Could not calculate payouts: %v", err)
+							} else {
+								for i, prize := range prizes {
+									data.Results = append(data.Results, PayoutResult{
+										Place: textutil.FormatPlace(i + 1),
+										Prize: prize,
+									})
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	if err := app.templates.ExecuteTemplate(w, "payout-calculator.html.tmpl", data); err != nil {
+		log.Printf("can't render payout-calculator template: %v", err)
+	}
+}
+
 func (app *App) handlePrizePoolCalculator(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		he.SendErrorToHTTPClient(w, "method not allowed", he.HTTPCodedErrorf(http.StatusMethodNotAllowed, "only POST allowed"))
@@ -1746,6 +1826,8 @@ func (app *App) InstallHandlers() {
 	app.handleFunc("/api/tournament-listen", app.handleAPITournamentListen)
 
 	app.requiringOperatorHandleFunc("/api/prizePoolCalculator", app.handlePrizePoolCalculator)
+
+	app.handleFunc("/payout-calculator", app.handlePayoutCalculatorPage)
 
 	app.requiringAdminHandleFunc("/manage/site", app.handleManageSite)
 }
