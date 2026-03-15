@@ -42,15 +42,17 @@ type CacheHeaderAdderConfig struct {
 }
 
 func envEnabled() bool {
+	const varName = "IRATA_ENABLE_CACHING"
 	why := "there is a bug"
 	enabled := true
-	if env := os.Getenv("IRATA_ENABLE_CACHING"); env == "" {
+	if env := os.Getenv(varName); env == "" {
 		why = "not set, defaulting to enabled"
 		enabled = true
 	} else if v, err := strconv.Atoi(env); err != nil {
 		why = fmt.Sprintf("can't parse IRATA_ENABLE_CACHING=%q: %v, caching disabled", env, err)
 		enabled = false
 	} else {
+		why = fmt.Sprintf("environment variable %s to %q", varName, v)
 		enabled = v != 0
 	}
 	log.Printf("caching: %v (%s)", enabled, why)

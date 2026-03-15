@@ -1632,6 +1632,57 @@ func (app *App) handlePayoutCalculatorPage(ctx context.Context, w http.ResponseW
 	}
 }
 
+func (app *App) handlePayoutCalculatorAPI(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		he.SendErrorToHTTPClient(w, "method not allowed", he.HTTPCodedErrorf(http.StatusMethodNotAllowed, "only POST allowed"))
+		return
+	}
+
+	var req struct {
+		PaytableID int64 `json:"paytableId"`
+		NumPlayers int   `json:"numPlayers"`
+		PrizePool  int   `json:"prizePool"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		he.SendErrorToHTTPClient(w, "decode request", he.HTTPCodedErrorf(http.StatusBadRequest, "invalid JSON"))
+		return
+	}
+
+	if req.NumPlayers < 1 || req.PrizePool < 1 {
+		he.SendErrorToHTTPClient(w, "validate", he.HTTPCodedErrorf(http.StatusBadRequest, "numPlayers and prizePool must be positive"))
+		return
+	}
+
+	pt, err := app.paytableStorage.FetchPaytableByID(ctx, req.PaytableID)
+	if err != nil {
+		he.SendErrorToHTTPClient(w, "fetch paytable", err)
+		return
+	}
+
+	prizes, err := pt.Payout(req.PrizePool, req.NumPlayers)
+	if err != nil {
+		he.SendErrorToHTTPClient(w, "calculate payout", err)
+		return
+	}
+
+	type result struct {
+		Place string `json:"place"`
+		Prize int    `json:"prize"`
+	}
+
+	results := make([]result, len(prizes))
+	for i, prize := range prizes {
+		results[i] = result{
+			Place: textutil.FormatPlace(i + 1),
+			Prize: prize,
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(results)
+}
+
 func (app *App) handlePrizePoolCalculator(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		he.SendErrorToHTTPClient(w, "method not allowed", he.HTTPCodedErrorf(http.StatusMethodNotAllowed, "only POST allowed"))
@@ -1828,6 +1879,8 @@ func (app *App) InstallHandlers() {
 	app.requiringOperatorHandleFunc("/api/prizePoolCalculator", app.handlePrizePoolCalculator)
 
 	app.handleFunc("/payout-calculator", app.handlePayoutCalculatorPage)
+
+	app.handleFunc("/api/payout-calculator", app.handlePayoutCalculatorAPI)
 
 	app.requiringAdminHandleFunc("/manage/site", app.handleManageSite)
 }

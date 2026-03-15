@@ -13,7 +13,7 @@
         </div>
 
         <h1>Payout Calculator</h1>
-        <form method="POST">
+        <form id="calcForm">
             <label for="PaytableID">Payout Table</label>
             <select id="PaytableID" name="PaytableID" required>
                 {{- range $_, $pt := .Paytables }}
@@ -24,39 +24,68 @@
             </select>
 
             <label for="NumPlayers">Number of Players</label>
-            <input type="number" id="NumPlayers" name="NumPlayers" min="1" value="{{ .NumPlayers }}" required>
+            <input type="number" id="NumPlayers" name="NumPlayers" min="1"{{ if .NumPlayers }} value="{{ .NumPlayers }}"{{ end }} required>
 
             <label for="PrizePool">Prize Pool ($)</label>
-            <input type="number" id="PrizePool" name="PrizePool" min="1" value="{{ .PrizePool }}" required>
-
-            <div class="actions">
-                <button type="submit">Calculate</button>
-            </div>
+            <input type="number" id="PrizePool" name="PrizePool" min="1"{{ if .PrizePool }} value="{{ .PrizePool }}"{{ end }} required>
         </form>
 
-        {{ if .Results }}
-        <h2>Payouts</h2>
-        <table class="data-table">
-            <thead>
-                <tr>
-                    <th>Place</th>
-                    <th>Prize</th>
-                </tr>
-            </thead>
-            <tbody>
-                {{ range .Results }}
-                <tr>
-                    <td>{{ .Place }}</td>
-                    <td>${{ .Prize }}</td>
-                </tr>
-                {{ end }}
-            </tbody>
-        </table>
-        {{ end }}
-
-        {{ if .Error }}
-        <div class="flash-boo">{{ .Error }}</div>
-        {{ end }}
+        <div id="results"></div>
+        <div id="error"></div>
     </div>
+
+    <script>
+        function recalculate() {
+            const paytableID = parseInt(document.getElementById('PaytableID').value, 10);
+            const numPlayers = parseInt(document.getElementById('NumPlayers').value, 10);
+            const prizePool = parseInt(document.getElementById('PrizePool').value, 10);
+
+            const resultsDiv = document.getElementById('results');
+            const errorDiv = document.getElementById('error');
+
+            if (isNaN(paytableID) || !numPlayers || numPlayers < 1 || !prizePool || prizePool < 1) {
+                resultsDiv.innerHTML = '';
+                errorDiv.innerHTML = '';
+                return;
+            }
+
+            fetch('/api/payout-calculator', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    paytableId: paytableID,
+                    numPlayers: numPlayers,
+                    prizePool: prizePool
+                })
+            })
+            .then(function(resp) {
+                if (!resp.ok) {
+                    return resp.text().then(function(t) { throw new Error(t); });
+                }
+                return resp.json();
+            })
+            .then(function(data) {
+                errorDiv.innerHTML = '';
+                if (!data || data.length === 0) {
+                    resultsDiv.innerHTML = '';
+                    return;
+                }
+                var html = '<h2>Payouts</h2><table class="data-table"><thead><tr><th>Place</th><th>Prize</th></tr></thead><tbody>';
+                for (var i = 0; i < data.length; i++) {
+                    html += '<tr><td>' + data[i].place + '</td><td>$' + data[i].prize + '</td></tr>';
+                }
+                html += '</tbody></table>';
+                resultsDiv.innerHTML = html;
+            })
+            .catch(function(err) {
+                resultsDiv.innerHTML = '';
+                errorDiv.innerHTML = '<div class="flash-boo">' + err.message + '</div>';
+            });
+        }
+
+        document.getElementById('PaytableID').addEventListener('change', recalculate);
+        document.getElementById('NumPlayers').addEventListener('input', recalculate);
+        document.getElementById('PrizePool').addEventListener('input', recalculate);
+    </script>
 </body>
 </html>
