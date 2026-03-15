@@ -11,9 +11,6 @@
             "request": "launch",
             "mode": "debug",
             "program": "cmd/iratad/iratad.go",
-            "env": {
-                "IRATA_ENABLE_CACHING": "1",
-            }
         }
     ]
 }
