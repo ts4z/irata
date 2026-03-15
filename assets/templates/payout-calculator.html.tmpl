@@ -24,10 +24,10 @@
             </select>
 
             <label for="NumPlayers">Number of Players</label>
-            <input type="number" id="NumPlayers" name="NumPlayers" min="1"{{ if .NumPlayers }} value="{{ .NumPlayers }}"{{ end }} required>
+            <input type="number" placeholder="100" pattern="[0-9,]*" id="NumPlayers" name="NumPlayers" min="1"{{ if .NumPlayers }} value="{{ .NumPlayers }}"{{ end }} required>
 
             <label for="PrizePool">Prize Pool ($)</label>
-            <input type="number" id="PrizePool" name="PrizePool" min="1"{{ if .PrizePool }} value="{{ .PrizePool }}"{{ end }} required>
+            <input type="number" placeholder="10000" pattern="[0-9,]*" id="PrizePool" name="PrizePool" min="1"{{ if .PrizePool }} value="{{ .PrizePool }}"{{ end }} required>
         </form>
 
         <div id="results"></div>
