@@ -182,7 +182,7 @@ To Do
   connections.  This looks like a server bug but isn't.
 * SSL isn't supported.  My server is fronted with an nginx which does SSL.
   But the server doesn't know how to get IP addresses correctly.
-* QUIC would be fun, but doesn't seem relevant while running in Cloud Run.*
+* QUIC would be fun.
 * Pagination isn't supported in many places where it should be.
   Since we have only a trivial number of users, this isn't a problem that
   has risen to the top of the stack yet.
@@ -200,5 +200,6 @@ To Do
 * There should be more than one pay table, and some pay table should scale to
   at least 500 players.  Pay tables will probably stay built-in for a long
   time.
-* Errors (particularly pay table generation errors) aren't reported well.
+* Errors need to use errors.AsType and be rationalized; the he package needs to
+  not make excuses for itself.
 * This list keeps getting longer.
