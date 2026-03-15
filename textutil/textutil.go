@@ -7,6 +7,9 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"golang.org/x/text/language"
+	"golang.org/x/text/message"
 )
 
 var nobrAttributionRE = regexp.MustCompile(
@@ -92,4 +95,11 @@ func JoinInts(elems []int, sep string) string {
 		strs[i] = strconv.Itoa(v)
 	}
 	return strings.Join(strs, sep)
+}
+
+var enPrinter = message.NewPrinter(language.English)
+
+// FormatDollars formats an integer as a dollar amount with commas, e.g. 1337 -> "$1,337".
+func FormatDollars(amount int) string {
+	return enPrinter.Sprintf("$%d", amount)
 }

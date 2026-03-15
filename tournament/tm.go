@@ -103,7 +103,7 @@ func (tm *Manager) ComputePrizePoolText(m *model.Tournament) (string, error) {
 	for i, prize := range prizes {
 		place := i + 1
 		placeStr := textutil.FormatPlace(place)
-		lines = append(lines, fmt.Sprintf("%s: $%d", placeStr, prize))
+		lines = append(lines, fmt.Sprintf("%s: %s", placeStr, textutil.FormatDollars(prize)))
 	}
 
 	// Add saves if any
@@ -112,10 +112,10 @@ func (tm *Manager) ComputePrizePoolText(m *model.Tournament) (string, error) {
 		lastSave := firstSave + m.State.Saves - 1
 		if firstSave == lastSave {
 			nth := textutil.FormatPlace(firstSave)
-			lines = append(lines, fmt.Sprintf("%s: $%d*", nth, m.State.AmountPerSave))
+			lines = append(lines, fmt.Sprintf("%s: %s*", nth, textutil.FormatDollars(m.State.AmountPerSave)))
 		} else {
 			lastth := textutil.FormatPlace(lastSave)
-			lines = append(lines, fmt.Sprintf("%d-%s: $%d*", firstSave, lastth, m.State.AmountPerSave))
+			lines = append(lines, fmt.Sprintf("%d-%s: %s*", firstSave, lastth, textutil.FormatDollars(m.State.AmountPerSave)))
 		}
 		lines = append(lines, "* save")
 	}

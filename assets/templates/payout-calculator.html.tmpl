@@ -70,9 +70,9 @@
                     resultsDiv.innerHTML = '';
                     return;
                 }
-                var html = '<h2>Payouts</h2><table class="data-table"><thead><tr><th>Place</th><th>Prize</th></tr></thead><tbody>';
+                var html = '<hr> <table class="data-table"><thead><tr><th>Place</th><th>Prize</th></tr></thead><tbody>';
                 for (var i = 0; i < data.length; i++) {
-                    html += '<tr><td>' + data[i].place + '</td><td>$' + data[i].prize + '</td></tr>';
+                    html += '<tr><td>' + data[i].place + '</td><td>$' + data[i].prize.toLocaleString('en-US') + '</td></tr>';
                 }
                 html += '</tbody></table>';
                 resultsDiv.innerHTML = html;
