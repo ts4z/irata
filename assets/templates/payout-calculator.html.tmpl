@@ -13,21 +13,56 @@
         </div>
 
         <h1>Payout Calculator</h1>
+        <style>
+            #calcForm .form-row {
+                display: flex;
+                align-items: center;
+                margin-bottom: 0.5em;
+            }
+            #calcForm .form-row label {
+                display: inline;
+                margin: 0;
+                width: 12em;
+                text-align: right;
+                padding-right: 1em;
+                flex-shrink: 0;
+            }
+            #calcForm .form-row input,
+            #calcForm .form-row select {
+                width: auto;
+            }
+            #calcForm .form-row input[type="checkbox"] {
+                width: auto;
+                padding: 0;
+                margin: 0;
+            }
+        </style>
         <form id="calcForm">
-            <label for="PaytableID">Payout Table</label>
-            <select id="PaytableID" name="PaytableID" required>
-                {{- range $_, $pt := .Paytables }}
-                <option value="{{ $pt.ID }}"
-                  {{- if eq $pt.ID $.SelectedPaytableID }} selected{{ end -}}
-                  >{{ $pt.Name }}</option>
-                {{- end }}
-            </select>
+            <div class="form-row">
+                <label for="PaytableID">Payout Table</label>
+                <select id="PaytableID" name="PaytableID" required>
+                    {{- range $_, $pt := .Paytables }}
+                    <option value="{{ $pt.ID }}"
+                      {{- if eq $pt.ID $.SelectedPaytableID }} selected{{ end -}}
+                      >{{ $pt.Name }}</option>
+                    {{- end }}
+                </select>
+            </div>
 
-            <label for="NumPlayers">Number of Players</label>
-            <input type="number" placeholder="100" pattern="[0-9,]*" id="NumPlayers" name="NumPlayers" min="1"{{ if .NumPlayers }} value="{{ .NumPlayers }}"{{ end }} required>
+            <div class="form-row">
+                <label for="NumPlayers">Number of Players</label>
+                <input type="number" placeholder="100" pattern="[0-9,]*" id="NumPlayers" name="NumPlayers" min="1"{{ if .NumPlayers }} value="{{ .NumPlayers }}"{{ end }} required>
+            </div>
 
-            <label for="PrizePool">Prize Pool ($)</label>
-            <input type="number" placeholder="10000" pattern="[0-9,]*" id="PrizePool" name="PrizePool" min="1"{{ if .PrizePool }} value="{{ .PrizePool }}"{{ end }} required>
+            <div class="form-row">
+                <label for="PrizePool">Prize Pool ($)</label>
+                <input type="number" placeholder="10000" pattern="[0-9,]*" id="PrizePool" name="PrizePool" min="1"{{ if .PrizePool }} value="{{ .PrizePool }}"{{ end }} required>
+            </div>
+
+            <div class="form-row">
+                <label for="OrdinalSuffix">Ordinal suffix</label>
+                <input type="checkbox" id="OrdinalSuffix" checked>
+            </div>
         </form>
 
         <div id="results"></div>
@@ -49,13 +84,16 @@
                 return;
             }
 
+            const ordinalSuffix = document.getElementById('OrdinalSuffix').checked;
+
             fetch('/api/payout-calculator', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({
                     paytableId: paytableID,
                     numPlayers: numPlayers,
-                    prizePool: prizePool
+                    prizePool: prizePool,
+                    ordinalSuffix: ordinalSuffix
                 })
             })
             .then(function(resp) {
@@ -86,6 +124,7 @@
         document.getElementById('PaytableID').addEventListener('change', recalculate);
         document.getElementById('NumPlayers').addEventListener('input', recalculate);
         document.getElementById('PrizePool').addEventListener('input', recalculate);
+        document.getElementById('OrdinalSuffix').addEventListener('change', recalculate);
     </script>
 </body>
 </html>

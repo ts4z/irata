@@ -1639,9 +1639,10 @@ func (app *App) handlePayoutCalculatorAPI(ctx context.Context, w http.ResponseWr
 	}
 
 	var req struct {
-		PaytableID int64 `json:"paytableId"`
-		NumPlayers int   `json:"numPlayers"`
-		PrizePool  int   `json:"prizePool"`
+		PaytableID    int64 `json:"paytableId"`
+		NumPlayers    int   `json:"numPlayers"`
+		PrizePool     int   `json:"prizePool"`
+		OrdinalSuffix bool  `json:"ordinalSuffix"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -1673,8 +1674,12 @@ func (app *App) handlePayoutCalculatorAPI(ctx context.Context, w http.ResponseWr
 
 	results := make([]result, len(prizes))
 	for i, prize := range prizes {
+		place := strconv.Itoa(i + 1)
+		if req.OrdinalSuffix {
+			place = textutil.FormatPlace(i + 1)
+		}
 		results[i] = result{
-			Place: textutil.FormatPlace(i + 1),
+			Place: place,
 			Prize: prize,
 		}
 	}
