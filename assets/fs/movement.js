@@ -784,8 +784,13 @@ function installKeyboardHandlers(forWhom) {
     redirect(window.location.pathname + "/edit");
   }
 
+  function redirect_to_chopomatic(_) {
+    redirect('/chopomatic?tid=' + tournament_id());
+  }
+
   const unauth_keycode_to_handler = {
     'Escape': handle_escape,
+    'KeyC': redirect_to_chopomatic,
     'KeyF': next_footer_key,
     'KeyG': playNextLevelSound,
     'KeyM': toggle_mute,
@@ -800,6 +805,7 @@ function installKeyboardHandlers(forWhom) {
     'Comma': smwa('RemoveBuyIn'),
     'Delete': smwa('RemoveAddOn'),
     'End': smwa('RemoveBuyIn'),
+    'KeyC': redirect_to_chopomatic,
     'Enter': toggle_pause,
     'Equal': smwa('AddBuyIn'),
     'Escape': handle_escape,

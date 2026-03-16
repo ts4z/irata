@@ -7,6 +7,8 @@ import (
 	"maps"
 	"slices"
 
+	_ "github.com/jackc/pgx/v5/stdlib"
+
 	"github.com/ts4z/irata/config"
 )
 

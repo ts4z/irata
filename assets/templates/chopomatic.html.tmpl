@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta name="viewport" content="width=device-width,initial-scale=1.0">
+    <title>Chop-O-Matic</title>
+    <link rel="stylesheet" href="/style/{{ .Theme }}/css">
+</head>
+<body>
+    {{ template "user-bar" . }}
+    <div class="container">
+        <div class="admin-bar">
+            <a href="/">&lt; Back to Home</a>
+        </div>
+
+        <h1>Chop-O-Matic</h1>
+        {{ if .TournamentName }}<h2>defaults from {{ .TournamentName }}</h2>{{ end }}
+        <style>
+            .container {
+                max-width: 40em;
+            }
+            #chopForm .form-row {
+                display: flex;
+                align-items: center;
+                margin-bottom: 0.5em;
+            }
+            #chopForm .form-row label {
+                display: inline;
+                margin: 0;
+                width: 12em;
+                text-align: right;
+                padding-right: 1em;
+                flex-shrink: 0;
+            }
+            #chopForm .form-row input,
+            #chopForm .form-row select {
+                width: auto;
+            }
+            .chop-section {
+                margin-top: 1.5em;
+            }
+            .chop-section h2 {
+                margin-bottom: 0.3em;
+            }
+            .chop-table {
+                border-collapse: collapse;
+                margin-top: 0.5em;
+            }
+            .chop-table th, .chop-table td {
+                padding: 0.3em 0.6em;
+                text-align: right;
+            }
+            .chop-table th:first-child, .chop-table td:first-child {
+                text-align: center;
+                width: 3em;
+            }
+            .chop-table input[type="number"] {
+                width: 8em;
+                text-align: right;
+            }
+            .chop-result {
+                font-weight: bold;
+                min-width: 6em;
+                display: inline-block;
+            }
+            .num-payouts-row {
+                display: flex;
+                align-items: center;
+                gap: 0.5em;
+                margin-bottom: 0.5em;
+            }
+            .num-payouts-row label {
+                display: inline;
+                margin: 0;
+            }
+            .num-payouts-row input {
+                width: 5em;
+            }
+            .row-buttons {
+                text-align: right;
+            }
+            .row-btn {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                width: 1.8em;
+                height: 1.8em;
+                padding: 0;
+                border: none;
+                border-radius: 4px;
+                font-size: 1em;
+                font-weight: bold;
+                cursor: pointer;
+                margin-left: 0.3em;
+            }
+            .row-btn-add {
+                background: #3a3;
+                color: #fff;
+            }
+            .row-btn-add:hover {
+                background: #2a2;
+            }
+            .row-btn-del {
+                background: #c33;
+                color: #fff;
+            }
+            .row-btn-del:hover {
+                background: #a22;
+            }
+            @media (max-width: 600px) {
+                #chopForm .form-row {
+                    flex-wrap: wrap;
+                }
+                #chopForm .form-row label {
+                    width: auto;
+                    text-align: left;
+                    padding-right: 0;
+                    flex-shrink: 1;
+                }
+                #chopForm .form-row input,
+                #chopForm .form-row select {
+                    width: 100%;
+                }
+                .chop-table input[type="number"] {
+                    width: 6em;
+                }
+            }
+        </style>
+
+        <form id="chopForm">
+            <div class="form-row">
+                <label for="algorithm">Algorithm</label>
+                <select id="algorithm" name="algorithm">
+                    {{- range $key, $name := .Algorithms }}
+                    <option value="{{ $key }}"
+                      {{- if eq $key $.SelectedAlgorithm }} selected{{ end -}}
+                      >{{ $name }}</option>
+                    {{- end }}
+                </select>
+            </div>
+        </form>
+
+        <div class="chop-section">
+            <h2>Payouts</h2>
+            {{ if .ManualPayouts }}
+            <div class="flash-boo" style="margin-bottom:0.5em;">This tournament uses a manual prize pool. Verify that the payouts below match what is being awarded.</div>
+            {{ end }}
+            <div class="num-payouts-row">
+                <label for="numPayouts">Positions paid</label>
+                <input type="number" id="numPayouts" min="1" value="{{ .NumPlayers }}">
+            </div>
+            <table class="chop-table data-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Payout</th>
+                    </tr>
+                </thead>
+                <tbody id="payout-rows">
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td></td>
+                        <td class="row-buttons">
+                            <button type="button" class="row-btn row-btn-add" id="payoutAdd" title="Add row">+</button>
+                            <button type="button" class="row-btn row-btn-del" id="payoutDel" title="Remove row">&minus;</button>
+                        </td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+
+        <div class="chop-section">
+            <h2>Chip Stacks</h2>
+            <div class="num-payouts-row">
+                <label for="numPlayers">Players in chop</label>
+                <input type="number" id="numPlayers" min="2" max="20" value="{{ .NumPlayers }}" required>
+            </div>
+            <table class="chop-table data-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Chips</th>
+                        <th>Chop</th>
+                    </tr>
+                </thead>
+                <tbody id="chip-rows">
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td colspan="2"><span id="chipLimitNotice" style="display:none; font-size:0.85em; opacity:0.7;"></span></td>
+                        <td class="row-buttons">
+                            <button type="button" class="row-btn row-btn-add" id="chipAdd" title="Add row">+</button>
+                            <button type="button" class="row-btn row-btn-del" id="chipDel" title="Remove row">&minus;</button>
+                        </td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+
+        <div style="margin-top:1.5em; display:flex; align-items:baseline; gap:0.5em;">
+            <button type="button" id="recalcBtn" class="row-btn row-btn-add" style="width:auto; height:auto; padding:0.4em 1.2em; font-size:1em; flex-shrink:0;">Force Recalculate</button>
+            <span id="recalculate-note" style="display:none;">
+              ☚ Clicking this button is not necessary unless the page doesn't auto-update.
+            </span>
+    </div>
+
+    <div id="error-toast" style="display:none; position:fixed; bottom:2em; left:50%; transform:translateX(-50%); z-index:1000; max-width:90vw;"></div>
+
+    <script>
+    (function() {
+        var numPlayersInput = document.getElementById('numPlayers');
+        var numPayoutsInput = document.getElementById('numPayouts');
+        var algorithmSelect = document.getElementById('algorithm');
+        var payoutTbody = document.getElementById('payout-rows');
+        var chipTbody = document.getElementById('chip-rows');
+        var errorToast = document.getElementById('error-toast');
+        var errorTimeout = null;
+
+        var maxPlayersMap = {{ .MaxPlayersJSON }};
+
+        function showError(msg) {
+            errorToast.innerHTML = '<div class="flash-boo">' + msg + '</div>';
+            errorToast.style.display = 'block';
+            if (errorTimeout) clearTimeout(errorTimeout);
+            errorTimeout = setTimeout(function() { errorToast.style.display = 'none'; }, 6000);
+        }
+
+        function clearError() {
+            errorToast.style.display = 'none';
+            if (errorTimeout) clearTimeout(errorTimeout);
+        }
+
+        // Pre-filled payouts from server (tournament) or query params
+        var prefillPayouts = {{ .PrefillPayoutsJSON }} || [];
+        var prefillChips = [];
+        try {
+            var params = new URLSearchParams(window.location.search);
+            var payoutsParam = params.get('payouts');
+            if (payoutsParam) {
+                prefillPayouts = payoutsParam.split(',').map(function(s) { return parseInt(s, 10) || 0; });
+            }
+            var chipsParam = params.get('chips');
+            if (chipsParam) {
+                prefillChips = chipsParam.split(',').map(function(s) { return parseInt(s, 10) || 0; });
+            }
+            var nParam = params.get('n');
+            if (nParam) {
+                var n = parseInt(nParam, 10);
+                if (n >= 2) {
+                    numPlayersInput.value = n;
+                }
+            }
+            var npParam = params.get('np');
+            if (npParam) {
+                var np = parseInt(npParam, 10);
+                if (np >= 1) {
+                    numPayoutsInput.value = np;
+                }
+            } else if (prefillPayouts.length > 0) {
+                numPayoutsInput.value = prefillPayouts.length;
+            }
+            var algoParam = params.get('algo');
+            if (algoParam) {
+                for (var i = 0; i < algorithmSelect.options.length; i++) {
+                    if (algorithmSelect.options[i].value === algoParam) {
+                        algorithmSelect.value = algoParam;
+                        break;
+                    }
+                }
+            }
+        } catch(e) {}
+
+        var chipAddBtn = document.getElementById('chipAdd');
+        var chipLimitNotice = document.getElementById('chipLimitNotice');
+
+        function updateMaxPlayers() {
+            var algo = algorithmSelect.value;
+            var maxP = maxPlayersMap[algo] || 20;
+            numPlayersInput.max = maxP;
+            var cur = parseInt(numPlayersInput.value, 10);
+            if (!isNaN(cur) && cur > maxP) {
+                numPlayersInput.value = maxP;
+            }
+            updateChipLimitUI();
+        }
+
+        function updateChipLimitUI() {
+            var algo = algorithmSelect.value;
+            var maxP = maxPlayersMap[algo] || 20;
+            var cur = parseInt(numPlayersInput.value, 10) || 2;
+            if (cur >= maxP && maxP < 999) {
+                chipAddBtn.style.display = 'none';
+                chipLimitNotice.textContent = algorithmSelect.options[algorithmSelect.selectedIndex].text + ' computationally limited to ' + maxP + ' players.';
+                chipLimitNotice.style.display = 'inline';
+            } else {
+                chipAddBtn.style.display = '';
+                chipLimitNotice.style.display = 'none';
+            }
+        }
+
+        function buildPayoutRows() {
+            var np = parseInt(numPayoutsInput.value, 10);
+            if (isNaN(np) || np < 1) np = 1;
+
+            var oldPayouts = [];
+            var rows = payoutTbody.querySelectorAll('tr');
+            for (var i = 0; i < rows.length; i++) {
+                var inp = rows[i].querySelector('.payout-input');
+                if (inp) oldPayouts.push(inp.value);
+            }
+
+            payoutTbody.innerHTML = '';
+            for (var i = 0; i < np; i++) {
+                var tr = document.createElement('tr');
+
+                var tdNum = document.createElement('td');
+                tdNum.textContent = (i + 1);
+                tr.appendChild(tdNum);
+
+                var tdPay = document.createElement('td');
+                var payInput = document.createElement('input');
+                payInput.type = 'number';
+                payInput.className = 'payout-input';
+                payInput.min = '0';
+                payInput.placeholder = '0';
+                if (i < oldPayouts.length && oldPayouts[i] !== '') {
+                    payInput.value = oldPayouts[i];
+                } else if (i < prefillPayouts.length && prefillPayouts[i] > 0) {
+                    payInput.value = prefillPayouts[i];
+                }
+                payInput.addEventListener('change', recalculate);
+                tdPay.appendChild(payInput);
+                tr.appendChild(tdPay);
+
+                payoutTbody.appendChild(tr);
+            }
+
+            recalculate();
+        }
+
+        function buildChipRows() {
+            updateMaxPlayers();
+            var maxP = parseInt(numPlayersInput.max, 10) || 20;
+            var n = parseInt(numPlayersInput.value, 10);
+            if (isNaN(n) || n < 2) n = 2;
+            if (n > maxP) n = maxP;
+
+            var oldChips = [];
+            var rows = chipTbody.querySelectorAll('tr');
+            for (var i = 0; i < rows.length; i++) {
+                var inp = rows[i].querySelector('.chip-input');
+                if (inp) oldChips.push(inp.value);
+            }
+
+            chipTbody.innerHTML = '';
+            for (var i = 0; i < n; i++) {
+                var tr = document.createElement('tr');
+
+                var tdNum = document.createElement('td');
+                tdNum.textContent = (i + 1);
+                tr.appendChild(tdNum);
+
+                var tdChip = document.createElement('td');
+                var chipInput = document.createElement('input');
+                chipInput.type = 'number';
+                chipInput.className = 'chip-input';
+                chipInput.min = '1';
+                chipInput.placeholder = '0';
+                if (i < oldChips.length && oldChips[i] !== '') {
+                    chipInput.value = oldChips[i];
+                } else if (i < prefillChips.length && prefillChips[i] > 0) {
+                    chipInput.value = prefillChips[i];
+                }
+                chipInput.addEventListener('change', recalculate);
+                tdChip.appendChild(chipInput);
+                tr.appendChild(tdChip);
+
+                var tdChop = document.createElement('td');
+                var span = document.createElement('span');
+                span.className = 'chop-result';
+                span.textContent = '';
+                tdChop.appendChild(span);
+                tr.appendChild(tdChop);
+
+                chipTbody.appendChild(tr);
+            }
+
+            updateChipLimitUI();
+            recalculate();
+        }
+
+        function recalculate() {
+            var chipRows = chipTbody.querySelectorAll('tr');
+            var payoutInputs = payoutTbody.querySelectorAll('.payout-input');
+            var chips = [];
+            var prizes = [];
+            var allValid = true;
+
+            for (var i = 0; i < chipRows.length; i++) {
+                var chipVal = parseInt(chipRows[i].querySelector('.chip-input').value, 10);
+                if (isNaN(chipVal) || chipVal < 1) { allValid = false; }
+                chips.push(chipVal || 0);
+            }
+
+            for (var i = 0; i < payoutInputs.length; i++) {
+                var payVal = parseInt(payoutInputs[i].value, 10);
+                if (isNaN(payVal)) payVal = 0;
+                prizes.push(payVal);
+            }
+
+            if (!allValid || chips.length < 1) {
+                for (var i = 0; i < chipRows.length; i++) {
+                    chipRows[i].querySelector('.chop-result').textContent = '';
+                }
+                clearError();
+                return;
+            }
+
+            var algorithm = algorithmSelect.value;
+            var maxP = maxPlayersMap[algorithm] || 999;
+            if (chips.length > maxP) {
+                for (var i = 0; i < chipRows.length; i++) {
+                    chipRows[i].querySelector('.chop-result').textContent = '';
+                }
+                showError(algorithmSelect.options[algorithmSelect.selectedIndex].text + ' is limited to ' + maxP + ' players.');
+                return;
+            }
+
+            fetch('/api/chopomatic', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    chips: chips,
+                    prizes: prizes,
+                    algorithm: algorithm
+                })
+            })
+            .then(function(resp) {
+                if (!resp.ok) {
+                    return resp.text().then(function(t) { throw new Error(t); });
+                }
+                return resp.json();
+            })
+            .then(function(data) {
+                clearError();
+                for (var i = 0; i < chipRows.length; i++) {
+                    var chopSpan = chipRows[i].querySelector('.chop-result');
+                    if (i < data.chopped.length) {
+                        chopSpan.textContent = '$' + data.chopped[i].toLocaleString('en-US');
+                    } else {
+                        chopSpan.textContent = '';
+                    }
+                }
+            })
+            .catch(function(err) {
+                for (var i = 0; i < chipRows.length; i++) {
+                    chipRows[i].querySelector('.chop-result').textContent = '';
+                }
+                showError(err.message);
+            });
+        }
+
+        numPlayersInput.addEventListener('change', buildChipRows);
+        numPayoutsInput.addEventListener('change', buildPayoutRows);
+        algorithmSelect.addEventListener('change', function() { updateMaxPlayers(); buildChipRows(); });
+
+        document.getElementById('recalcBtn').addEventListener('click', function() {
+            recalculate();
+            document.getElementById('recalculate-note').style.display = 'inline';
+        });
+
+        document.getElementById('payoutAdd').addEventListener('click', function() {
+            var cur = parseInt(numPayoutsInput.value, 10) || 1;
+            numPayoutsInput.value = cur + 1;
+            buildPayoutRows();
+        });
+        document.getElementById('payoutDel').addEventListener('click', function() {
+            var cur = parseInt(numPayoutsInput.value, 10) || 1;
+            if (cur > 1) {
+                numPayoutsInput.value = cur - 1;
+                buildPayoutRows();
+            }
+        });
+        document.getElementById('chipAdd').addEventListener('click', function() {
+            var maxP = parseInt(numPlayersInput.max, 10) || 999;
+            var cur = parseInt(numPlayersInput.value, 10) || 2;
+            if (cur < maxP) {
+                numPlayersInput.value = cur + 1;
+                buildChipRows();
+            }
+        });
+        document.getElementById('chipDel').addEventListener('click', function() {
+            var cur = parseInt(numPlayersInput.value, 10) || 2;
+            if (cur > 2) {
+                numPlayersInput.value = cur - 1;
+                buildChipRows();
+            }
+        });
+
+        buildPayoutRows();
+        buildChipRows();
+    })();
+    </script>
+</body>
+</html>

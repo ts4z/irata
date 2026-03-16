@@ -24,6 +24,9 @@ import (
 	"github.com/ts4z/irata/app/handlers"
 	"github.com/ts4z/irata/assets"
 	"github.com/ts4z/irata/builtins"
+	"github.com/ts4z/irata/chop"
+	"github.com/ts4z/irata/chop/icm"
+	"github.com/ts4z/irata/chop/proportional"
 	"github.com/ts4z/irata/dbnotify"
 	"github.com/ts4z/irata/dep"
 	"github.com/ts4z/irata/form"
@@ -1887,7 +1890,169 @@ func (app *App) InstallHandlers() {
 
 	app.handleFunc("/api/payout-calculator", app.handlePayoutCalculatorAPI)
 
+	app.handleFunc("/chopomatic", app.handleChopomaticPage)
+
+	app.handleFunc("/api/chopomatic", app.handleChopomaticAPI)
+
 	app.requiringAdminHandleFunc("/manage/site", app.handleManageSite)
+}
+
+var chopAlgorithms = map[string]struct {
+	name    string
+	chopper chop.Chopper
+}{
+	"icm":          {"ICM", &icm.Chopper{}},
+	"proportional": {"Proportional (chip chop)", &proportional.Chopper{}},
+}
+
+func (app *App) handleChopomaticPage(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	sc, err := app.siteStorageReader.FetchSiteConfig(ctx)
+	if err != nil {
+		he.SendErrorToHTTPClient(w, "fetch site config", err)
+		return
+	}
+
+	numPlayers := 3
+	if s := r.URL.Query().Get("n"); s != "" {
+		if n, err := strconv.Atoi(s); err == nil && n >= 2 {
+			numPlayers = n
+		}
+	}
+
+	selectedAlgo := "icm"
+	if a := r.URL.Query().Get("algo"); a != "" {
+		if _, ok := chopAlgorithms[a]; ok {
+			selectedAlgo = a
+		}
+	}
+
+	// If a tournament ID is provided, fetch tournament data for prefilling.
+	var prefillPayouts []int
+	var tournamentName string
+	var manualPayouts bool
+	if tidStr := r.URL.Query().Get("tid"); tidStr != "" {
+		if tid, err := strconv.ParseInt(tidStr, 10, 64); err == nil {
+			if t, err := app.fetchTournament(ctx, tid); err == nil {
+				tournamentName = t.EventName
+				manualPayouts = !t.State.AutoComputePrizePool
+				numPlayers = t.State.CurrentPlayers
+				if numPlayers < 2 {
+					numPlayers = 2
+				}
+				totalPrizePool := t.TotalPrizePool()
+				savesDeduction := t.State.AmountPerSave * t.State.Saves
+				chopPrizePool := totalPrizePool - savesDeduction
+				log.Printf("chopomatic: tid=%d name=%q players=%d paytableID=%d prizePool=%d saves=%d chopPrizePool=%d",
+					tid, t.EventName, numPlayers, t.PaytableID, totalPrizePool, savesDeduction, chopPrizePool)
+				if chopPrizePool > 0 {
+					if pt, err := app.paytableStorage.FetchPaytableByID(ctx, t.PaytableID); err == nil {
+						if payouts, err := pt.Payout(chopPrizePool, t.State.BuyIns); err == nil {
+							// Limit payouts to at most the number of remaining players.
+							if len(payouts) > numPlayers {
+								payouts = payouts[:numPlayers]
+							}
+							prefillPayouts = payouts
+							log.Printf("chopomatic: payouts=%v", payouts)
+						} else {
+							log.Printf("chopomatic: payout error: %v", err)
+						}
+					} else {
+						log.Printf("chopomatic: fetch paytable error: %v", err)
+					}
+				}
+			} else {
+				log.Printf("chopomatic: fetch tournament %d error: %v", tid, err)
+			}
+		}
+	}
+
+	// Build ordered algorithm map for template
+	algoMap := make(map[string]string, len(chopAlgorithms))
+	maxPlayersMap := make(map[string]int, len(chopAlgorithms))
+	for key, info := range chopAlgorithms {
+		algoMap[key] = info.name
+		mp := info.chopper.MaxPlayers()
+		if mp > 999 {
+			mp = 999
+		}
+		maxPlayersMap[key] = mp
+	}
+
+	maxPlayersJSON, _ := json.Marshal(maxPlayersMap)
+	prefillPayoutsJSON, _ := json.Marshal(prefillPayouts)
+
+	data := struct {
+		Theme              string
+		Nick               string
+		NumPlayers         int
+		Algorithms         map[string]string
+		SelectedAlgorithm  string
+		MaxPlayersJSON     template.JS
+		PrefillPayoutsJSON template.JS
+		TournamentName     string
+		ManualPayouts      bool
+	}{
+		Theme:              sc.Theme,
+		Nick:               app.currentUserNick(ctx),
+		NumPlayers:         numPlayers,
+		Algorithms:         algoMap,
+		SelectedAlgorithm:  selectedAlgo,
+		MaxPlayersJSON:     template.JS(maxPlayersJSON),
+		PrefillPayoutsJSON: template.JS(prefillPayoutsJSON),
+		TournamentName:     tournamentName,
+		ManualPayouts:      manualPayouts,
+	}
+
+	app.templates.ExecuteTemplate(w, "chopomatic.html.tmpl", data)
+}
+
+func (app *App) handleChopomaticAPI(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		he.SendErrorToHTTPClient(w, "method not allowed", he.HTTPCodedErrorf(http.StatusMethodNotAllowed, "only POST allowed"))
+		return
+	}
+
+	var req struct {
+		Chips     []int  `json:"chips"`
+		Prizes    []int  `json:"prizes"`
+		Algorithm string `json:"algorithm"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		he.SendErrorToHTTPClient(w, "decode request", he.HTTPCodedErrorf(http.StatusBadRequest, "invalid JSON"))
+		return
+	}
+
+	if len(req.Chips) < 1 {
+		he.SendErrorToHTTPClient(w, "validate", he.HTTPCodedErrorf(http.StatusBadRequest, "at least one player required"))
+		return
+	}
+
+	algoInfo, ok := chopAlgorithms[req.Algorithm]
+	if !ok {
+		he.SendErrorToHTTPClient(w, "validate", he.HTTPCodedErrorf(http.StatusBadRequest, "unknown algorithm: %s", req.Algorithm))
+		return
+	}
+
+	if len(req.Chips) > algoInfo.chopper.MaxPlayers() {
+		he.SendErrorToHTTPClient(w, "validate", he.HTTPCodedErrorf(http.StatusBadRequest, "too many players for %s (max %d)", algoInfo.name, algoInfo.chopper.MaxPlayers()))
+		return
+	}
+
+	chopped, err := algoInfo.chopper.Chop(req.Chips, req.Prizes)
+	if err != nil {
+		he.SendErrorToHTTPClient(w, "chop", err)
+		return
+	}
+
+	resp := struct {
+		Chopped []int `json:"chopped"`
+	}{
+		Chopped: chopped,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(resp)
 }
 
 func (app *App) loadTemplates() {

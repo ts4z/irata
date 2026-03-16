@@ -171,11 +171,12 @@ func (a *FormProcessor) ApplyFormToTournament(ctx context.Context, form url.Valu
 	maybeCopyInt(form, &t.State.TotalChipsOverride, "TotalChipsOverride")
 	maybeCopyInt(form, &t.State.TotalPrizePoolOverride, "TotalPrizePoolOverride")
 
+	maybeCopyInt64(form, &t.PaytableID, "PaytableID")
+
 	// Handle prize pool mode
 	prizePoolMode := form.Get("PrizePoolMode")
 	if prizePoolMode == "calculated" {
 		t.State.AutoComputePrizePool = true
-		maybeCopyInt64(form, &t.PaytableID, "PaytableID")
 	} else {
 		t.State.AutoComputePrizePool = false
 	}
