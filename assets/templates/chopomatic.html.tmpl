@@ -12,9 +12,29 @@
             <a href="/">&lt; Back to Home</a>
         </div>
 
+        <div class="starburst"><span class="starburst-text">AS NOT SEEN ON TV</span></div>
         <h1>Chop-O-Matic</h1>
         {{ if .TournamentName }}<h2>defaults from {{ .TournamentName }}</h2>{{ end }}
         <style>
+            .starburst {
+                width: 120px;
+                aspect-ratio: 1;
+                clip-path: polygon(100% 50%,89.32% 57.35%,96.62% 68.06%,84.01% 71.06%,86.95% 83.68%,74.11% 81.92%,72.29% 94.76%,60.95% 88.47%,54.61% 99.79%,46.31% 89.83%,36.32% 98.09%,32.17% 85.81%,19.87% 89.9%,20.44% 76.95%,7.49% 76.32%,12.7% 64.45%,0.85% 59.19%,10% 50%,0.85% 40.81%,12.7% 35.55%,7.49% 23.68%,20.44% 23.05%,19.87% 10.1%,32.17% 14.19%,36.32% 1.91%,46.31% 10.17%,54.61% 0.21%,60.95% 11.53%,72.29% 5.24%,74.11% 18.08%,86.95% 16.32%,84.01% 28.94%,96.62% 31.94%,89.32% 42.65%);
+                background: #fc0;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                float: right;
+                margin: 0 0 0.5em 0.5em;
+            }
+            .starburst-text {
+                color: #222;
+                font-weight: 900;
+                font-size: 14px;
+                text-align: center;
+                line-height: 1.1;
+                width: 60%;
+            }
             .container {
                 max-width: 40em;
             }
