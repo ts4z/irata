@@ -140,7 +140,7 @@
         </form>
 
         <div class="chop-section">
-            <h2>Payouts</h2>
+            <h2>Prize Pool</h2>
             {{ if .ManualPayouts }}
             <div class="flash-boo" style="margin-bottom:0.5em;">This tournament uses a manual prize pool. Verify that the payouts below match what is being awarded.</div>
             {{ end }}
@@ -152,7 +152,7 @@
                 <thead>
                     <tr>
                         <th>#</th>
-                        <th>Payout</th>
+                        <th>Pays</th>
                     </tr>
                 </thead>
                 <tbody id="payout-rows">
@@ -182,7 +182,7 @@
                     <tr>
                         <th>#</th>
                         <th>Chips</th>
-                        <th>Chop</th>
+                        <th>Chop Payout</th>
                     </tr>
                 </thead>
                 <tbody id="chip-rows">
@@ -207,6 +207,36 @@
     </div>
 
     <div id="error-toast" style="display:none; position:fixed; bottom:2em; left:50%; transform:translateX(-50%); z-index:1000; max-width:90vw;"></div>
+
+    <details style="margin-top:1.5em;">
+    <summary><h2 style="display:inline;"> More Information </h2></summary>
+    <p>
+    The number of players left must be greater than or equal to the number of payout positions. 
+    (We can't make a deal with the players already out.)
+    </p>
+
+    <p>
+    All amounts calculated are limited relative to the lowest payout position.
+    That is, nobody can get paid less than the lowest place currently getting paid.
+    A proportional chop can still give 1st place more than 1st place money.
+    This is a bad deal and we recommend against it.
+    </p>
+
+    <p>
+    ICM chops are computationally intensive and are limited to 20 players.    
+    If you need a bigger deal than that, consider a proportional chop.
+    </p>
+
+    <p>
+    Recalculation is automatic, but the "Force Recalculate" button can be used
+    to force a re-query to the server.
+    </p>
+
+    <p>
+    If this form was prepopulated from a tournament, it will not track changes
+    from the tournament.
+    </p>
+    </details>
 
     <script>
     (function() {
@@ -299,6 +329,24 @@
             } else {
                 chipAddBtn.style.display = '';
                 chipLimitNotice.style.display = 'none';
+            }
+        }
+
+        function ensureChipStacksGePayouts() {
+            var np = parseInt(numPayoutsInput.value, 10) || 1;
+            var n = parseInt(numPlayersInput.value, 10) || 2;
+            if (n < np) {
+                numPlayersInput.value = np;
+                buildChipRows();
+            }
+        }
+
+        function ensurePayoutsLeChipStacks() {
+            var np = parseInt(numPayoutsInput.value, 10) || 1;
+            var n = parseInt(numPlayersInput.value, 10) || 2;
+            if (np > n) {
+                numPayoutsInput.value = n;
+                buildPayoutRows();
             }
         }
 
@@ -483,8 +531,8 @@
             });
         }
 
-        numPlayersInput.addEventListener('change', buildChipRows);
-        numPayoutsInput.addEventListener('change', buildPayoutRows);
+        numPlayersInput.addEventListener('change', function() { buildChipRows(); ensurePayoutsLeChipStacks(); });
+        numPayoutsInput.addEventListener('change', function() { ensureChipStacksGePayouts(); buildPayoutRows(); });
         algorithmSelect.addEventListener('change', function() { updateMaxPlayers(); buildChipRows(); });
 
         document.getElementById('recalcBtn').addEventListener('click', function() {
@@ -495,6 +543,7 @@
         document.getElementById('payoutAdd').addEventListener('click', function() {
             var cur = parseInt(numPayoutsInput.value, 10) || 1;
             numPayoutsInput.value = cur + 1;
+            ensureChipStacksGePayouts();
             buildPayoutRows();
         });
         document.getElementById('payoutDel').addEventListener('click', function() {
@@ -516,6 +565,7 @@
             var cur = parseInt(numPlayersInput.value, 10) || 2;
             if (cur > 2) {
                 numPlayersInput.value = cur - 1;
+                ensurePayoutsLeChipStacks();
                 buildChipRows();
             }
         });

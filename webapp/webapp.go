@@ -2028,6 +2028,11 @@ func (app *App) handleChopomaticAPI(ctx context.Context, w http.ResponseWriter, 
 		return
 	}
 
+	if len(req.Prizes) > len(req.Chips) {
+		he.SendErrorToHTTPClient(w, "validate", he.HTTPCodedErrorf(http.StatusBadRequest, "more positions paid (%d) than players (%d)", len(req.Prizes), len(req.Chips)))
+		return
+	}
+
 	algoInfo, ok := chopAlgorithms[req.Algorithm]
 	if !ok {
 		he.SendErrorToHTTPClient(w, "validate", he.HTTPCodedErrorf(http.StatusBadRequest, "unknown algorithm: %s", req.Algorithm))
