@@ -169,6 +169,8 @@
             </table>
         </div>
 
+        <div id="bad-chop-warning" class="flash-boo" style="display:none; margin-top:1em;"></div>
+
         <div class="chop-section">
             <h2>Chip Stacks</h2>
             <div class="num-payouts-row">
@@ -217,6 +219,8 @@
         var errorTimeout = null;
 
         var maxPlayersMap = {{ .MaxPlayersJSON }};
+
+        var badChopWarning = document.getElementById('bad-chop-warning');
 
         function showError(msg) {
             errorToast.innerHTML = '<div class="flash-boo">' + msg + '</div>';
@@ -413,6 +417,7 @@
                     chipRows[i].querySelector('.chop-result').textContent = '';
                 }
                 clearError();
+                badChopWarning.style.display = 'none';
                 return;
             }
 
@@ -422,6 +427,7 @@
                 for (var i = 0; i < chipRows.length; i++) {
                     chipRows[i].querySelector('.chop-result').textContent = '';
                 }
+                badChopWarning.style.display = 'none';
                 showError(algorithmSelect.options[algorithmSelect.selectedIndex].text + ' is limited to ' + maxP + ' players.');
                 return;
             }
@@ -443,6 +449,22 @@
             })
             .then(function(data) {
                 clearError();
+                var badChop = false;
+                if (data.chopped.length > 0 && prizes.length > 0) {
+                    if (data.chopped[0] > prizes[0]) {
+                        badChop = true;
+                    }
+                    var lastChopIdx = Math.min(data.chopped.length, prizes.length) - 1;
+                    if (data.chopped[lastChopIdx] < prizes[lastChopIdx]) {
+                        badChop = true;
+                    }
+                }
+                if (badChop) {
+                    badChopWarning.textContent = '⚠️ These parameters generate a deal that short-changes some player(s).';
+                    badChopWarning.style.display = 'block';
+                } else {
+                    badChopWarning.style.display = 'none';
+                }
                 for (var i = 0; i < chipRows.length; i++) {
                     var chopSpan = chipRows[i].querySelector('.chop-result');
                     if (i < data.chopped.length) {
@@ -456,6 +478,7 @@
                 for (var i = 0; i < chipRows.length; i++) {
                     chipRows[i].querySelector('.chop-result').textContent = '';
                 }
+                badChopWarning.style.display = 'none';
                 showError(err.message);
             });
         }
