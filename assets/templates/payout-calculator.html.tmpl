@@ -31,10 +31,20 @@
             #calcForm .form-row select {
                 width: auto;
             }
-            #calcForm .form-row input[type="checkbox"] {
-                width: auto;
-                padding: 0;
-                margin: 0;
+            @media (max-width: 600px) {
+                #calcForm .form-row {
+                    flex-wrap: wrap;
+                }
+                #calcForm .form-row label {
+                    width: auto;
+                    text-align: left;
+                    padding-right: 0;
+                    flex-shrink: 1;
+                }
+                #calcForm .form-row input,
+                #calcForm .form-row select {
+                    width: 100%;
+                }
             }
         </style>
         <form id="calcForm">
@@ -60,8 +70,11 @@
             </div>
 
             <div class="form-row">
-                <label for="OrdinalSuffix">Ordinal suffix</label>
-                <input type="checkbox" id="OrdinalSuffix" checked>
+                <label for="Labels">Labels</label>
+                <select id="Labels">
+                    <option value="ordinal" selected>1st, 2nd, 3rd, ...</option>
+                    <option value="numeric">1, 2, 3, ...</option>
+                </select>
             </div>
         </form>
 
@@ -84,7 +97,7 @@
                 return;
             }
 
-            const ordinalSuffix = document.getElementById('OrdinalSuffix').checked;
+            const ordinalSuffix = document.getElementById('Labels').value === 'ordinal';
 
             fetch('/api/payout-calculator', {
                 method: 'POST',
@@ -124,7 +137,7 @@
         document.getElementById('PaytableID').addEventListener('change', recalculate);
         document.getElementById('NumPlayers').addEventListener('input', recalculate);
         document.getElementById('PrizePool').addEventListener('input', recalculate);
-        document.getElementById('OrdinalSuffix').addEventListener('change', recalculate);
+        document.getElementById('Labels').addEventListener('change', recalculate);
     </script>
 </body>
 </html>
