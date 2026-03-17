@@ -6,11 +6,8 @@
     <link rel="stylesheet" href="/style/{{ .Theme }}/css">
 </head>
 <body>
-    {{ template "user-bar" . }}
+    {{ template "navbar" . }}
     <div class="container">
-        <div class="admin-bar">
-            <a href="/">&lt; Back to Home</a>
-        </div>
 
         <div class="starburst"><span class="starburst-text">AS NOT SEEN ON TV</span></div>
         <h1>Chop-O-Matic</h1>
@@ -77,6 +74,17 @@
             .chop-table input[type="number"] {
                 width: 8em;
                 text-align: right;
+            }
+            .payout-input::-webkit-outer-spin-button,
+            .payout-input::-webkit-inner-spin-button,
+            .chip-input::-webkit-outer-spin-button,
+            .chip-input::-webkit-inner-spin-button {
+                -webkit-appearance: none;
+                margin: 0;
+            }
+            .payout-input,
+            .chip-input {
+                -moz-appearance: textfield;
             }
             .chop-result {
                 font-weight: bold;
@@ -523,9 +531,11 @@
                     if (data.chopped[0] > prizes[0]) {
                         badChop = true;
                     }
-                    var lastChopIdx = Math.min(data.chopped.length, prizes.length) - 1;
-                    if (data.chopped[lastChopIdx] < prizes[lastChopIdx]) {
-                        badChop = true;
+                    if (data.chopped.length <= prizes.length) {
+                        var lastChopIdx = data.chopped.length - 1;
+                        if (data.chopped[lastChopIdx] < prizes[lastChopIdx]) {
+                            badChop = true;
+                        }
                     }
                 }
                 if (badChop) {

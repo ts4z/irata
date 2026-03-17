@@ -173,6 +173,16 @@ input, select, textarea {
     padding: 0.3em;
 }
 
+/* Hide number input spinners for money/chip fields */
+.no-spinners::-webkit-outer-spin-button,
+.no-spinners::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+.no-spinners {
+    -moz-appearance: textfield;
+}
+
 input[type="submit"], button {
     font-size: 1em;
     font-family: irata-display;
@@ -219,33 +229,49 @@ input[type="submit"]:hover, button:hover {
     font-size: 1.1em;
 }
 
-/* User bar at top of pages */
-.user-bar {
+/* Navbar at top of pages */
+.navbar {
     display: flex;
     align-items: center;
+    justify-content: space-between;
     background: #1a1a1a;
     padding: 0.5em 1em;
     margin-bottom: 1em;
     border-radius: 4px;
     font-size: 0.9em;
+    flex-wrap: wrap;
+    gap: 0.3em;
 }
 
-.user-bar-left {
-    flex: 1;
-    text-align: left;
+.navbar a {
+    margin: 0 0.3em;
 }
 
-.user-bar-right {
-    flex: 1;
-    text-align: right;
+.navbar-left {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.2em;
 }
 
-.user-bar-center {
-    flex: 1;
-    text-align: center;
+.navbar-right {
+    white-space: nowrap;
+}
+
+.navbar-sep {
+    opacity: 0.4;
+    margin: 0 0.2em;
+}
+
+.navbar-label {
+    opacity: 0.7;
 }
 
 .actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    column-gap: 1.5em;
     margin-top: 0.1vi;
     padding-top: 0.1vi;
 }

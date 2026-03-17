@@ -6,11 +6,8 @@
     <link rel="stylesheet" href="/style/{{ .Config.Theme }}/css">
 </head>
 <body>
-    {{ template "user-bar" . }}
+    {{ template "navbar" . }}
     <div class="container">
-        <div class="admin-bar">
-            <a href="/">&lt; Back to Home</a>
-        </div>
 
         {{ if .Flash }}<div class="flash-{{ .FlashType }}">{{ .Flash }}</div>{{ end }}
 

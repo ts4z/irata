@@ -6,11 +6,8 @@
     <link rel="stylesheet" href="/style/{{ .Theme }}/css">
 </head>
 <body>
-    {{ template "user-bar" . }}
+    {{ template "navbar" . }}
     <div class="container">
-        <div class="admin-bar">
-            <a href="/">&lt; Back to Home</a>
-        </div>
 
         <h1>Payout Calculator</h1>
         <style>
@@ -66,7 +63,7 @@
 
             <div class="form-row">
                 <label for="PrizePool">Prize Pool ($)</label>
-                <input type="number" placeholder="10000" pattern="[0-9,]*" id="PrizePool" name="PrizePool" min="1"{{ if .PrizePool }} value="{{ .PrizePool }}"{{ end }} required>
+                <input type="number" placeholder="10000" pattern="[0-9,]*" id="PrizePool" name="PrizePool" min="1"{{ if .PrizePool }} value="{{ .PrizePool }}"{{ end }} required class="no-spinners">
             </div>
 
             <div class="form-row">

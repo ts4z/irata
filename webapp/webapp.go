@@ -90,6 +90,7 @@ type editTournamentArgs struct {
 	FooterSets []*model.FooterPlugs
 	Paytables  []*paytable.PaytableSlug
 	ThemeSlugs []*builtins.ThemeSlug
+	IsAdmin    bool
 	IsOperator bool
 	IsNew      bool
 	SiteConfig *model.SiteConfig
@@ -377,10 +378,14 @@ func (app *App) handleManageStructures(ctx context.Context, w http.ResponseWrite
 		Structures []*model.Structure
 		Theme      string
 		Nick       string
+		IsAdmin    bool
+		IsOperator bool
 	}{
 		Structures: structures,
 		Theme:      sc.Theme,
 		Nick:       app.currentUserNick(ctx),
+		IsAdmin:    permission.IsAdmin(ctx),
+		IsOperator: permission.IsOperator(ctx),
 	}
 	if err := app.templates.ExecuteTemplate(w, "manage-structures.html.tmpl", data); err != nil {
 		log.Printf("500: can't render manage-structure template: %v", err)
@@ -401,13 +406,17 @@ func (app *App) handleManageUsers(ctx context.Context, w http.ResponseWriter, r 
 	}
 
 	data := struct {
-		Users []*model.UserIdentity
-		Theme string
-		Nick  string
+		Users      []*model.UserIdentity
+		Theme      string
+		Nick       string
+		IsAdmin    bool
+		IsOperator bool
 	}{
-		Users: users,
-		Theme: sc.Theme,
-		Nick:  app.currentUserNick(ctx),
+		Users:      users,
+		Theme:      sc.Theme,
+		Nick:       app.currentUserNick(ctx),
+		IsAdmin:    permission.IsAdmin(ctx),
+		IsOperator: permission.IsOperator(ctx),
 	}
 	if err := app.templates.ExecuteTemplate(w, "manage-users.html.tmpl", data); err != nil {
 		log.Printf("can't render manage-users template: %v", err)
@@ -478,6 +487,8 @@ func (app *App) handleEditUser(ctx context.Context, id int64, w http.ResponseWri
 		FlashType    string
 		IsNew        bool
 		Nick         string
+		IsAdmin      bool
+		IsOperator   bool
 	}{
 		User:         user,
 		EmailAddress: emailAddress,
@@ -486,6 +497,8 @@ func (app *App) handleEditUser(ctx context.Context, id int64, w http.ResponseWri
 		FlashType:    flashType,
 		IsNew:        false,
 		Nick:         app.currentUserNick(ctx),
+		IsAdmin:      permission.IsAdmin(ctx),
+		IsOperator:   permission.IsOperator(ctx),
 	}
 
 	if err := app.templates.ExecuteTemplate(w, "edit-user.html.tmpl", data); err != nil {
@@ -525,6 +538,8 @@ func (app *App) handleCreateUser(ctx context.Context, w http.ResponseWriter, r *
 		Flash        string
 		IsNew        bool
 		Nick         string
+		IsAdmin      bool
+		IsOperator   bool
 	}{
 		User:         &model.UserIdentity{},
 		EmailAddress: "",
@@ -532,6 +547,8 @@ func (app *App) handleCreateUser(ctx context.Context, w http.ResponseWriter, r *
 		Flash:        flash,
 		IsNew:        true,
 		Nick:         app.currentUserNick(ctx),
+		IsAdmin:      permission.IsAdmin(ctx),
+		IsOperator:   permission.IsOperator(ctx),
 	}
 
 	if err := app.templates.ExecuteTemplate(w, "edit-user.html.tmpl", data); err != nil {
@@ -604,17 +621,21 @@ func (app *App) handleEditOwnAccount(ctx context.Context, w http.ResponseWriter,
 	}
 
 	data := struct {
-		User      *model.UserIdentity
-		Theme     string
-		Flash     string
-		FlashType string
-		Nick      string
+		User       *model.UserIdentity
+		Theme      string
+		Flash      string
+		FlashType  string
+		Nick       string
+		IsAdmin    bool
+		IsOperator bool
 	}{
-		User:      user,
-		Theme:     sc.Theme,
-		Flash:     flash,
-		FlashType: flashType,
-		Nick:      app.currentUserNick(ctx),
+		User:       user,
+		Theme:      sc.Theme,
+		Flash:      flash,
+		FlashType:  flashType,
+		Nick:       app.currentUserNick(ctx),
+		IsAdmin:    permission.IsAdmin(ctx),
+		IsOperator: permission.IsOperator(ctx),
 	}
 
 	if err := app.templates.ExecuteTemplate(w, "edit-own-account.html.tmpl", data); err != nil {
@@ -711,6 +732,7 @@ func (app *App) handleCreateTournament(ctx context.Context, w http.ResponseWrite
 		Flash:      flash,
 		FlashType:  flashType,
 		IsNew:      true,
+		IsAdmin:    permission.IsAdmin(ctx),
 		IsOperator: permission.IsOperator(ctx),
 		SiteConfig: sc,
 		Tournament: tournament,
@@ -815,6 +837,8 @@ func (app *App) handleEditStructure(ctx context.Context, id int64, w http.Respon
 		IsNew      bool
 		Theme      string
 		Nick       string
+		IsAdmin    bool
+		IsOperator bool
 	}{
 		Structure:  st,
 		LevelsJSON: template.JS(levelsJSON),
@@ -822,6 +846,8 @@ func (app *App) handleEditStructure(ctx context.Context, id int64, w http.Respon
 		IsNew:      false,
 		Theme:      sc.Theme,
 		Nick:       app.currentUserNick(ctx),
+		IsAdmin:    permission.IsAdmin(ctx),
+		IsOperator: permission.IsOperator(ctx),
 	}
 	if err := app.templates.ExecuteTemplate(w, "edit-structure.html.tmpl", data); err != nil {
 		log.Printf("can't render edit-structure template: %v", err)
@@ -871,17 +897,21 @@ func (app *App) handleEditFooterSet(ctx context.Context, id int64, w http.Respon
 		return
 	}
 	data := struct {
-		FooterSet *model.FooterPlugs
-		Flash     string
-		IsNew     bool
-		Theme     string
-		Nick      string
+		FooterSet  *model.FooterPlugs
+		Flash      string
+		IsNew      bool
+		Theme      string
+		Nick       string
+		IsAdmin    bool
+		IsOperator bool
 	}{
-		FooterSet: fp,
-		Flash:     flash,
-		IsNew:     false,
-		Theme:     sc.Theme,
-		Nick:      app.currentUserNick(ctx),
+		FooterSet:  fp,
+		Flash:      flash,
+		IsNew:      false,
+		Theme:      sc.Theme,
+		Nick:       app.currentUserNick(ctx),
+		IsAdmin:    permission.IsAdmin(ctx),
+		IsOperator: permission.IsOperator(ctx),
 	}
 	if err := app.templates.ExecuteTemplate(w, "edit-footer-set.html.tmpl", data); err != nil {
 		log.Printf("can't render edit-footer-set template: %v", err)
@@ -1005,6 +1035,8 @@ func (app *App) handleCreateStructure(ctx context.Context, w http.ResponseWriter
 		IsNew      bool
 		Theme      string
 		Nick       string
+		IsAdmin    bool
+		IsOperator bool
 	}{
 		Structure:  structure,
 		LevelsJSON: template.JS(levelsJSON),
@@ -1012,6 +1044,8 @@ func (app *App) handleCreateStructure(ctx context.Context, w http.ResponseWriter
 		IsNew:      true,
 		Theme:      sc.Theme,
 		Nick:       app.currentUserNick(ctx),
+		IsAdmin:    permission.IsAdmin(ctx),
+		IsOperator: permission.IsOperator(ctx),
 	}
 
 	if err := app.templates.ExecuteTemplate(w, "edit-structure.html.tmpl", data); err != nil {
@@ -1079,17 +1113,21 @@ func (app *App) handleCreateFooterSet(ctx context.Context, w http.ResponseWriter
 	}
 
 	data := struct {
-		FooterSet *model.FooterPlugs
-		Flash     string
-		IsNew     bool
-		Theme     string
-		Nick      string
+		FooterSet  *model.FooterPlugs
+		Flash      string
+		IsNew      bool
+		Theme      string
+		Nick       string
+		IsAdmin    bool
+		IsOperator bool
 	}{
-		FooterSet: footerSet,
-		Flash:     flash,
-		IsNew:     true,
-		Theme:     sc.Theme,
-		Nick:      app.currentUserNick(ctx),
+		FooterSet:  footerSet,
+		Flash:      flash,
+		IsNew:      true,
+		Theme:      sc.Theme,
+		Nick:       app.currentUserNick(ctx),
+		IsAdmin:    permission.IsAdmin(ctx),
+		IsOperator: permission.IsOperator(ctx),
 	}
 	if err := app.templates.ExecuteTemplate(w, "edit-footer-set.html.tmpl", data); err != nil {
 		log.Printf("can't render edit-footer-set template: %v", err)
@@ -1113,10 +1151,14 @@ func (app *App) handleManageFooterSets(ctx context.Context, w http.ResponseWrite
 		FooterSets []*model.FooterPlugs
 		Theme      string
 		Nick       string
+		IsAdmin    bool
+		IsOperator bool
 	}{
 		FooterSets: sets,
 		Theme:      sc.Theme,
 		Nick:       app.currentUserNick(ctx),
+		IsAdmin:    permission.IsAdmin(ctx),
+		IsOperator: permission.IsOperator(ctx),
 	}
 	if err := app.templates.ExecuteTemplate(w, "manage-footer-sets.html.tmpl", data); err != nil {
 		log.Printf("can't render manage-footer-sets template: %v", err)
@@ -1210,6 +1252,7 @@ func (app *App) handleEditTournament(ctx context.Context, id64 int64, w http.Res
 		FooterSets: footers,
 		Paytables:  paytables,
 		ThemeSlugs: themeSlugs,
+		IsAdmin:    permission.IsAdmin(ctx),
 		IsOperator: permission.IsOperator(ctx),
 		IsNew:      false,
 		SiteConfig: sc,
@@ -1280,13 +1323,17 @@ func (app *App) handleLogin(ctx context.Context, w http.ResponseWriter, r *http.
 			return
 		}
 		data := struct {
-			Flash string
-			Theme string
-			Nick  string
+			Flash      string
+			Theme      string
+			Nick       string
+			IsAdmin    bool
+			IsOperator bool
 		}{
-			Flash: flash,
-			Theme: sc.Theme,
-			Nick:  app.currentUserNick(ctx),
+			Flash:      flash,
+			Theme:      sc.Theme,
+			Nick:       app.currentUserNick(ctx),
+			IsAdmin:    permission.IsAdmin(ctx),
+			IsOperator: permission.IsOperator(ctx),
 		}
 		if err := app.templates.ExecuteTemplate(w, "login.html.tmpl", data); err != nil {
 			log.Printf("can't render login template: %v", err)
@@ -1534,6 +1581,8 @@ func (app *App) handleManageSite(ctx context.Context, w http.ResponseWriter, r *
 		Flash      string
 		FlashType  string
 		Nick       string
+		IsAdmin    bool
+		IsOperator bool
 	}{
 		Config:     config,
 		Flash:      flash,
@@ -1541,6 +1590,8 @@ func (app *App) handleManageSite(ctx context.Context, w http.ResponseWriter, r *
 		Sounds:     soundSlugs,
 		ThemeSlugs: themeSlugs,
 		Nick:       app.currentUserNick(ctx),
+		IsAdmin:    permission.IsAdmin(ctx),
+		IsOperator: permission.IsOperator(ctx),
 	}
 	if err := app.templates.ExecuteTemplate(w, "manage-site.html.tmpl", data); err != nil {
 		log.Printf("can't render manage-site template: %v", err)
@@ -1577,6 +1628,8 @@ func (app *App) handlePayoutCalculatorPage(ctx context.Context, w http.ResponseW
 	data := struct {
 		Theme              string
 		Nick               string
+		IsAdmin            bool
+		IsOperator         bool
 		Paytables          []*paytable.PaytableSlug
 		SelectedPaytableID int64
 		NumPlayers         int
@@ -1584,9 +1637,11 @@ func (app *App) handlePayoutCalculatorPage(ctx context.Context, w http.ResponseW
 		Results            []PayoutResult
 		Error              string
 	}{
-		Theme:     sc.Theme,
-		Nick:      app.currentUserNick(ctx),
-		Paytables: paytables,
+		Theme:      sc.Theme,
+		Nick:       app.currentUserNick(ctx),
+		IsAdmin:    permission.IsAdmin(ctx),
+		IsOperator: permission.IsOperator(ctx),
+		Paytables:  paytables,
 	}
 
 	if r.Method == http.MethodPost {
@@ -1985,6 +2040,8 @@ func (app *App) handleChopomaticPage(ctx context.Context, w http.ResponseWriter,
 	data := struct {
 		Theme              string
 		Nick               string
+		IsAdmin            bool
+		IsOperator         bool
 		NumPlayers         int
 		Algorithms         map[string]string
 		SelectedAlgorithm  string
@@ -1996,6 +2053,8 @@ func (app *App) handleChopomaticPage(ctx context.Context, w http.ResponseWriter,
 	}{
 		Theme:              sc.Theme,
 		Nick:               app.currentUserNick(ctx),
+		IsAdmin:            permission.IsAdmin(ctx),
+		IsOperator:         permission.IsOperator(ctx),
 		NumPlayers:         numPlayers,
 		Algorithms:         algoMap,
 		SelectedAlgorithm:  selectedAlgo,

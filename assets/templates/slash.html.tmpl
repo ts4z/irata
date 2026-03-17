@@ -6,33 +6,9 @@
     <link rel="stylesheet" href="/style/{{ .SiteConfig.Theme }}/css">
 </head>
 <body>
-    {{ template "user-bar" . }}
+    {{ template "navbar" . }}
     <div class="container">
         <h1>{{ .SiteConfig.Name }}</h1>
-
-        <div class="admin-bar">
-            <div style="margin-top: 0.3em;">
-                <span style="opacity: 0.7;">Utilities:</span>
-                <a href="/chopomatic">Chop-O-Matic</a>
-                <a href="/payout-calculator">Payout Calculator</a>
-            </div>
-
-            {{ if or .IsOperator .IsAdmin }}
-            <div style="margin-top: 0.3em;">
-                <span style="opacity: 0.7;">Manage:</span> 
-                {{ if .IsAdmin }}
-                <a href="/manage/site">Site</a> 
-                {{ end }}
-                {{ if .IsOperator }}
-                <a href="/manage/footer-set">Footer Plugs</a> 
-                <a href="/manage/structure">Structures</a>
-                {{ end }}
-                {{ if .IsAdmin }}
-                <a href="/manage/users">Users</a>
-                {{ end }}
-            </div>
-            {{ end }}
-        </div>
 
         <table class="data-table">
             <thead>

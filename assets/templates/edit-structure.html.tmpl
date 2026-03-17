@@ -6,7 +6,7 @@
     <link rel="stylesheet" href="/style/{{ .Theme }}/css">
 </head>
 <body>
-{{ template "user-bar" . }}
+{{ template "navbar" . }}
 
 <script>
   function getLevelNumber(banner) {
@@ -240,14 +240,25 @@
   });
 </script>
 
+<script>
+  window.addEventListener('DOMContentLoaded', function() {
+    setTimeout(function() {
+      document.querySelectorAll('button[data-cancel-href]').forEach(function(btn) {
+        var form = btn.closest('form');
+        var snapshot = new URLSearchParams(new FormData(form)).toString();
+        btn.addEventListener('click', function() {
+          var current = new URLSearchParams(new FormData(form)).toString();
+          if (current === snapshot || confirm('You have unsaved changes. Discard?')) {
+            window.location.href = btn.dataset.cancelHref;
+          }
+        });
+      });
+    }, 0);
+  });
+</script>
+
     <div class="container">
         {{ if .Flash }}<div class="flash">{{ .Flash }}</div>{{ end }}
-        <div class="admin-bar">
-            <a href="/manage/structure">&lt; Back to Structures</a>
-            {{ if not .IsNew }}
-            <a href="/create/structure?template={{ .Structure.ID }}">Copy This Structure</a>
-            {{ end }}
-        </div>
 
         <h1>{{ if .IsNew }}Create{{ else }}Edit{{ end }} Structure {{ if not .IsNew }}{{ .Structure.ID }}{{ end }} </h1>
 
@@ -259,21 +270,21 @@
 
             <div class="form-group">
                 <label for="ChipsPerBuyIn">Chips Per Buy-In</label>
-                <input type="number" id="ChipsPerBuyIn" name="ChipsPerBuyIn" min="0" value="{{ .Structure.ChipsPerBuyIn }}" class="field-large">
+                <input type="number" id="ChipsPerBuyIn" name="ChipsPerBuyIn" min="0" value="{{ .Structure.ChipsPerBuyIn }}" class="field-large no-spinners">
                 <small>Starting chips each player receives per buy-in</small>
             </div>
 
             <div class="form-group">
                 <label for="ChipsPerAddOn">Chips Per Add-On</label>
-                <input type="number" id="ChipsPerAddOn" name="ChipsPerAddOn" min="0" value="{{ .Structure.ChipsPerAddOn }}" class="field-large">
+                <input type="number" id="ChipsPerAddOn" name="ChipsPerAddOn" min="0" value="{{ .Structure.ChipsPerAddOn }}" class="field-large no-spinners">
                 <small>Additional chips players receive per add-on (leave 0 if no add-ons)</small>
             </div>
             
             <div class="actions">
-                <button type="submit">Save</button>
-                <a href="/manage/structure">Cancel</a>
-                <button type="button" id="add-level-btn" onclick="addLevel()">Add Level</button>
-                <button type="button" onclick="setAllLevelDurations()">Set Level Durations</button>
+                <span style="white-space: nowrap"><button type="submit">Save</button>
+                <button type="button" data-cancel-href="/manage/structure">Cancel</button></span>
+                <span style="white-space: nowrap"><button type="button" onclick="addLevel()">Add Level</button>
+                <button type="button" onclick="setAllLevelDurations()">Set Level Durations</button></span>
             </div>
 
             <div id="levels">
@@ -281,10 +292,10 @@
             </div>
             
             <div class="actions">
-                <button type="submit">Save</button>
-                <a href="/manage/structure">Cancel</a>
-                <button type="button" id="add-level-btn" onclick="addLevel()">Add Level</button>
-                <button type="button" onclick="setAllLevelDurations()">Set Level Durations</button>
+                <span style="white-space: nowrap"><button type="submit">Save</button>
+                <button type="button" data-cancel-href="/manage/structure">Cancel</button></span>
+                <span style="white-space: nowrap"><button type="button" onclick="addLevel()">Add Level</button>
+                <button type="button" onclick="setAllLevelDurations()">Set Level Durations</button></span>
             </div>
             
             {{ if .Flash }}<div class="flash">{{ .Flash }}</div>{{ end }}

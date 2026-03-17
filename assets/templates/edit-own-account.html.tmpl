@@ -6,11 +6,8 @@
     <link rel="stylesheet" href="/style/{{ .Theme }}/css">
 </head>
 <body>
-    {{ template "user-bar" . }}
+    {{ template "navbar" . }}
     <div class="container">
-        <div class="admin-bar">
-            <a href="/">&lt; Back to Home</a>
-        </div>
 
         <h1>Edit Your Account</h1>
 
@@ -31,7 +28,7 @@
 
                 <div class="actions">
                     <button type="submit">Update Nick</button>
-                    <a href="/">Cancel</a>
+                    <button type="button" data-cancel-href="/">Cancel</button>
                 </div>
             </form>
         </section>
@@ -96,5 +93,19 @@
             confirmPasswordInput.addEventListener('input', validatePasswords);
         })();
     </script>
+<script>
+  window.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('button[data-cancel-href]').forEach(function(btn) {
+      var form = btn.closest('form');
+      var snapshot = new URLSearchParams(new FormData(form)).toString();
+      btn.addEventListener('click', function() {
+        var current = new URLSearchParams(new FormData(form)).toString();
+        if (current === snapshot || confirm('You have unsaved changes. Discard?')) {
+          window.location.href = btn.dataset.cancelHref;
+        }
+      });
+    });
+  });
+</script>
 </body>
 </html>

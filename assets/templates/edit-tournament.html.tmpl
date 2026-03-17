@@ -8,14 +8,13 @@
 </head>
 
 <body>
-    {{ template "user-bar" . }}
+    {{ template "navbar" . }}
     <div class="container">
+        {{ if not .IsNew }}
         <div class="admin-bar">
-            <a href="/">&lt; Back to Home</a>
-            {{ if not .IsNew }}
             <a href="/t/{{ .Tournament.EventID }}">View Tournament</a>
-            {{ end }}
         </div>
+        {{ end }}
 
         <h1>{{ if .IsNew }}Create{{ else }}Edit{{ end }}
             Tournament

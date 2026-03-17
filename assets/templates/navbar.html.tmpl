@@ -1,0 +1,32 @@
+{{ define "navbar" }}
+<nav class="navbar">
+    <div class="navbar-left">
+        <a href="/">Home</a>
+        <span class="navbar-sep">|</span>
+        <span class="navbar-label">Utilities:</span>
+        <a href="/payout-calculator">Payout</a>
+        <a href="/chopomatic">Chop</a>
+        {{ if or .IsOperator .IsAdmin }}
+        <span class="navbar-sep">|</span>
+        <span class="navbar-label">Manage:</span>
+        {{ if .IsOperator }}
+        <a href="/manage/structure">Structures</a>
+        <a href="/manage/footer-set">Footer Plugs</a>
+        {{ end }}
+        {{ if .IsAdmin }}
+        <a href="/manage/users">Users</a>
+        <a href="/manage/site">Site</a>
+        {{ end }}
+        {{ end }}
+    </div>
+    <div class="navbar-right">
+        {{ if .Nick }}
+        hello, <a href="/account/edit">{{ .Nick }}</a>
+        <span class="navbar-sep">|</span>
+        <a href="/logout">logout</a>
+        {{ else }}
+        <a href="/login">login</a>
+        {{ end }}
+    </div>
+</nav>
+{{ end }}
