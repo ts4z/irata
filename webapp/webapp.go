@@ -57,6 +57,11 @@ var (
 	badTournamentIDForListen      = varz.NewInt("badTournamentIDForListen")
 	listenNotifiedClient          = varz.NewInt("listenNotifiedClient")
 	errorWhileMarshalingForListen = varz.NewInt("errorWhileMarshalingForListen")
+	chopomaticAPICalls            = varz.NewInt("chopomaticAPICalls")
+	chopomaticAPISuccesses        = varz.NewInt("chopomaticAPIErrors")
+	chopomaticAlgoTypes           = varz.NewMap("chopomaticAlgoTypes")
+	payoutPageHits                = varz.NewInt("payoutAPICalls")
+	payoutPageSuccesses           = varz.NewInt("payoutAPIErrors")
 )
 
 var templateFuncs template.FuncMap = template.FuncMap{
@@ -1645,6 +1650,7 @@ func (app *App) handlePayoutCalculatorPage(ctx context.Context, w http.ResponseW
 	}
 
 	if r.Method == http.MethodPost {
+		payoutPageHits.Add(1)
 		if err := r.ParseForm(); err != nil {
 			data.Error = "Error parsing form"
 		} else {
@@ -1678,6 +1684,7 @@ func (app *App) handlePayoutCalculatorPage(ctx context.Context, w http.ResponseW
 										Prize: prize,
 									})
 								}
+								payoutPageSuccesses.Add(1)
 							}
 						}
 					}
@@ -2063,6 +2070,8 @@ func (app *App) handleChopomaticPage(ctx context.Context, w http.ResponseWriter,
 }
 
 func (app *App) handleChopomaticAPI(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	chopomaticAPICalls.Add(1)
+
 	if r.Method != http.MethodPost {
 		he.SendErrorToHTTPClient(w, "method not allowed", he.HTTPCodedErrorf(http.StatusMethodNotAllowed, "only POST allowed"))
 		return
@@ -2114,6 +2123,9 @@ func (app *App) handleChopomaticAPI(ctx context.Context, w http.ResponseWriter, 
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(resp)
+
+	chopomaticAPISuccesses.Add(1)
+	chopomaticAlgoTypes.Add(req.Algorithm, 1)
 }
 
 func (app *App) loadTemplates() {
