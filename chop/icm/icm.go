@@ -74,7 +74,7 @@ func CalculateEquity(chips []int, prizes []int) ([]float64, error) {
 	// Memoization table: memo[player][mask] = equity of player given active set mask.
 	memo := make([][]float64, n)
 	computed := make([][]bool, n)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		memo[i] = make([]float64, 1<<n)
 		computed[i] = make([]bool, 1<<n)
 	}
@@ -106,7 +106,7 @@ func CalculateEquity(chips []int, prizes []int) ([]float64, error) {
 		total := totals[mask]
 		result := (float64(chips[player]) / total) * prize
 
-		for j := 0; j < n; j++ {
+		for j := range n {
 			if j == player || mask&(1<<j) == 0 {
 				continue
 			}
@@ -119,7 +119,7 @@ func CalculateEquity(chips []int, prizes []int) ([]float64, error) {
 	}
 
 	equities := make([]float64, n)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		equities[i] = equity(i, fullSet)
 	}
 

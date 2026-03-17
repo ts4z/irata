@@ -1458,7 +1458,7 @@ func (app *App) handleAPITournamentListen(ctx context.Context, w http.ResponseWr
 
 func parsePorts(portsRaw string) []int {
 	ports := []int{}
-	for _, portStr := range strings.Split(portsRaw, ",") {
+	for portStr := range strings.SplitSeq(portsRaw, ",") {
 		portStr = strings.TrimSpace(portStr)
 		if portStr == "" {
 			continue
@@ -1473,7 +1473,7 @@ func parsePorts(portsRaw string) []int {
 
 func parseAllowedOrigins(originsRaw string) []string {
 	origins := []string{}
-	for _, origin := range strings.Split(originsRaw, ",") {
+	for origin := range strings.SplitSeq(originsRaw, ",") {
 		origin = strings.TrimSpace(origin)
 		if origin != "" {
 			origins = append(origins, origin)
@@ -1991,10 +1991,7 @@ func (app *App) handleChopomaticPage(ctx context.Context, w http.ResponseWriter,
 			if t, err := app.fetchTournament(ctx, tid); err == nil {
 				tournamentName = t.EventName
 				manualPayouts = !t.State.AutoComputePrizePool
-				numPlayers = t.State.CurrentPlayers
-				if numPlayers < 2 {
-					numPlayers = 2
-				}
+				numPlayers = max(t.State.CurrentPlayers, 2)
 				totalPrizePool := t.TotalPrizePool()
 				savesDeduction := t.State.AmountPerSave * t.State.Saves
 				chopPrizePool := totalPrizePool - savesDeduction
@@ -2027,10 +2024,7 @@ func (app *App) handleChopomaticPage(ctx context.Context, w http.ResponseWriter,
 	maxPlayersMap := make(map[string]int, len(chopAlgorithms))
 	for key, info := range chopAlgorithms {
 		algoMap[key] = info.name
-		mp := info.chopper.MaxPlayers()
-		if mp > 999 {
-			mp = 999
-		}
+		mp := min(info.chopper.MaxPlayers(), 999)
 		maxPlayersMap[key] = mp
 	}
 

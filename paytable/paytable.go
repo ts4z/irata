@@ -41,7 +41,7 @@ func (pt *Paytable) Payout(totalPrizePool int, numPlayers int) ([]int, error) {
 	prizes := make([]int, len(percentages))
 	totalAllocated := int(0)
 
-	for i := 0; i < len(percentages); i++ {
+	for i := range percentages {
 		prizeRaw := (totalPrizePool * int(percentages[i])) / 10000
 		prizeRounded := (prizeRaw / pt.Increment) * pt.Increment
 		prizes[i] = prizeRounded
