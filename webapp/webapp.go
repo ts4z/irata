@@ -9,6 +9,7 @@ import (
 	"html/template"
 	"io/fs"
 	"log"
+	"math/rand/v2"
 	"net"
 	"net/http"
 	"regexp"
@@ -1991,6 +1992,7 @@ func (app *App) handleChopomaticPage(ctx context.Context, w http.ResponseWriter,
 		PrefillPayoutsJSON template.JS
 		TournamentName     string
 		ManualPayouts      bool
+		StarburstRotation  int
 	}{
 		Theme:              sc.Theme,
 		Nick:               app.currentUserNick(ctx),
@@ -2001,6 +2003,7 @@ func (app *App) handleChopomaticPage(ctx context.Context, w http.ResponseWriter,
 		PrefillPayoutsJSON: template.JS(prefillPayoutsJSON),
 		TournamentName:     tournamentName,
 		ManualPayouts:      manualPayouts,
+		StarburstRotation:  rand.IntN(35) - 5,
 	}
 
 	app.templates.ExecuteTemplate(w, "chopomatic.html.tmpl", data)
