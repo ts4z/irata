@@ -240,15 +240,22 @@
     <details style="margin-top:1.5em;">
     <summary><h2 style="display:inline;"> More Information </h2></summary>
     <p>
+    This form can compute a couple different types of tournament deals ("chops").
+    The ICM algorithm is the gold standard, but the proportional algorithm is
+    easier to understand and can support more players.
+    </p>
+
+    <p>
     The number of players left must be greater than or equal to the number of payout positions. 
     (We can't make a deal with the players already out.)
     </p>
 
     <p>
     All amounts calculated are limited relative to the lowest payout position.
+    We guarantee last place money to each position, then work the deal out from
     That is, nobody can get paid less than the lowest place currently getting paid.
-    A proportional chop can still give 1st place more than 1st place money.
-    This is a bad deal and we recommend against it.
+    (A proportional chop can still give 1st place more than 1st place money.
+    This is a bad deal and we recommend against it.)
     </p>
 
     <p>
@@ -263,7 +270,8 @@
 
     <p>
     If this form was prepopulated from a tournament, it will not track changes
-    from the tournament.
+    from the tournament.  Re-load the form if the tournament has changed and you
+    want to reload the data.
     </p>
     </details>
 
