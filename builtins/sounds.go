@@ -18,9 +18,9 @@ func SoundEffects() []*soundmodel.SoundEffect {
 		},
 		{
 			ID:          3,
-			Name:        "Sax A-D Fanfare",
-			Description: "alto sax playing A-D fanfare",
-			Path:        "/fs/alto-sax-a-d-fanfare.mp3",
+			Name:        "Sax B♭-F Fanfare",
+			Description: "sax choir playing fanfare",
+			Path:        "/fs/sax-choir-Bb-F.wav",
 		},
 	}
 }
